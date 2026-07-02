@@ -108,6 +108,52 @@ textarea {
   gap: 12px;
 }
 
+.trip-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.trip-card {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.trip-cover {
+  min-height: 160px;
+  background: #e2e8f0;
+}
+
+.trip-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  object-fit: cover;
+}
+
+.trip-cover-empty {
+  display: grid;
+  min-height: 160px;
+  place-items: center;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.trip-card-body {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 16px 16px 16px 0;
+}
+
+.trip-card-body h2,
+.trip-card-body p {
+  margin: 0;
+}
+
 .form {
   display: grid;
   gap: 14px;
@@ -138,6 +184,54 @@ textarea {
   margin-top: 10px;
   border-radius: 4px;
   object-fit: cover;
+}
+
+.day-timeline {
+  display: grid;
+  gap: 24px;
+}
+
+.day-section {
+  display: grid;
+  gap: 12px;
+}
+
+.day-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.day-header h2 {
+  margin: 0;
+}
+
+.memory-item {
+  display: grid;
+  gap: 12px;
+}
+
+.memory-main {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.memory-time {
+  color: #2563eb;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.memory-body p {
+  margin: 0 0 8px;
+}
+
+.memory-location {
+  color: #475569;
+  font-weight: 700;
 }
 
 .map-stage {
@@ -181,5 +275,17 @@ textarea {
   .page-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .memory-main {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-card {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-card-body {
+    padding: 0 16px 16px;
   }
 }

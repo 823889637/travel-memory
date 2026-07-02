@@ -3,6 +3,7 @@ package com.travelmemory.controller;
 import com.travelmemory.common.Result;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.service.TravelTripService;
+import com.travelmemory.vo.TravelTripListVO;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,8 +26,8 @@ public class TravelTripController {
     }
 
     @GetMapping
-    public Result<List<TravelTrip>> list() {
-        return Result.success(travelTripService.list());
+    public Result<List<TravelTripListVO>> list() {
+        return Result.success(travelTripService.listForHome());
     }
 
     @GetMapping("/{id}")

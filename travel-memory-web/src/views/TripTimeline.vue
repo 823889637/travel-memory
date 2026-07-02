@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getTrip } from '../api/trip'
 import { deleteMemory, getTimeline } from '../api/memory'
@@ -16,8 +16,61 @@ const memories = ref([])
 const loading = ref(false)
 const error = ref('')
 
+const dayGroups = computed(() => {
+  const groups = []
+  const groupMap = new Map()
+
+  const sortedMemories = [...memories.value].sort((left, right) => {
+    const leftTime = new Date(left.recordTime).getTime()
+    const rightTime = new Date(right.recordTime).getTime()
+    return leftTime - rightTime
+  })
+
+  sortedMemories.forEach((memory) => {
+    const dateKey = getDateKey(memory.recordTime)
+    if (!groupMap.has(dateKey)) {
+      const group = {
+        date: dateKey,
+        dayLabel: `Day${groups.length + 1}`,
+        memories: [],
+      }
+      groupMap.set(dateKey, group)
+      groups.push(group)
+    }
+    groupMap.get(dateKey).memories.push(memory)
+  })
+
+  return groups
+})
+
 function photoSrc(url) {
   return url || ''
+}
+
+function getDateKey(value) {
+  if (!value) {
+    return '未知日期'
+  }
+  return String(value).slice(0, 10)
+}
+
+function formatTime(value) {
+  if (!value) {
+    return '--:--'
+  }
+  const rawValue = String(value)
+  if (rawValue.length >= 16) {
+    return rawValue.slice(11, 16)
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '--:--'
+  }
+  return date.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 async function loadPage() {
@@ -76,26 +129,34 @@ onMounted(loadPage)
       这次旅行还没有记忆。
     </div>
 
-    <div class="list">
-      <article v-for="memory in memories" :key="memory.id" class="card">
-        <h3>{{ memory.recordTime }}</h3>
-        <p>{{ memory.content || '没有文字记录' }}</p>
-        <p class="muted">
-          {{ memory.locationName || '未记录地点' }}
-          <span v-if="memory.latitude && memory.longitude">
-            ｜ {{ memory.latitude }}, {{ memory.longitude }}
-          </span>
-        </p>
-        <img
-          v-if="memory.photoUrl"
-          class="memory-photo"
-          :src="photoSrc(memory.photoUrl)"
-          alt="旅行记忆照片"
-        />
-        <div class="actions">
-          <button class="danger" @click="removeMemory(memory.id)">删除</button>
+    <div class="day-timeline">
+      <section v-for="group in dayGroups" :key="group.date" class="day-section">
+        <div class="day-header">
+          <h2>{{ group.dayLabel }}</h2>
+          <span class="muted">{{ group.date }}</span>
         </div>
-      </article>
+
+        <div class="list">
+          <article v-for="memory in group.memories" :key="memory.id" class="card memory-item">
+            <div class="memory-main">
+              <div class="memory-time">{{ formatTime(memory.recordTime) }}</div>
+              <div class="memory-body">
+                <p class="memory-location">{{ memory.locationName || '未记录地点' }}</p>
+                <p>{{ memory.content || '没有文字记录' }}</p>
+                <img
+                  v-if="memory.photoUrl"
+                  class="memory-photo"
+                  :src="photoSrc(memory.photoUrl)"
+                  alt="旅行记忆照片"
+                />
+              </div>
+            </div>
+            <div class="actions">
+              <button class="danger" @click="removeMemory(memory.id)">删除</button>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
   </section>
 </template>

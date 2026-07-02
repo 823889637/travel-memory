@@ -53,27 +53,35 @@ onMounted(loadTrips)
       还没有旅行，先创建一次旅行。
     </div>
 
-    <div class="list">
-      <article v-for="trip in trips" :key="trip.id" class="card">
-        <h2>{{ trip.title }}</h2>
-        <p class="muted">
-          {{ trip.destination || '未填写目的地' }}
-          <span v-if="trip.startDate || trip.endDate">
-            ｜ {{ trip.startDate || '未知' }} - {{ trip.endDate || '未知' }}
-          </span>
-        </p>
-        <p v-if="trip.description">{{ trip.description }}</p>
-        <div class="actions">
-          <RouterLink :to="`/trips/${trip.id}`">
-            <button>查看时间线</button>
-          </RouterLink>
-          <RouterLink :to="`/trips/${trip.id}/memories/new`">
-            <button class="secondary">新增记忆</button>
-          </RouterLink>
-          <RouterLink :to="`/trips/${trip.id}/map`">
-            <button class="secondary">地图</button>
-          </RouterLink>
-          <button class="danger" @click="removeTrip(trip.id)">删除</button>
+    <div class="trip-grid">
+      <article v-for="trip in trips" :key="trip.id" class="card trip-card">
+        <div class="trip-cover">
+          <img v-if="trip.coverPhotoUrl" :src="trip.coverPhotoUrl" alt="旅行封面" />
+          <div v-else class="trip-cover-empty">暂无封面</div>
+        </div>
+
+        <div class="trip-card-body">
+          <h2>{{ trip.title }}</h2>
+          <p class="muted">
+            {{ trip.destination || '未填写目的地' }}
+          </p>
+          <p class="muted">
+            {{ trip.startDate || '未知' }} - {{ trip.endDate || '未知' }}
+          </p>
+          <p class="muted">{{ trip.memoryCount || 0 }} 条记忆</p>
+          <p v-if="trip.description">{{ trip.description }}</p>
+          <div class="actions">
+            <RouterLink :to="`/trips/${trip.id}`">
+              <button>查看时间线</button>
+            </RouterLink>
+            <RouterLink :to="`/trips/${trip.id}/memories/new`">
+              <button class="secondary">新增记忆</button>
+            </RouterLink>
+            <RouterLink :to="`/trips/${trip.id}/map`">
+              <button class="secondary">地图</button>
+            </RouterLink>
+            <button class="danger" @click="removeTrip(trip.id)">删除</button>
+          </div>
         </div>
       </article>
     </div>
