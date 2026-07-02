@@ -30,8 +30,8 @@ if (Test-Path $localMaven) {
 }
 
 Start-Process `
-    -FilePath $mavenCommand `
-    -ArgumentList "spring-boot:run" `
+    -FilePath "cmd.exe" `
+    -ArgumentList "/c `"$mavenCommand`" spring-boot:run" `
     -WorkingDirectory $serverDir `
     -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $logsDir "backend.log") `

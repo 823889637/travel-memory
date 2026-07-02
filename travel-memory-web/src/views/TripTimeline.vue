@@ -26,9 +26,12 @@ const dayGroups = computed(() => {
   const groupMap = new Map()
 
   const sortedMemories = [...memories.value].sort((left, right) => {
-    const leftTime = new Date(left.recordTime).getTime()
-    const rightTime = new Date(right.recordTime).getTime()
-    return leftTime - rightTime
+    const leftTime = getTimeValue(left.recordTime)
+    const rightTime = getTimeValue(right.recordTime)
+    if (leftTime !== rightTime) {
+      return leftTime - rightTime
+    }
+    return getTimeValue(left.createTime) - getTimeValue(right.createTime)
   })
 
   sortedMemories.forEach((memory) => {
@@ -47,6 +50,32 @@ const dayGroups = computed(() => {
 
   return groups
 })
+
+const coverPhotoUrl = computed(() => {
+  if (trip.value?.coverPhotoUrl) {
+    return trip.value.coverPhotoUrl
+  }
+  return memories.value.find((memory) => memory.photoUrl)?.photoUrl || ''
+})
+
+const photoCount = computed(() => memories.value.filter((memory) => memory.photoUrl).length)
+
+const tripDateRange = computed(() => {
+  if (!trip.value) {
+    return ''
+  }
+  const start = trip.value.startDate || '未知开始'
+  const end = trip.value.endDate || '未知结束'
+  return `${start} - ${end}`
+})
+
+function getTimeValue(value) {
+  if (!value) {
+    return Number.MAX_SAFE_INTEGER
+  }
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time
+}
 
 function photoSrc(url) {
   return url || ''
@@ -158,17 +187,43 @@ onMounted(loadPage)
 
 <template>
   <section>
-    <div class="page-header">
-      <div>
+    <header class="trip-memory-hero">
+      <img
+        v-if="coverPhotoUrl"
+        class="trip-memory-cover"
+        :src="photoSrc(coverPhotoUrl)"
+        alt="旅行封面"
+      />
+      <div class="trip-memory-hero-content">
+        <p class="journey-kicker">Timeline</p>
         <h1>{{ trip?.title || '旅行时间线' }}</h1>
-        <p class="muted">{{ trip?.destination || '' }}</p>
+        <p>{{ trip?.destination || '未填写目的地' }}</p>
+        <p>{{ tripDateRange }}</p>
+        <div class="trip-memory-stats">
+          <span>{{ dayGroups.length }} 天</span>
+          <span>{{ memories.length }} 条记忆</span>
+          <span>{{ photoCount }} 张照片</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="view-tabs">
+      <RouterLink :to="`/trips/${id}`" class="view-tab active">Timeline</RouterLink>
+      <RouterLink :to="`/trips/${id}/journey`" class="view-tab">Journey</RouterLink>
+      <RouterLink :to="`/trips/${id}/map`" class="view-tab">Map</RouterLink>
+    </div>
+
+    <div class="timeline-toolbar">
+      <div>
+        <h2>这次旅行的记忆</h2>
+        <p class="muted">按记录时间整理，保留当时留下的照片和一句话。</p>
       </div>
       <div class="actions">
+        <RouterLink :to="`/trips/${id}/journey`">
+          <button class="secondary">Journey</button>
+        </RouterLink>
         <RouterLink :to="`/trips/${id}/memories/new`">
           <button>新增记忆</button>
-        </RouterLink>
-        <RouterLink :to="`/trips/${id}/map`">
-          <button class="secondary">地图展示</button>
         </RouterLink>
       </div>
     </div>
@@ -218,25 +273,29 @@ onMounted(loadPage)
           <span class="muted">{{ group.date }}</span>
         </div>
 
-        <div class="list">
-          <article v-for="memory in group.memories" :key="memory.id" class="card memory-item">
+        <div class="timeline-list">
+          <article v-for="memory in group.memories" :key="memory.id" class="memory-item">
+            <div class="memory-time">{{ formatTime(memory.recordTime) }}</div>
+            <div class="timeline-marker" aria-hidden="true">
+              <span></span>
+            </div>
+            <div class="card memory-card">
             <div class="memory-main">
-              <div class="memory-time">{{ formatTime(memory.recordTime) }}</div>
               <div class="memory-body">
-                <div class="memory-title-line">
-                  <p class="memory-location">{{ memory.locationName || '未记录地点' }}</p>
-                  <span v-if="memory.isFavorite === 1" class="favorite-badge">收藏</span>
-                </div>
-                <p>{{ memory.content || '没有文字记录' }}</p>
                 <img
                   v-if="memory.photoUrl"
                   class="memory-photo"
                   :src="photoSrc(memory.photoUrl)"
                   alt="旅行记忆照片"
                 />
+                <div class="memory-title-line">
+                  <p class="memory-location">{{ memory.locationName || '未记录地点' }}</p>
+                  <span v-if="memory.isFavorite === 1" class="favorite-badge">收藏</span>
+                </div>
+                <p>{{ memory.content || '没有文字记录' }}</p>
               </div>
             </div>
-            <div class="actions">
+            <div class="actions memory-actions">
               <button
                 :class="memory.isFavorite === 1 ? 'favorite active' : 'favorite'"
                 @click="toggleFavorite(memory)"
@@ -244,9 +303,10 @@ onMounted(loadPage)
                 {{ memory.isFavorite === 1 ? '取消收藏' : '收藏' }}
               </button>
               <RouterLink :to="`/trips/${id}/memories/${memory.id}/edit`">
-                <button class="secondary">编辑</button>
+                <button class="ghost">编辑</button>
               </RouterLink>
-              <button class="danger" @click="removeMemory(memory.id)">删除</button>
+              <button class="ghost danger-text" @click="removeMemory(memory.id)">删除</button>
+            </div>
             </div>
           </article>
         </div>

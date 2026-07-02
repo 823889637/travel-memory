@@ -187,3 +187,47 @@ AI 聊天
 用户可以重新体验一次旅行。
 
 而不是重新浏览一次相册。
+
+Every page should trigger a memory, not display data.
+
+（每一个页面都应该触发一段记忆，而不仅仅是展示一组数据。）
+
+Every memory deserves a story.
+
+每一段记忆，
+
+都值得拥有一个故事。
+
+Journey 的职责，
+
+不是展示地点，
+
+而是帮助未来的自己重新理解：
+
+为什么这里值得记住。
+
+Journey 不负责创造故事。
+
+Journey 负责发现故事。
+
+Journey 展示的每一句话，
+
+都必须来源于用户自己的记录。
+
+AI 只能帮助组织，
+
+不能替用户回忆。
+
+Journey 成功的标准不是：
+
+用户看完了 Journey。
+
+而是：
+
+用户关闭 Journey 时，
+
+觉得自己重新经历了一次旅行。
+
+如果没有达到这一点，
+
+Journey 就仍然需要继续优化。

@@ -17,8 +17,8 @@ foreach ($processId in $frontendProcesses) {
 }
 
 Start-Process `
-    -FilePath "npm" `
-    -ArgumentList "run dev" `
+    -FilePath "cmd.exe" `
+    -ArgumentList "/c npm run dev" `
     -WorkingDirectory $webDir `
     -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $logsDir "frontend.log") `
