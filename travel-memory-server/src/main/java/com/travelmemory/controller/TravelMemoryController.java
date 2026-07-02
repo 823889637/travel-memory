@@ -34,6 +34,14 @@ public class TravelMemoryController {
         return Result.success(travelMemoryService.timeline(tripId));
     }
 
+    @GetMapping("/search")
+    public Result<List<TravelMemory>> search(
+            @RequestParam(required = false) Long tripId,
+            @RequestParam String keyword
+    ) {
+        return Result.success(travelMemoryService.search(tripId, keyword));
+    }
+
     @PostMapping
     public Result<TravelMemory> create(
             @RequestParam Long tripId,
@@ -67,6 +75,11 @@ public class TravelMemoryController {
     @PutMapping("/{id}")
     public Result<TravelMemory> update(@PathVariable Long id, @Valid @RequestBody TravelMemory travelMemory) {
         return Result.success(travelMemoryService.update(id, travelMemory));
+    }
+
+    @PutMapping("/{id}/favorite")
+    public Result<TravelMemory> favorite(@PathVariable Long id, @RequestParam Boolean favorite) {
+        return Result.success(travelMemoryService.favorite(id, favorite));
     }
 
     @DeleteMapping("/{id}")

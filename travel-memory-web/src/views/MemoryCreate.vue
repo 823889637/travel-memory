@@ -15,6 +15,10 @@ const saving = ref(false)
 const locating = ref(false)
 const error = ref('')
 const photo = ref(null)
+const photoInput = ref(null)
+
+const MAX_PHOTO_SIZE = 50 * 1024 * 1024
+const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
 
 const form = reactive({
   content: '',
@@ -50,7 +54,37 @@ function validateCoordinate(value, min, max, label) {
 }
 
 function onPhotoChange(event) {
-  photo.value = event.target.files?.[0] || null
+  error.value = ''
+  const selectedFile = event.target.files?.[0] || null
+  if (!selectedFile) {
+    photo.value = null
+    return
+  }
+
+  const extension = getFileExtension(selectedFile.name)
+  if (!ALLOWED_PHOTO_EXTENSIONS.includes(extension)) {
+    photo.value = null
+    event.target.value = ''
+    error.value = '仅支持 jpg、jpeg、png、gif、webp 图片'
+    return
+  }
+
+  if (selectedFile.size > MAX_PHOTO_SIZE) {
+    photo.value = null
+    event.target.value = ''
+    error.value = '图片不能超过 50MB，请压缩后再上传'
+    return
+  }
+
+  photo.value = selectedFile
+}
+
+function getFileExtension(filename) {
+  const dotIndex = filename.lastIndexOf('.')
+  if (dotIndex < 0) {
+    return ''
+  }
+  return filename.slice(dotIndex + 1).toLowerCase()
 }
 
 function getLocation() {
@@ -130,7 +164,8 @@ async function submit() {
 
       <div class="field">
         <label>照片</label>
-        <input type="file" accept="image/*" @change="onPhotoChange" />
+        <input ref="photoInput" type="file" accept="image/*" @change="onPhotoChange" />
+        <p class="muted">支持 jpg、jpeg、png、gif、webp，最大 50MB。</p>
       </div>
 
       <div class="field">

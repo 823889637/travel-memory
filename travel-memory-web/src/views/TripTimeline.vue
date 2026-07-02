@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getTrip } from '../api/trip'
-import { deleteMemory, getTimeline } from '../api/memory'
+import { deleteMemory, favoriteMemory, getTimeline, searchMemories } from '../api/memory'
 
 const props = defineProps({
   id: {
@@ -15,6 +15,11 @@ const trip = ref(null)
 const memories = ref([])
 const loading = ref(false)
 const error = ref('')
+const searchKeyword = ref('')
+const searchResults = ref([])
+const searchLoading = ref(false)
+const searchError = ref('')
+const hasSearched = ref(false)
 
 const dayGroups = computed(() => {
   const groups = []
@@ -73,6 +78,17 @@ function formatTime(value) {
   })
 }
 
+function formatDateTime(value) {
+  if (!value) {
+    return '未知时间'
+  }
+  const rawValue = String(value)
+  if (rawValue.length >= 16) {
+    return `${rawValue.slice(0, 10)} ${rawValue.slice(11, 16)}`
+  }
+  return rawValue
+}
+
 async function loadPage() {
   loading.value = true
   error.value = ''
@@ -90,6 +106,32 @@ async function loadPage() {
   }
 }
 
+async function doSearch() {
+  const keyword = searchKeyword.value.trim()
+  searchError.value = ''
+  if (!keyword) {
+    clearSearch()
+    return
+  }
+
+  searchLoading.value = true
+  hasSearched.value = true
+  try {
+    searchResults.value = await searchMemories(props.id, keyword)
+  } catch (err) {
+    searchError.value = err.message || '搜索失败'
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+function clearSearch() {
+  searchKeyword.value = ''
+  searchResults.value = []
+  searchError.value = ''
+  hasSearched.value = false
+}
+
 async function removeMemory(id) {
   if (!window.confirm('确定删除这条记忆吗？')) {
     return
@@ -99,6 +141,15 @@ async function removeMemory(id) {
     await loadPage()
   } catch (err) {
     window.alert(err.message || '删除失败')
+  }
+}
+
+async function toggleFavorite(memory) {
+  try {
+    await favoriteMemory(memory.id, memory.isFavorite !== 1)
+    await loadPage()
+  } catch (err) {
+    window.alert(err.message || '操作失败')
   }
 }
 
@@ -125,6 +176,37 @@ onMounted(loadPage)
     <p v-if="loading">加载中...</p>
     <p v-if="error" class="error">{{ error }}</p>
 
+    <section class="card memory-search">
+      <form class="search-form" @submit.prevent="doSearch">
+        <input v-model="searchKeyword" placeholder="搜索一句话或地点" />
+        <button type="submit" :disabled="searchLoading">搜索</button>
+        <button v-if="hasSearched" type="button" class="secondary" @click="clearSearch">清空</button>
+      </form>
+      <p v-if="searchLoading" class="muted">搜索中...</p>
+      <p v-if="searchError" class="error">{{ searchError }}</p>
+      <div v-if="hasSearched && !searchLoading" class="search-summary">
+        找到 {{ searchResults.length }} 条记忆
+      </div>
+      <div v-if="hasSearched && searchResults.length > 0" class="search-results">
+        <article v-for="memory in searchResults" :key="memory.id" class="search-result-item">
+          <img
+            v-if="memory.photoUrl"
+            class="search-result-photo"
+            :src="photoSrc(memory.photoUrl)"
+            alt="旅行记忆照片"
+          />
+          <div v-else class="search-result-photo empty">无照片</div>
+          <div class="search-result-body">
+            <div class="search-result-meta">
+              <span>{{ formatDateTime(memory.recordTime) }}</span>
+              <span>{{ memory.locationName || '未记录地点' }}</span>
+            </div>
+            <p>{{ memory.content || '没有文字记录' }}</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <div v-if="!loading && memories.length === 0" class="card">
       这次旅行还没有记忆。
     </div>
@@ -141,7 +223,10 @@ onMounted(loadPage)
             <div class="memory-main">
               <div class="memory-time">{{ formatTime(memory.recordTime) }}</div>
               <div class="memory-body">
-                <p class="memory-location">{{ memory.locationName || '未记录地点' }}</p>
+                <div class="memory-title-line">
+                  <p class="memory-location">{{ memory.locationName || '未记录地点' }}</p>
+                  <span v-if="memory.isFavorite === 1" class="favorite-badge">收藏</span>
+                </div>
                 <p>{{ memory.content || '没有文字记录' }}</p>
                 <img
                   v-if="memory.photoUrl"
@@ -152,6 +237,15 @@ onMounted(loadPage)
               </div>
             </div>
             <div class="actions">
+              <button
+                :class="memory.isFavorite === 1 ? 'favorite active' : 'favorite'"
+                @click="toggleFavorite(memory)"
+              >
+                {{ memory.isFavorite === 1 ? '取消收藏' : '收藏' }}
+              </button>
+              <RouterLink :to="`/trips/${id}/memories/${memory.id}/edit`">
+                <button class="secondary">编辑</button>
+              </RouterLink>
               <button class="danger" @click="removeMemory(memory.id)">删除</button>
             </div>
           </article>

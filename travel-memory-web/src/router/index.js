@@ -3,6 +3,7 @@ import TripList from '../views/TripList.vue'
 import TripCreate from '../views/TripCreate.vue'
 import TripTimeline from '../views/TripTimeline.vue'
 import MemoryCreate from '../views/MemoryCreate.vue'
+import MemoryEdit from '../views/MemoryEdit.vue'
 import TripMap from '../views/TripMap.vue'
 
 const routes = [
@@ -11,6 +12,7 @@ const routes = [
   { path: '/trips/new', component: TripCreate },
   { path: '/trips/:id', component: TripTimeline, props: true },
   { path: '/trips/:id/memories/new', component: MemoryCreate, props: true },
+  { path: '/trips/:tripId/memories/:memoryId/edit', component: MemoryEdit, props: true },
   { path: '/trips/:id/map', component: TripMap, props: true },
 ]
 

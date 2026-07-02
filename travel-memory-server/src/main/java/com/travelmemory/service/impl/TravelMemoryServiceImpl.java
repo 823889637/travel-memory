@@ -42,6 +42,29 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     }
 
     @Override
+    public List<TravelMemory> search(Long tripId, String keyword) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        if (normalizedKeyword.isEmpty()) {
+            return List.of();
+        }
+        if (tripId != null) {
+            travelTripService.getById(tripId);
+        }
+
+        LambdaQueryWrapper<TravelMemory> wrapper = new LambdaQueryWrapper<>();
+        if (tripId != null) {
+            wrapper.eq(TravelMemory::getTripId, tripId);
+        }
+        wrapper.and(query -> query
+                .like(TravelMemory::getContent, normalizedKeyword)
+                .or()
+                .like(TravelMemory::getLocationName, normalizedKeyword))
+                .orderByAsc(TravelMemory::getRecordTime)
+                .orderByAsc(TravelMemory::getCreateTime);
+        return travelMemoryMapper.selectList(wrapper);
+    }
+
+    @Override
     public TravelMemory getById(Long id) {
         TravelMemory travelMemory = travelMemoryMapper.selectById(id);
         if (travelMemory == null) {
@@ -56,6 +79,9 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         travelTripService.getById(travelMemory.getTripId());
         if (travelMemory.getRecordTime() == null) {
             travelMemory.setRecordTime(LocalDateTime.now());
+        }
+        if (travelMemory.getIsFavorite() == null) {
+            travelMemory.setIsFavorite(0);
         }
 
         StoredFile storedFile = fileStorageService.store(photo);
@@ -89,6 +115,18 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         TravelMemory existing = getById(id);
         travelMemory.setId(id);
         travelMemory.setTripId(existing.getTripId());
+        travelMemory.setPhotoUrl(existing.getPhotoUrl());
+        travelMemory.setPhotoPath(existing.getPhotoPath());
+        travelMemory.setIsFavorite(existing.getIsFavorite());
+        travelMemoryMapper.updateById(travelMemory);
+        return getById(id);
+    }
+
+    @Override
+    @Transactional
+    public TravelMemory favorite(Long id, Boolean favorite) {
+        TravelMemory travelMemory = getById(id);
+        travelMemory.setIsFavorite(Boolean.TRUE.equals(favorite) ? 1 : 0);
         travelMemoryMapper.updateById(travelMemory);
         return getById(id);
     }

@@ -26,6 +26,7 @@ public class TravelMemory {
     @NotNull(message = "recordTime is required")
     private LocalDateTime recordTime;
 
+    private Integer isFavorite;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     @TableLogic
@@ -101,6 +102,14 @@ public class TravelMemory {
 
     public void setRecordTime(LocalDateTime recordTime) {
         this.recordTime = recordTime;
+    }
+
+    public Integer getIsFavorite() {
+        return isFavorite;
+    }
+
+    public void setIsFavorite(Integer isFavorite) {
+        this.isFavorite = isFavorite;
     }
 
     public LocalDateTime getCreateTime() {

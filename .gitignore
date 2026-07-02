@@ -6,6 +6,7 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
 
 # Frontend
 travel-memory-web/node_modules/

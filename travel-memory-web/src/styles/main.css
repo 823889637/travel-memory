@@ -37,6 +37,14 @@ button.danger {
   background: #dc2626;
 }
 
+button.favorite {
+  background: #f59e0b;
+}
+
+button.favorite.active {
+  background: #92400e;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
@@ -177,6 +185,69 @@ textarea {
   color: #dc2626;
 }
 
+.memory-search {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.search-summary {
+  color: #475569;
+  font-size: 14px;
+}
+
+.search-results {
+  display: grid;
+  gap: 10px;
+}
+
+.search-result-item {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.search-result-photo {
+  width: 120px;
+  height: 90px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
+.search-result-photo.empty {
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.search-result-body {
+  display: grid;
+  gap: 8px;
+}
+
+.search-result-body p {
+  margin: 0;
+}
+
+.search-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: #64748b;
+  font-size: 14px;
+}
+
 .memory-photo {
   display: block;
   max-width: 240px;
@@ -234,6 +305,27 @@ textarea {
   font-weight: 700;
 }
 
+.memory-title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.memory-title-line p {
+  margin: 0;
+}
+
+.favorite-badge {
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+
 .map-stage {
   position: relative;
   min-height: 520px;
@@ -279,6 +371,17 @@ textarea {
 
   .memory-main {
     grid-template-columns: 1fr;
+  }
+
+  .search-form,
+  .search-result-item {
+    grid-template-columns: 1fr;
+  }
+
+  .search-result-photo {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
   }
 
   .trip-card {

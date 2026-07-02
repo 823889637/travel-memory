@@ -11,8 +11,8 @@ spring:
     password: Travel@123456
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 12MB
+      max-file-size: 50MB
+      max-request-size: 55MB
 
 mybatis-plus:
   type-aliases-package: com.travelmemory.entity

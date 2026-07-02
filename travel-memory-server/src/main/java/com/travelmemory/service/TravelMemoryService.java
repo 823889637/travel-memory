@@ -8,6 +8,8 @@ public interface TravelMemoryService {
 
     List<TravelMemory> timeline(Long tripId);
 
+    List<TravelMemory> search(Long tripId, String keyword);
+
     TravelMemory getById(Long id);
 
     TravelMemory create(TravelMemory travelMemory, MultipartFile photo);
@@ -15,6 +17,8 @@ public interface TravelMemoryService {
     TravelMemory uploadPhoto(Long id, MultipartFile photo);
 
     TravelMemory update(Long id, TravelMemory travelMemory);
+
+    TravelMemory favorite(Long id, Boolean favorite);
 
     void delete(Long id);
 }
