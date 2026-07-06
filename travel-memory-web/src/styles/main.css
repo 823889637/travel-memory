@@ -599,51 +599,137 @@ textarea {
 
 .journey-flow {
   display: grid;
-  gap: 42px;
+  gap: 26px;
 }
 
-.journey-memory {
+.journey-stop {
   width: min(760px, 100%);
   margin: 0 auto;
 }
 
-.journey-card {
+.journey-step-connector {
   display: grid;
-  gap: 0;
+  justify-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 13px;
+  margin: 0 0 26px;
+}
+
+.journey-step-connector::before {
+  content: "";
+  width: 1px;
+  height: 30px;
+  background: #cbd5e1;
+}
+
+.journey-step-connector::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid #94a3b8;
+  border-bottom: 1px solid #94a3b8;
+  transform: rotate(45deg);
+}
+
+.journey-stop-card {
+  display: grid;
+  gap: 18px;
   margin-bottom: 0;
-  padding: 0;
+  padding: 20px;
   overflow: hidden;
   border-radius: 16px;
   border-color: #edf2f7;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
 }
 
-.journey-photo {
+.journey-stop-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.journey-stop-header h3,
+.journey-stop-header p {
+  margin: 0;
+}
+
+.journey-stop-header h3 {
+  color: #111827;
+  font-size: 20px;
+}
+
+.journey-stop-header p {
+  color: #94a3b8;
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.journey-stop-order {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.journey-stop-photos {
+  display: grid;
+  gap: 10px;
+}
+
+.journey-stop-main-photo {
   display: block;
   width: 100%;
   aspect-ratio: 3 / 2;
+  border-radius: 16px;
   object-fit: cover;
   background: #e2e8f0;
 }
 
-.journey-photo.empty {
-  display: grid;
-  place-items: center;
-  color: #64748b;
-  font-size: 14px;
+.journey-stop-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
-.journey-card-body {
+.journey-stop-thumb {
+  flex: 0 0 92px;
+  width: 92px;
+  height: 68px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
+.journey-stop-photo-empty {
   display: grid;
-  gap: 14px;
-  padding: 22px 24px 24px;
+  place-items: center;
+  min-height: 120px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
+  padding: 18px;
+}
+
+.journey-stop-contents {
+  display: grid;
+  gap: 10px;
 }
 
 .journey-content {
   margin: 0;
   color: #111827;
-  font-size: 18px;
-  line-height: 1.75;
+  border-left: 3px solid #dbeafe;
+  padding-left: 12px;
+  font-size: 16px;
+  line-height: 1.7;
 }
 
 .journey-meta {
@@ -756,17 +842,16 @@ textarea {
     justify-content: flex-start;
   }
 
-  .journey-memory {
-    grid-template-columns: 1fr;
-    gap: 8px;
+  .journey-stop-card {
+    padding: 16px;
   }
 
-  .journey-line {
-    display: none;
+  .journey-stop-header {
+    flex-direction: column;
   }
 
-  .journey-time {
-    padding-top: 0;
+  .journey-stop-main-photo {
+    aspect-ratio: 4 / 3;
   }
 
   .trip-card {

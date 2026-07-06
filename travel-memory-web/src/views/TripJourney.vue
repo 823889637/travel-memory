@@ -37,11 +37,16 @@ const dayGroups = computed(() => {
         date: dateKey,
         dayLabel: `Day${groups.length + 1}`,
         memories: [],
+        stops: [],
       }
       groupMap.set(dateKey, group)
       groups.push(group)
     }
     groupMap.get(dateKey).memories.push(memory)
+  })
+
+  groups.forEach((group) => {
+    group.stops = buildStops(group.memories)
   })
 
   return groups
@@ -80,6 +85,46 @@ function getDateKey(value) {
   return String(value).slice(0, 10)
 }
 
+function buildStops(dayMemories) {
+  const stops = []
+  let currentStop = null
+
+  dayMemories.forEach((memory) => {
+    const locationName = normalizeLocationName(memory.locationName)
+    if (!currentStop || currentStop.locationName !== locationName) {
+      currentStop = {
+        order: stops.length + 1,
+        locationName,
+        memories: [],
+      }
+      stops.push(currentStop)
+    }
+    currentStop.memories.push(memory)
+  })
+
+  return stops.map((stop) => {
+    const photos = stop.memories.filter((memory) => memory.photoUrl)
+    const contents = stop.memories.filter((memory) => memory.content)
+    return {
+      ...stop,
+      photos,
+      contents,
+      startTime: stop.memories[0]?.recordTime,
+      endTime: stop.memories[stop.memories.length - 1]?.recordTime,
+    }
+  })
+}
+
+function normalizeLocationName(value) {
+  const normalized = value ? String(value).trim() : ''
+  return normalized || '途中留下的记忆'
+}
+
+function stopLabel(index) {
+  const labels = ['第一站', '第二站', '第三站', '第四站', '第五站', '第六站', '第七站', '第八站', '第九站', '第十站']
+  return labels[index] || `第${index + 1}站`
+}
+
 function formatTime(value) {
   if (!value) {
     return '--:--'
@@ -97,6 +142,15 @@ function formatTime(value) {
     minute: '2-digit',
     hour12: false,
   })
+}
+
+function formatTimeRange(startTime, endTime) {
+  const start = formatTime(startTime)
+  const end = formatTime(endTime)
+  if (start === end) {
+    return start
+  }
+  return `${start} - ${end}`
 }
 
 function photoSrc(url) {
@@ -175,27 +229,46 @@ onMounted(loadPage)
         <div class="journey-day-header">
           <div>
             <p class="journey-day-kicker">{{ activeDay.dayLabel }} · {{ activeDay.date }}</p>
-            <p class="muted">{{ activeDay.date }} · {{ activeDay.memories.length }} 段记忆</p>
+            <p class="muted">{{ activeDay.stops.length }} 站 · {{ activeDay.memories.length }} 段记忆</p>
           </div>
         </div>
 
         <div class="journey-flow">
-          <article v-for="memory in activeDay.memories" :key="memory.id" class="journey-memory">
-            <div class="card journey-card">
-              <img
-                v-if="memory.photoUrl"
-                class="journey-photo"
-                :src="photoSrc(memory.photoUrl)"
-                alt="旅行记忆照片"
-              />
-              <div v-else class="journey-photo empty">没有照片</div>
+          <article v-for="(stop, index) in activeDay.stops" :key="`${stop.order}-${stop.locationName}`" class="journey-stop">
+            <div v-if="index > 0" class="journey-step-connector" aria-hidden="true">继续往前走</div>
 
-              <div class="journey-card-body">
-                <p class="journey-content">{{ memory.content || '没有文字记录' }}</p>
-                <div class="journey-meta">
-                  <span>{{ memory.locationName || '未记录地点' }}</span>
-                  <span>{{ formatTime(memory.recordTime) }}</span>
+            <div class="card journey-stop-card">
+              <div class="journey-stop-header">
+                <span class="journey-stop-order">{{ stopLabel(index) }}</span>
+                <div>
+                  <h3>{{ stop.locationName }}</h3>
+                  <p>{{ formatTimeRange(stop.startTime, stop.endTime) }} · {{ stop.memories.length }} 段记忆</p>
                 </div>
+              </div>
+
+              <div v-if="stop.photos.length > 0" class="journey-stop-photos">
+                <img
+                  class="journey-stop-main-photo"
+                  :src="photoSrc(stop.photos[0].photoUrl)"
+                  :alt="`${stop.locationName} 旅行记忆照片`"
+                />
+                <div v-if="stop.photos.length > 1" class="journey-stop-thumbs">
+                  <img
+                    v-for="photo in stop.photos.slice(1)"
+                    :key="photo.id"
+                    class="journey-stop-thumb"
+                    :src="photoSrc(photo.photoUrl)"
+                    :alt="`${stop.locationName} 旅行记忆照片`"
+                  />
+                </div>
+              </div>
+              <div v-else class="journey-stop-photo-empty">这一站没有照片，但保留了当时留下的文字。</div>
+
+              <div class="journey-stop-contents">
+                <p v-for="memory in stop.contents" :key="memory.id" class="journey-content">
+                  {{ memory.content }}
+                </p>
+                <p v-if="stop.contents.length === 0" class="journey-content muted">没有文字记录</p>
               </div>
             </div>
           </article>
