@@ -16,6 +16,8 @@ const memories = ref([])
 const activeDayIndex = ref(0)
 const loading = ref(false)
 const error = ref('')
+const selectedPhotoByStop = ref({})
+const photoOrientations = ref({})
 
 const dayGroups = computed(() => {
   const groups = []
@@ -153,8 +155,57 @@ function formatTimeRange(startTime, endTime) {
   return `${start} - ${end}`
 }
 
+function stopTimeText(stop) {
+  return `${formatTimeRange(stop.startTime, stop.endTime)} · ${stop.memories.length} 段记忆`
+}
+
 function photoSrc(url) {
   return url || ''
+}
+
+function photoKey(photo) {
+  return photo?.id || photo?.photoUrl || ''
+}
+
+function stopKey(stop) {
+  return `${stop.order}-${stop.locationName}`
+}
+
+function selectedPhoto(stop) {
+  const selectedKey = selectedPhotoByStop.value[stopKey(stop)]
+  return stop.photos.find((photo) => photoKey(photo) === selectedKey) || stop.photos[0]
+}
+
+function selectStopPhoto(stop, photo) {
+  selectedPhotoByStop.value = {
+    ...selectedPhotoByStop.value,
+    [stopKey(stop)]: photoKey(photo),
+  }
+}
+
+function photoOrientationClass(photo) {
+  const orientation = photoOrientations.value[photoKey(photo)] || 'landscape'
+  return `is-${orientation}`
+}
+
+function handlePhotoLoad(photo, event) {
+  const image = event.target
+  const width = image.naturalWidth
+  const height = image.naturalHeight
+  if (!width || !height) {
+    return
+  }
+  const ratio = width / height
+  let orientation = 'square'
+  if (ratio >= 1.15) {
+    orientation = 'landscape'
+  } else if (ratio <= 0.85) {
+    orientation = 'portrait'
+  }
+  photoOrientations.value = {
+    ...photoOrientations.value,
+    [photoKey(photo)]: orientation,
+  }
 }
 
 function selectDay(index) {
@@ -229,7 +280,8 @@ onMounted(loadPage)
         <div class="journey-day-header">
           <div>
             <p class="journey-day-kicker">{{ activeDay.dayLabel }} · {{ activeDay.date }}</p>
-            <p class="muted">{{ activeDay.stops.length }} 站 · {{ activeDay.memories.length }} 段记忆</p>
+            <p class="muted">这一天经过了 {{ activeDay.stops.length }} 个地方，留下了 {{ activeDay.memories.length }} 段记忆</p>
+            <p class="journey-day-start-note">{{ activeDay.dayLabel }} 开始</p>
           </div>
         </div>
 
@@ -237,41 +289,61 @@ onMounted(loadPage)
           <article v-for="(stop, index) in activeDay.stops" :key="`${stop.order}-${stop.locationName}`" class="journey-stop">
             <div v-if="index > 0" class="journey-step-connector" aria-hidden="true">继续往前走</div>
 
-            <div class="card journey-stop-card">
-              <div class="journey-stop-header">
-                <span class="journey-stop-order">{{ stopLabel(index) }}</span>
-                <div>
-                  <h3>{{ stop.locationName }}</h3>
-                  <p>{{ formatTimeRange(stop.startTime, stop.endTime) }} · {{ stop.memories.length }} 段记忆</p>
+            <div class="journey-stop-card">
+                <div class="journey-stop-header">
+                  <span class="journey-stop-order">{{ stopLabel(index) }}</span>
+                  <div class="journey-stop-title-block">
+                    <h3>{{ stop.locationName }}</h3>
+                    <p>{{ stopTimeText(stop) }}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div v-if="stop.photos.length > 0" class="journey-stop-photos">
-                <img
-                  class="journey-stop-main-photo"
-                  :src="photoSrc(stop.photos[0].photoUrl)"
-                  :alt="`${stop.locationName} 旅行记忆照片`"
-                />
-                <div v-if="stop.photos.length > 1" class="journey-stop-thumbs">
+                <div v-if="stop.photos.length > 0" class="journey-stop-photos">
+                  <div
+                    :class="['journey-stop-main-photo-frame', photoOrientationClass(selectedPhoto(stop))]"
+                    :style="{ '--journey-photo-bg': `url(${photoSrc(selectedPhoto(stop).photoUrl)})` }"
+                  >
                   <img
-                    v-for="photo in stop.photos.slice(1)"
-                    :key="photo.id"
-                    class="journey-stop-thumb"
-                    :src="photoSrc(photo.photoUrl)"
+                    :class="['journey-stop-main-photo', photoOrientationClass(selectedPhoto(stop))]"
+                    :src="photoSrc(selectedPhoto(stop).photoUrl)"
+                    @load="handlePhotoLoad(selectedPhoto(stop), $event)"
                     :alt="`${stop.locationName} 旅行记忆照片`"
                   />
+                  </div>
+                  <div v-if="stop.photos.length > 1" class="journey-stop-thumbs">
+                    <img
+                      v-for="photo in stop.photos"
+                      :key="photo.id"
+                      :class="[
+                        'journey-stop-thumb',
+                        photoKey(selectedPhoto(stop)) === photoKey(photo) ? 'active' : '',
+                        photoOrientationClass(photo),
+                      ]"
+                      :src="photoSrc(photo.photoUrl)"
+                      @click="selectStopPhoto(stop, photo)"
+                      @load="handlePhotoLoad(photo, $event)"
+                      :alt="`${stop.locationName} 旅行记忆照片`"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div v-else class="journey-stop-photo-empty">这一站没有照片，但保留了当时留下的文字。</div>
+                <div v-else class="journey-stop-photo-empty">这一站没有照片，但保留了当时留下的文字。</div>
 
-              <div class="journey-stop-contents">
-                <p v-for="memory in stop.contents" :key="memory.id" class="journey-content">
-                  {{ memory.content }}
-                </p>
-                <p v-if="stop.contents.length === 0" class="journey-content muted">没有文字记录</p>
-              </div>
+                <div class="journey-stop-contents">
+                  <p v-for="memory in stop.contents" :key="memory.id" class="journey-content">
+                    “{{ memory.content }}”
+                  </p>
+                  <p v-if="stop.contents.length === 0" class="journey-content muted">“没有文字记录”</p>
+                </div>
             </div>
           </article>
+
+          <div class="journey-day-end">
+            <span></span>
+            <div>
+              <strong>{{ activeDay.dayLabel }} 结束</strong>
+              <p>这一天的 {{ activeDay.memories.length }} 段记忆，已经被重新串联起来。</p>
+            </div>
+          </div>
         </div>
       </section>
     </template>

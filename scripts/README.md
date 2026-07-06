@@ -3,6 +3,9 @@
 Run these scripts from PowerShell.
 
 ```powershell
+# Start MySQL only, port 3306
+.\scripts\start-mysql.ps1
+
 # Restart backend only, port 8080
 .\scripts\restart-backend.ps1
 
@@ -20,6 +23,6 @@ logs/backend.log
 logs/backend-error.log
 logs/frontend.log
 logs/frontend-error.log
+logs/mysql.log
+logs/mysql-error.log
 ```
-
-These scripts do not start MySQL. Make sure MySQL is already running on `127.0.0.1:3306`.
