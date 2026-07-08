@@ -129,7 +129,7 @@ async function loadPage() {
     trip.value = tripData
     memories.value = memoryData
   } catch (err) {
-    error.value = err.message || '加载失败'
+    error.value = err.message || '记忆暂时没有加载成功，请稍后再试。'
   } finally {
     loading.value = false
   }
@@ -148,7 +148,7 @@ async function doSearch() {
   try {
     searchResults.value = await searchMemories(props.id, keyword)
   } catch (err) {
-    searchError.value = err.message || '搜索失败'
+    searchError.value = err.message || '搜索暂时没有成功，请稍后再试。'
   } finally {
     searchLoading.value = false
   }
@@ -186,7 +186,7 @@ onMounted(loadPage)
 </script>
 
 <template>
-  <section>
+  <section class="timeline-page">
     <header class="trip-memory-hero">
       <img
         v-if="coverPhotoUrl"
@@ -196,12 +196,16 @@ onMounted(loadPage)
       />
       <div class="trip-memory-hero-content">
         <p class="journey-kicker">Timeline</p>
-        <h1>{{ trip?.title || '旅行时间线' }}</h1>
-        <p>{{ trip?.destination || '未填写目的地' }}</p>
-        <p>{{ tripDateRange }}</p>
+        <h1>这次旅行的记忆</h1>
+        <p class="trip-memory-subtitle">按记录时间整理，保留当时留下的照片和一句话。</p>
+        <div class="trip-memory-info">
+          <strong>{{ trip?.title || '这次旅行' }}</strong>
+          <span>{{ trip?.destination || '未填写目的地' }}</span>
+          <span>{{ tripDateRange }}</span>
+        </div>
         <div class="trip-memory-stats">
           <span>{{ dayGroups.length }} 天</span>
-          <span>{{ memories.length }} 条记忆</span>
+          <span>{{ memories.length }} 段记忆</span>
           <span>{{ photoCount }} 张照片</span>
         </div>
       </div>
@@ -209,38 +213,46 @@ onMounted(loadPage)
 
     <div class="view-tabs">
       <RouterLink :to="`/trips/${id}`" class="view-tab active">Timeline</RouterLink>
-      <RouterLink :to="`/trips/${id}/journey`" class="view-tab">Journey</RouterLink>
+      <RouterLink :to="`/trips/${id}/journey`" class="view-tab view-tab-journey">Journey 回放</RouterLink>
       <RouterLink :to="`/trips/${id}/map`" class="view-tab">Map</RouterLink>
     </div>
 
     <div class="timeline-toolbar">
       <div>
-        <h2>这次旅行的记忆</h2>
-        <p class="muted">按记录时间整理，保留当时留下的照片和一句话。</p>
+        <h2>原始记忆记录</h2>
+        <p class="muted">这里保留每一条 memory，可以搜索、编辑、收藏或删除。</p>
       </div>
       <div class="actions">
         <RouterLink :to="`/trips/${id}/journey`">
-          <button class="secondary">Journey</button>
+          <button>进入 Journey</button>
         </RouterLink>
         <RouterLink :to="`/trips/${id}/memories/new`">
-          <button>新增记忆</button>
+          <button class="secondary">新增记忆</button>
+        </RouterLink>
+        <RouterLink :to="`/trips/${id}/map`">
+          <button class="ghost">地图</button>
         </RouterLink>
       </div>
     </div>
 
-    <p v-if="loading">加载中...</p>
-    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="loading" class="timeline-status">正在整理这次旅行的记忆...</p>
+    <p v-if="error" class="error timeline-status">{{ error }}</p>
 
-    <section class="card memory-search">
+    <section class="memory-search">
       <form class="search-form" @submit.prevent="doSearch">
         <input v-model="searchKeyword" placeholder="搜索一句话或地点" />
-        <button type="submit" :disabled="searchLoading">搜索</button>
-        <button v-if="hasSearched" type="button" class="secondary" @click="clearSearch">清空</button>
+        <button type="submit" class="ghost" :disabled="searchLoading">搜索</button>
+        <button v-if="hasSearched" type="button" class="ghost" @click="clearSearch">清空</button>
       </form>
-      <p v-if="searchLoading" class="muted">搜索中...</p>
+      <p v-if="searchLoading" class="muted">正在搜索记忆...</p>
       <p v-if="searchError" class="error">{{ searchError }}</p>
       <div v-if="hasSearched && !searchLoading" class="search-summary">
-        找到 {{ searchResults.length }} 条记忆
+        <template v-if="searchResults.length > 0">
+          找到 {{ searchResults.length }} 段记忆
+        </template>
+        <template v-else>
+          没有找到相关记忆。可以换一句话或地点再试试。
+        </template>
       </div>
       <div v-if="hasSearched && searchResults.length > 0" class="search-results">
         <article v-for="memory in searchResults" :key="memory.id" class="search-result-item">
@@ -250,27 +262,33 @@ onMounted(loadPage)
             :src="photoSrc(memory.photoUrl)"
             alt="旅行记忆照片"
           />
-          <div v-else class="search-result-photo empty">无照片</div>
+          <div v-else class="search-result-photo empty">没有照片</div>
           <div class="search-result-body">
             <div class="search-result-meta">
               <span>{{ formatDateTime(memory.recordTime) }}</span>
-              <span>{{ memory.locationName || '未记录地点' }}</span>
+              <span>{{ memory.locationName || '未填写地点' }}</span>
             </div>
-            <p>{{ memory.content || '没有文字记录' }}</p>
+            <p>“{{ memory.content || '没有文字记录' }}”</p>
           </div>
         </article>
       </div>
     </section>
 
-    <div v-if="!loading && memories.length === 0" class="card">
-      这次旅行还没有记忆。
+    <div v-if="!loading && memories.length === 0" class="timeline-empty">
+      <h2>这次旅行还没有留下记忆。</h2>
+      <p>上传一张照片，写一句当时想记住的话。</p>
+      <RouterLink :to="`/trips/${id}/memories/new`">
+        <button>留下第一段记忆</button>
+      </RouterLink>
     </div>
 
-    <div class="day-timeline">
+    <div v-if="!loading && memories.length > 0" class="day-timeline">
       <section v-for="group in dayGroups" :key="group.date" class="day-section">
         <div class="day-header">
-          <h2>{{ group.dayLabel }}</h2>
-          <span class="muted">{{ group.date }}</span>
+          <div>
+            <h2>{{ group.dayLabel }} · {{ group.date }}</h2>
+            <p>这一天留下了 {{ group.memories.length }} 段记忆</p>
+          </div>
         </div>
 
         <div class="timeline-list">
@@ -279,34 +297,40 @@ onMounted(loadPage)
             <div class="timeline-marker" aria-hidden="true">
               <span></span>
             </div>
-            <div class="card memory-card">
-            <div class="memory-main">
-              <div class="memory-body">
-                <img
-                  v-if="memory.photoUrl"
-                  class="memory-photo"
-                  :src="photoSrc(memory.photoUrl)"
-                  alt="旅行记忆照片"
-                />
-                <div class="memory-title-line">
-                  <p class="memory-location">{{ memory.locationName || '未记录地点' }}</p>
-                  <span v-if="memory.isFavorite === 1" class="favorite-badge">收藏</span>
+            <div class="memory-card">
+              <div class="memory-main">
+                <div class="memory-body">
+                  <div v-if="memory.photoUrl" class="memory-photo-frame">
+                    <img
+                      class="memory-photo"
+                      :src="photoSrc(memory.photoUrl)"
+                      alt="旅行记忆照片"
+                    />
+                  </div>
+                  <div v-else class="memory-photo-empty">这段记忆没有照片，文字还在。</div>
+
+                  <p class="memory-quote">“{{ memory.content || '没有文字记录' }}”</p>
+
+                  <div class="memory-title-line">
+                    <p class="memory-location">{{ memory.locationName || '未填写地点' }}</p>
+                    <span class="memory-record-time">{{ formatDateTime(memory.recordTime) }}</span>
+                    <span v-if="memory.isFavorite === 1" class="favorite-badge">已收藏</span>
+                  </div>
                 </div>
-                <p>{{ memory.content || '没有文字记录' }}</p>
               </div>
-            </div>
-            <div class="actions memory-actions">
-              <button
-                :class="memory.isFavorite === 1 ? 'favorite active' : 'favorite'"
-                @click="toggleFavorite(memory)"
-              >
-                {{ memory.isFavorite === 1 ? '取消收藏' : '收藏' }}
-              </button>
-              <RouterLink :to="`/trips/${id}/memories/${memory.id}/edit`">
-                <button class="ghost">编辑</button>
-              </RouterLink>
-              <button class="ghost danger-text" @click="removeMemory(memory.id)">删除</button>
-            </div>
+
+              <div class="actions memory-actions">
+                <button
+                  :class="memory.isFavorite === 1 ? 'favorite active' : 'favorite'"
+                  @click="toggleFavorite(memory)"
+                >
+                  {{ memory.isFavorite === 1 ? '取消收藏' : '收藏' }}
+                </button>
+                <RouterLink :to="`/trips/${id}/memories/${memory.id}/edit`">
+                  <button class="ghost">编辑</button>
+                </RouterLink>
+                <button class="ghost danger-text" @click="removeMemory(memory.id)">删除</button>
+              </div>
             </div>
           </article>
         </div>

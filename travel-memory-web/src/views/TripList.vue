@@ -7,6 +7,12 @@ const trips = ref([])
 const loading = ref(false)
 const error = ref('')
 
+function formatDateRange(trip) {
+  const start = trip.startDate || '未知日期'
+  const end = trip.endDate || '未知日期'
+  return `${start} - ${end}`
+}
+
 async function loadTrips() {
   loading.value = true
   error.value = ''
@@ -35,52 +41,57 @@ onMounted(loadTrips)
 </script>
 
 <template>
-  <section>
-    <div class="page-header">
+  <section class="trip-list-page">
+    <div class="trip-list-hero">
       <div>
-        <h1>旅行列表</h1>
-        <p class="muted">管理你的旅行记忆。</p>
+        <p class="trip-list-kicker">Travel Memory</p>
+        <h1>我的旅行记忆</h1>
+        <p class="muted">把每一次旅行，留给未来重新经过。</p>
       </div>
       <RouterLink to="/trips/new">
-        <button>创建旅行</button>
+        <button>新建一次旅行</button>
       </RouterLink>
     </div>
 
-    <p v-if="loading">加载中...</p>
+    <p v-if="loading" class="trip-list-status">正在找回旅行记忆...</p>
     <p v-if="error" class="error">{{ error }}</p>
 
-    <div v-if="!loading && trips.length === 0" class="card">
-      还没有旅行，先创建一次旅行。
+    <div v-if="!loading && trips.length === 0" class="trip-empty">
+      <h2>还没有旅行记忆。</h2>
+      <p>新建一次旅行，把第一段路留下来。</p>
+      <RouterLink to="/trips/new">
+        <button>新建一次旅行</button>
+      </RouterLink>
     </div>
 
-    <div class="trip-grid">
-      <article v-for="trip in trips" :key="trip.id" class="card trip-card">
+    <div v-if="trips.length > 0" class="trip-grid">
+      <article v-for="trip in trips" :key="trip.id" class="trip-card">
         <div class="trip-cover">
           <img v-if="trip.coverPhotoUrl" :src="trip.coverPhotoUrl" alt="旅行封面" />
-          <div v-else class="trip-cover-empty">暂无封面</div>
+          <div v-else class="trip-cover-empty">
+            <span>{{ trip.destination || '一段旅程' }}</span>
+          </div>
         </div>
 
         <div class="trip-card-body">
           <h2>{{ trip.title }}</h2>
-          <p class="muted">
-            {{ trip.destination || '未填写目的地' }}
-          </p>
-          <p class="muted">
-            {{ trip.startDate || '未知' }} - {{ trip.endDate || '未知' }}
-          </p>
-          <p class="muted">{{ trip.memoryCount || 0 }} 条记忆</p>
-          <p v-if="trip.description">{{ trip.description }}</p>
-          <div class="actions">
+          <p class="trip-destination">{{ trip.destination || '未填写目的地' }}</p>
+          <p class="trip-date">{{ formatDateRange(trip) }}</p>
+          <p v-if="trip.description" class="trip-description">{{ trip.description }}</p>
+
+          <div class="trip-main-actions">
+            <RouterLink :to="`/trips/${trip.id}/journey`">
+              <button>进入 Journey</button>
+            </RouterLink>
             <RouterLink :to="`/trips/${trip.id}`">
-              <button>查看时间线</button>
+              <button class="ghost">查看 Timeline</button>
             </RouterLink>
-            <RouterLink :to="`/trips/${trip.id}/memories/new`">
-              <button class="secondary">新增记忆</button>
-            </RouterLink>
-            <RouterLink :to="`/trips/${trip.id}/map`">
-              <button class="secondary">地图</button>
-            </RouterLink>
-            <button class="danger" @click="removeTrip(trip.id)">删除</button>
+          </div>
+
+          <div class="trip-soft-actions">
+            <RouterLink :to="`/trips/${trip.id}/memories/new`">留下一段记忆</RouterLink>
+            <RouterLink :to="`/trips/${trip.id}/map`">地图</RouterLink>
+            <button class="danger-text" @click="removeTrip(trip.id)">删除</button>
           </div>
         </div>
       </article>

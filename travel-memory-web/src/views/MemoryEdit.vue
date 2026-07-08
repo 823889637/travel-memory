@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMemory, updateMemory } from '../api/memory'
+import { getMemory, updateMemory, uploadMemoryPhoto } from '../api/memory'
 
 const props = defineProps({
   tripId: {
@@ -18,6 +18,15 @@ const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
+const loadError = ref('')
+const showMoreLocation = ref(false)
+const currentPhotoUrl = ref('')
+const newPhoto = ref(null)
+const newPhotoPreview = ref('')
+const photoInput = ref(null)
+
+const MAX_PHOTO_SIZE = 50 * 1024 * 1024
+const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
 
 const form = reactive({
   content: '',
@@ -30,7 +39,9 @@ const form = reactive({
 const latitudeError = computed(() => validateCoordinate(form.latitude, -90, 90, '纬度'))
 const longitudeError = computed(() => validateCoordinate(form.longitude, -180, 180, '经度'))
 const coordinateError = computed(() => latitudeError.value || longitudeError.value)
+const hasCoordinates = computed(() => Boolean(form.latitude && form.longitude))
 const canSubmit = computed(() => !loading.value && !saving.value && !coordinateError.value)
+const previewPhotoUrl = computed(() => newPhotoPreview.value || currentPhotoUrl.value)
 
 function validateCoordinate(value, min, max, label) {
   if (!value) {
@@ -53,9 +64,61 @@ function toDateTimeLocalValue(value) {
   return String(value).slice(0, 16)
 }
 
+function triggerPhotoPicker() {
+  photoInput.value?.click()
+}
+
+function getFileExtension(filename) {
+  const dotIndex = filename.lastIndexOf('.')
+  if (dotIndex < 0) {
+    return ''
+  }
+  return filename.slice(dotIndex + 1).toLowerCase()
+}
+
+function clearNewPhoto() {
+  if (newPhotoPreview.value) {
+    URL.revokeObjectURL(newPhotoPreview.value)
+  }
+  newPhoto.value = null
+  newPhotoPreview.value = ''
+  if (photoInput.value) {
+    photoInput.value.value = ''
+  }
+}
+
+function onPhotoChange(event) {
+  error.value = ''
+  const selectedFile = event.target.files?.[0] || null
+  if (!selectedFile) {
+    clearNewPhoto()
+    return
+  }
+
+  const extension = getFileExtension(selectedFile.name)
+  if (!ALLOWED_PHOTO_EXTENSIONS.includes(extension)) {
+    event.target.value = ''
+    clearNewPhoto()
+    error.value = '仅支持 jpg、jpeg、png、gif、webp、heic、heif 图片'
+    return
+  }
+
+  if (selectedFile.size > MAX_PHOTO_SIZE) {
+    event.target.value = ''
+    clearNewPhoto()
+    error.value = '图片不能超过 50MB，请压缩后再上传'
+    return
+  }
+
+  clearNewPhoto()
+  newPhoto.value = selectedFile
+  newPhotoPreview.value = URL.createObjectURL(selectedFile)
+}
+
 async function loadMemory() {
   loading.value = true
   error.value = ''
+  loadError.value = ''
   try {
     const memory = await getMemory(props.memoryId)
     form.content = memory.content || ''
@@ -63,8 +126,9 @@ async function loadMemory() {
     form.recordTime = toDateTimeLocalValue(memory.recordTime)
     form.latitude = memory.latitude == null ? '' : String(memory.latitude)
     form.longitude = memory.longitude == null ? '' : String(memory.longitude)
+    currentPhotoUrl.value = memory.photoUrl || ''
   } catch (err) {
-    error.value = err.message || '加载失败'
+    loadError.value = err.message || '记忆暂时没有加载成功，请稍后再试。'
   } finally {
     loading.value = false
   }
@@ -86,6 +150,13 @@ async function submit() {
       latitude: form.latitude ? Number(form.latitude) : null,
       longitude: form.longitude ? Number(form.longitude) : null,
     })
+
+    if (newPhoto.value) {
+      const data = new FormData()
+      data.append('photo', newPhoto.value)
+      await uploadMemoryPhoto(props.memoryId, data)
+    }
+
     router.push(`/trips/${props.tripId}`)
   } catch (err) {
     error.value = err.message || '保存失败'
@@ -95,52 +166,133 @@ async function submit() {
 }
 
 onMounted(loadMemory)
+
+onBeforeUnmount(() => {
+  if (newPhotoPreview.value) {
+    URL.revokeObjectURL(newPhotoPreview.value)
+  }
+})
 </script>
 
 <template>
-  <section>
-    <div class="page-header">
-      <div>
-        <h1>编辑记忆</h1>
-        <p class="muted">修改一句话、地点、时间和经纬度。</p>
+  <section class="memory-edit-page">
+    <header class="memory-edit-head">
+      <h1>修正这段记忆</h1>
+      <p>可以调整照片、时间、地点和当时留下的话。</p>
+    </header>
+
+    <p v-if="loading" class="memory-edit-status">正在取回这段记忆...</p>
+    <p v-if="!loading && loadError" class="error error-block">{{ loadError }}</p>
+
+    <form v-if="!loading && !loadError" class="memory-edit-form" @submit.prevent="submit">
+      <div class="edit-photo-block">
+        <input
+          ref="photoInput"
+          class="sr-only"
+          type="file"
+          accept="image/*"
+          @change="onPhotoChange"
+        />
+
+        <div v-if="previewPhotoUrl" class="edit-photo-preview">
+          <img :src="previewPhotoUrl" alt="记忆照片预览" />
+          <button type="button" class="edit-photo-change" @click="triggerPhotoPicker">
+            更换照片
+          </button>
+          <button
+            v-if="newPhotoPreview"
+            type="button"
+            class="edit-photo-cancel"
+            @click="clearNewPhoto"
+          >
+            取消更换
+          </button>
+        </div>
+
+        <button v-else type="button" class="edit-photo-drop" @click="triggerPhotoPicker">
+          <span class="edit-photo-title">为这段记忆补一张照片</span>
+          <span class="edit-photo-hint">照片会在点击保存修改后更新。</span>
+        </button>
+
+        <p v-if="newPhoto" class="hint">已选择新照片，保存修改后会替换当前照片。</p>
       </div>
-    </div>
 
-    <p v-if="loading">加载中...</p>
+      <div class="field memory-edit-sentence">
+        <label for="edit-content">这一刻想记住什么？</label>
+        <textarea
+          id="edit-content"
+          v-model="form.content"
+          rows="3"
+          placeholder="例如：这个船好漂亮啊"
+        ></textarea>
+        <p class="hint">保留当时真实写下的话，短短一句也很好。</p>
+      </div>
 
-    <form v-else class="form card" @submit.prevent="submit">
       <div class="field">
-        <label>一句话</label>
-        <textarea v-model="form.content" placeholder="记录当时发生了什么"></textarea>
+        <label for="edit-time">记录时间</label>
+        <input id="edit-time" v-model="form.recordTime" type="datetime-local" />
+        <p class="time-warning">这个时间会影响 Timeline 和 Journey 的顺序。</p>
       </div>
 
       <div class="field">
-        <label>记录时间</label>
-        <input v-model="form.recordTime" type="datetime-local" required />
+        <label for="edit-location">地点名称</label>
+        <input
+          id="edit-location"
+          v-model="form.locationName"
+          placeholder="例如：海河边上、酒店楼下、那家很好吃的店"
+        />
+        <p class="hint">可以写你自己记得住的地点名，不一定是官方地址。</p>
       </div>
 
-      <div class="field">
-        <label>地点名称</label>
-        <input v-model="form.locationName" placeholder="例如：鸭川三条大桥" />
+      <div class="more">
+        <button
+          type="button"
+          class="more-toggle"
+          :aria-expanded="showMoreLocation"
+          @click="showMoreLocation = !showMoreLocation"
+        >
+          <span>更多位置信息</span>
+          <span class="more-status">
+            <span v-if="hasCoordinates" class="more-dot" aria-hidden="true"></span>
+            {{ showMoreLocation ? '收起' : (hasCoordinates ? '已填写坐标' : '展开') }}
+          </span>
+        </button>
+
+        <div v-if="showMoreLocation" class="more-panel">
+          <div class="coord-grid">
+            <div class="field">
+              <label for="edit-lat">纬度 latitude</label>
+              <input
+                id="edit-lat"
+                v-model.trim="form.latitude"
+                inputmode="decimal"
+                placeholder="例如：39.1234000"
+              />
+              <p v-if="latitudeError" class="error">{{ latitudeError }}</p>
+            </div>
+            <div class="field">
+              <label for="edit-lng">经度 longitude</label>
+              <input
+                id="edit-lng"
+                v-model.trim="form.longitude"
+                inputmode="decimal"
+                placeholder="例如：117.1234000"
+              />
+              <p v-if="longitudeError" class="error">{{ longitudeError }}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="field">
-        <label>纬度</label>
-        <input v-model.trim="form.latitude" inputmode="decimal" placeholder="例如：35.0116000" />
-        <p v-if="latitudeError" class="error">{{ latitudeError }}</p>
-      </div>
+      <p v-if="error" class="error error-block">{{ error }}</p>
 
-      <div class="field">
-        <label>经度</label>
-        <input v-model.trim="form.longitude" inputmode="decimal" placeholder="例如：135.7681000" />
-        <p v-if="longitudeError" class="error">{{ longitudeError }}</p>
-      </div>
-
-      <p v-if="error" class="error">{{ error }}</p>
-
-      <div class="actions">
-        <button :disabled="!canSubmit">{{ saving ? '保存中...' : '保存修改' }}</button>
-        <button type="button" class="secondary" @click="router.push(`/trips/${tripId}`)">取消</button>
+      <div class="memory-edit-actions">
+        <button type="submit" class="save-btn" :disabled="!canSubmit">
+          {{ saving ? '保存中...' : '保存修改' }}
+        </button>
+        <button type="button" class="memory-edit-cancel" @click="router.push(`/trips/${tripId}`)">
+          返回
+        </button>
       </div>
     </form>
   </section>
