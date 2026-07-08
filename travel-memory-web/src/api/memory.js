@@ -12,6 +12,10 @@ export function createMemory(data) {
   return request.post('/api/memories', data)
 }
 
+export function uploadPhoto(data) {
+  return request.post('/api/memories/photo', data)
+}
+
 export function getMemory(id) {
   return request.get(`/api/memories/${id}`)
 }

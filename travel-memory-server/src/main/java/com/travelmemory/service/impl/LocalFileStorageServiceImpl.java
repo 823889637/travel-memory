@@ -21,7 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class LocalFileStorageServiceImpl implements FileStorageService {
 
     private static final DateTimeFormatter DATE_PATH_FORMATTER = DateTimeFormatter.ofPattern("yyyy/MM");
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp", "heic", "heif");
 
     @Value("${app.upload.dir:../uploads}")
     private String uploadDir;
