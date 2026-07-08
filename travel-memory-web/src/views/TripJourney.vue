@@ -243,9 +243,9 @@ onMounted(loadPage)
         alt="旅行封面"
       />
       <div class="journey-hero-content">
-        <p class="journey-kicker">Journey</p>
-        <h1>{{ trip?.title || '旅行 Journey' }}</h1>
-        <p>{{ trip?.destination || '未填写目的地' }}</p>
+        <p class="journey-kicker">重新走一遍</p>
+        <h1>{{ trip?.title || '这段旅行' }}</h1>
+        <p v-if="trip?.destination">{{ trip.destination }}</p>
         <p>{{ tripDateRange }}</p>
       </div>
     </div>
@@ -258,8 +258,9 @@ onMounted(loadPage)
     <p v-if="loading">加载中...</p>
     <p v-if="error" class="error">{{ error }}</p>
 
-    <div v-if="!loading && dayGroups.length === 0" class="card">
-      这次旅行还没有记忆，Journey 会在留下记忆后出现。
+    <div v-if="!loading && dayGroups.length === 0" class="journey-empty">
+      <p class="journey-empty-title">这段旅行还在等待第一段记忆</p>
+      <p class="journey-empty-hint">当你留下照片和当时的心情，这里就会重新为你铺开走过的路。</p>
     </div>
 
     <template v-if="!loading && activeDay">
@@ -280,14 +281,13 @@ onMounted(loadPage)
         <div class="journey-day-header">
           <div>
             <p class="journey-day-kicker">{{ activeDay.dayLabel }} · {{ activeDay.date }}</p>
-            <p class="muted">这一天经过了 {{ activeDay.stops.length }} 个地方，留下了 {{ activeDay.memories.length }} 段记忆</p>
-            <p class="journey-day-start-note">{{ activeDay.dayLabel }} 开始</p>
+            <p class="muted">这一天经过了 {{ activeDay.stops.length }} 个地方，留下了 {{ activeDay.memories.length }} 段记忆。</p>
           </div>
         </div>
 
         <div class="journey-flow">
           <article v-for="(stop, index) in activeDay.stops" :key="`${stop.order}-${stop.locationName}`" class="journey-stop">
-            <div v-if="index > 0" class="journey-step-connector" aria-hidden="true">继续往前走</div>
+            <div v-if="index > 0" class="journey-step-connector" aria-hidden="true">然后，去了下一个地方</div>
 
             <div class="journey-stop-card">
                 <div class="journey-stop-header">
@@ -326,13 +326,13 @@ onMounted(loadPage)
                     />
                   </div>
                 </div>
-                <div v-else class="journey-stop-photo-empty">这一站没有照片，但保留了当时留下的文字。</div>
+                <div v-else class="journey-stop-photo-empty">这一站没有留下照片，但当时的文字还在。</div>
 
                 <div class="journey-stop-contents">
                   <p v-for="memory in stop.contents" :key="memory.id" class="journey-content">
-                    “{{ memory.content }}”
+                    {{ memory.content }}
                   </p>
-                  <p v-if="stop.contents.length === 0" class="journey-content muted">“没有文字记录”</p>
+                  <p v-if="stop.contents.length === 0" class="journey-content muted">这一站没有留下文字，就让照片替你记着吧。</p>
                 </div>
             </div>
           </article>
@@ -340,8 +340,8 @@ onMounted(loadPage)
           <div class="journey-day-end">
             <span></span>
             <div>
-              <strong>{{ activeDay.dayLabel }} 结束</strong>
-              <p>这一天的 {{ activeDay.memories.length }} 段记忆，已经被重新串联起来。</p>
+              <strong>这一天，到这里就结束了</strong>
+              <p>{{ activeDay.memories.length }} 段记忆，被重新走了一遍。</p>
             </div>
           </div>
         </div>
