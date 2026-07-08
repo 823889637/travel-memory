@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import exifr from 'exifr'
 import { createMemory } from '../api/memory'
 
 const props = defineProps({
@@ -14,15 +13,11 @@ const props = defineProps({
 const router = useRouter()
 const saving = ref(false)
 const locating = ref(false)
-const reading = ref(false)
 const error = ref('')
 const photo = ref(null)
 const photoPreview = ref('')
 const photoInput = ref(null)
 const showMoreLocation = ref(false)
-
-const exifTimeLabel = ref('')
-const exifHasLocation = ref(false)
 
 const MAX_PHOTO_SIZE = 50 * 1024 * 1024
 const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
@@ -45,13 +40,6 @@ function formatLocalDateTime(date) {
   const offset = date.getTimezoneOffset()
   const localDate = new Date(date.getTime() - offset * 60 * 1000)
   return localDate.toISOString().slice(0, 16)
-}
-
-function formatReadableTime(value) {
-  if (!value) {
-    return ''
-  }
-  return value.replace('T', ' ')
 }
 
 function validateCoordinate(value, min, max, label) {
@@ -101,9 +89,6 @@ function setPhoto(selectedFile) {
   }
   photo.value = selectedFile
   photoPreview.value = URL.createObjectURL(selectedFile)
-  exifTimeLabel.value = ''
-  exifHasLocation.value = false
-  readExif(selectedFile)
 }
 
 function clearPhoto() {
@@ -112,34 +97,8 @@ function clearPhoto() {
   }
   photo.value = null
   photoPreview.value = ''
-  exifTimeLabel.value = ''
-  exifHasLocation.value = false
   if (photoInput.value) {
     photoInput.value.value = ''
-  }
-}
-
-async function readExif(file) {
-  reading.value = true
-  try {
-    const tags = await exifr.parse(file, { tiff: true, ifd0: true, exif: true, gps: true })
-    if (tags) {
-      const captured = tags.DateTimeOriginal || tags.CreateDate || tags.DateTimeDigitized
-      if (captured instanceof Date && !Number.isNaN(captured.getTime())) {
-        const localValue = formatLocalDateTime(captured)
-        form.recordTime = localValue
-        exifTimeLabel.value = formatReadableTime(localValue)
-      }
-      if (Number.isFinite(tags.latitude) && Number.isFinite(tags.longitude)) {
-        form.latitude = tags.latitude.toFixed(7)
-        form.longitude = tags.longitude.toFixed(7)
-        exifHasLocation.value = true
-      }
-    }
-  } catch {
-    // EXIF 不是必须的，识别失败时静默忽略，用户仍可手动填写
-  } finally {
-    reading.value = false
   }
 }
 
@@ -249,21 +208,13 @@ onBeforeUnmount(() => {
             </svg>
           </span>
           <span class="photo-drop-title">上传一张旅行照片</span>
-          <span class="photo-drop-hint">点击选择照片，我们会试着帮你记住时间和地点</span>
+          <span class="photo-drop-hint">点击选择一张旅行照片，记录此刻的画面</span>
         </button>
 
         <div v-else class="photo-preview">
           <img :src="photoPreview" alt="照片预览" />
           <button type="button" class="photo-change" @click="triggerPhotoPicker">更换</button>
           <button type="button" class="photo-remove" aria-label="移除照片" @click="clearPhoto">×</button>
-        </div>
-
-        <div v-if="photoPreview" class="recognized">
-          <span v-if="reading" class="recognized-chip is-loading">正在识别照片信息…</span>
-          <template v-else>
-            <span v-if="exifTimeLabel" class="recognized-chip">已识别拍摄时间：{{ exifTimeLabel }}</span>
-            <span v-if="exifHasLocation" class="recognized-chip">已识别照片定位</span>
-          </template>
         </div>
       </div>
 
@@ -476,41 +427,6 @@ onBeforeUnmount(() => {
   font-size: 20px;
   line-height: 1;
   backdrop-filter: blur(4px);
-}
-
-.recognized {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.recognized-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: #9a4f2c;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.recognized-chip::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.recognized-chip.is-loading {
-  background: #f1ece4;
-  color: var(--ink-soft);
-}
-
-.recognized-chip.is-loading::before {
-  background: var(--ink-soft);
 }
 
 /* 字段 */
