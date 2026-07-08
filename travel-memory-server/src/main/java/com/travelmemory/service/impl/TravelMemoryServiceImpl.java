@@ -6,9 +6,12 @@ import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.exception.BusinessException;
 import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.common.StoredFile;
+import com.travelmemory.dto.UploadResult;
 import com.travelmemory.service.FileStorageService;
 import com.travelmemory.service.TravelMemoryService;
 import com.travelmemory.service.TravelTripService;
+import com.travelmemory.util.ImageMetadataExtractor;
+import com.travelmemory.util.ImageMetadataInfo;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -21,15 +24,18 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     private final TravelMemoryMapper travelMemoryMapper;
     private final TravelTripService travelTripService;
     private final FileStorageService fileStorageService;
+    private final ImageMetadataExtractor imageMetadataExtractor;
 
     public TravelMemoryServiceImpl(
             TravelMemoryMapper travelMemoryMapper,
             TravelTripService travelTripService,
-            FileStorageService fileStorageService
+            FileStorageService fileStorageService,
+            ImageMetadataExtractor imageMetadataExtractor
     ) {
         this.travelMemoryMapper = travelMemoryMapper;
         this.travelTripService = travelTripService;
         this.fileStorageService = fileStorageService;
+        this.imageMetadataExtractor = imageMetadataExtractor;
     }
 
     @Override
@@ -77,17 +83,26 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     @Transactional
     public TravelMemory create(TravelMemory travelMemory, MultipartFile photo) {
         travelTripService.getById(travelMemory.getTripId());
-        if (travelMemory.getRecordTime() == null) {
-            travelMemory.setRecordTime(LocalDateTime.now());
-        }
         if (travelMemory.getIsFavorite() == null) {
             travelMemory.setIsFavorite(0);
         }
 
-        StoredFile storedFile = fileStorageService.store(photo);
-        if (storedFile != null) {
-            travelMemory.setPhotoUrl(storedFile.getUrl());
-            travelMemory.setPhotoPath(storedFile.getPath());
+        if (photo != null && !photo.isEmpty()) {
+            UploadResult uploadResult = uploadPhoto(photo);
+            travelMemory.setPhotoUrl(uploadResult.getPhotoUrl());
+            travelMemory.setPhotoPath(uploadResult.getPhotoPath());
+            if (travelMemory.getRecordTime() == null && uploadResult.getPhotoTakenTime() != null) {
+                travelMemory.setRecordTime(uploadResult.getPhotoTakenTime());
+            }
+            if (travelMemory.getLatitude() == null && uploadResult.getLatitude() != null) {
+                travelMemory.setLatitude(uploadResult.getLatitude());
+            }
+            if (travelMemory.getLongitude() == null && uploadResult.getLongitude() != null) {
+                travelMemory.setLongitude(uploadResult.getLongitude());
+            }
+        }
+        if (travelMemory.getRecordTime() == null) {
+            travelMemory.setRecordTime(LocalDateTime.now());
         }
 
         travelMemoryMapper.insert(travelMemory);
@@ -95,18 +110,34 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     }
 
     @Override
-    @Transactional
-    public TravelMemory uploadPhoto(Long id, MultipartFile photo) {
-        TravelMemory travelMemory = getById(id);
+    public UploadResult uploadPhoto(MultipartFile photo) {
         StoredFile storedFile = fileStorageService.store(photo);
         if (storedFile == null) {
             throw new BusinessException(400, "Photo file is required");
         }
 
-        travelMemory.setPhotoUrl(storedFile.getUrl());
-        travelMemory.setPhotoPath(storedFile.getPath());
+        ImageMetadataInfo metadataInfo = imageMetadataExtractor.extract(storedFile.getPath());
+        UploadResult result = new UploadResult();
+        result.setPhotoUrl(storedFile.getUrl());
+        result.setPhotoPath(storedFile.getPath());
+        result.setPhotoTakenTime(metadataInfo.getPhotoTakenTime());
+        result.setLatitude(metadataInfo.getLatitude());
+        result.setLongitude(metadataInfo.getLongitude());
+        result.setHasExifTime(metadataInfo.hasTime());
+        result.setHasExifLocation(metadataInfo.hasLocation());
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public UploadResult uploadPhoto(Long id, MultipartFile photo) {
+        TravelMemory travelMemory = getById(id);
+        UploadResult uploadResult = uploadPhoto(photo);
+
+        travelMemory.setPhotoUrl(uploadResult.getPhotoUrl());
+        travelMemory.setPhotoPath(uploadResult.getPhotoPath());
         travelMemoryMapper.updateById(travelMemory);
-        return getById(id);
+        return uploadResult;
     }
 
     @Override

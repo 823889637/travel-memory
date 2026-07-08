@@ -1,6 +1,7 @@
 package com.travelmemory.controller;
 
 import com.travelmemory.common.Result;
+import com.travelmemory.dto.UploadResult;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.service.TravelMemoryService;
 import jakarta.validation.Valid;
@@ -50,11 +51,15 @@ public class TravelMemoryController {
             @RequestParam(required = false) BigDecimal longitude,
             @RequestParam(required = false) String locationName,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime recordTime,
+            @RequestParam(required = false) String photoUrl,
+            @RequestParam(required = false) String photoPath,
             @RequestParam(required = false) MultipartFile photo
     ) {
         TravelMemory travelMemory = new TravelMemory();
         travelMemory.setTripId(tripId);
         travelMemory.setContent(content);
+        travelMemory.setPhotoUrl(photoUrl);
+        travelMemory.setPhotoPath(photoPath);
         travelMemory.setLatitude(latitude);
         travelMemory.setLongitude(longitude);
         travelMemory.setLocationName(locationName);
@@ -62,8 +67,13 @@ public class TravelMemoryController {
         return Result.success(travelMemoryService.create(travelMemory, photo));
     }
 
+    @PostMapping("/photo")
+    public Result<UploadResult> uploadPhoto(@RequestParam MultipartFile photo) {
+        return Result.success(travelMemoryService.uploadPhoto(photo));
+    }
+
     @PostMapping("/{id}/photo")
-    public Result<TravelMemory> uploadPhoto(@PathVariable Long id, @RequestParam MultipartFile photo) {
+    public Result<UploadResult> uploadPhoto(@PathVariable Long id, @RequestParam MultipartFile photo) {
         return Result.success(travelMemoryService.uploadPhoto(id, photo));
     }
 
