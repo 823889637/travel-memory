@@ -3,6 +3,7 @@ package com.travelmemory.util;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import java.io.File;
@@ -38,14 +39,26 @@ public class ImageMetadataExtractor {
 
     private void fillTakenTime(Metadata metadata, ImageMetadataInfo info) {
         ExifSubIFDDirectory directory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-        if (directory == null) {
+        Date date = null;
+        if (directory != null) {
+            date = directory.getDateOriginal();
+            if (date == null) {
+                date = directory.getDateDigitized();
+            }
+        }
+
+        if (date == null) {
+            ExifIFD0Directory ifd0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+            if (ifd0Directory != null) {
+                date = ifd0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
+            }
+        }
+
+        if (date == null) {
             return;
         }
 
-        Date date = directory.getDateOriginal();
-        if (date != null) {
-            info.setPhotoTakenTime(LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault()));
-        }
+        info.setPhotoTakenTime(LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault()));
     }
 
     private void fillLocation(Metadata metadata, ImageMetadataInfo info) {

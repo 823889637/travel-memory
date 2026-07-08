@@ -25,7 +25,7 @@ const latitudeTouched = ref(false)
 const longitudeTouched = ref(false)
 
 const MAX_PHOTO_SIZE = 50 * 1024 * 1024
-const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
 
 const form = reactive({
   content: '',
@@ -112,7 +112,7 @@ async function onPhotoChange(event) {
   if (!ALLOWED_PHOTO_EXTENSIONS.includes(extension)) {
     event.target.value = ''
     clearPhoto()
-    error.value = '仅支持 jpg、jpeg、png、gif、webp 图片'
+    error.value = '仅支持 jpg、jpeg、png、gif、webp、heic、heif 图片'
     return
   }
 
