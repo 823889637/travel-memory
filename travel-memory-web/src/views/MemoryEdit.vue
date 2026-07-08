@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMemory, updateMemory, uploadMemoryPhoto } from '../api/memory'
+import { getMemory, reverseGeocode, updateMemory, uploadMemoryPhoto } from '../api/memory'
 
 const props = defineProps({
   tripId: {
@@ -24,6 +24,9 @@ const currentPhotoUrl = ref('')
 const newPhoto = ref(null)
 const newPhotoPreview = ref('')
 const photoInput = ref(null)
+const locationNameTouched = ref(false)
+const locationSuggestion = ref(null)
+const locationSuggestionStatus = ref('idle')
 
 const MAX_PHOTO_SIZE = 50 * 1024 * 1024
 const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
@@ -42,6 +45,9 @@ const coordinateError = computed(() => latitudeError.value || longitudeError.val
 const hasCoordinates = computed(() => Boolean(form.latitude && form.longitude))
 const canSubmit = computed(() => !loading.value && !saving.value && !coordinateError.value)
 const previewPhotoUrl = computed(() => newPhotoPreview.value || currentPhotoUrl.value)
+const hasLocationSuggestion = computed(() => (
+  locationSuggestionStatus.value === 'success' && locationSuggestion.value?.locationName
+))
 
 function validateCoordinate(value, min, max, label) {
   if (!value) {
@@ -87,6 +93,59 @@ function clearNewPhoto() {
   }
 }
 
+function hasCoordinateValues() {
+  return Boolean(form.latitude && form.longitude)
+}
+
+function resetLocationSuggestion() {
+  locationSuggestion.value = null
+  locationSuggestionStatus.value = 'idle'
+}
+
+async function requestLocationSuggestion(options = {}) {
+  const force = options.force === true
+  if (!hasCoordinateValues() || coordinateError.value) {
+    return
+  }
+  if (form.locationName?.trim() && !force) {
+    return
+  }
+
+  locationSuggestionStatus.value = 'loading'
+  try {
+    const result = await reverseGeocode(form.latitude, form.longitude)
+    if (result?.success && result.locationName) {
+      locationSuggestion.value = result
+      locationSuggestionStatus.value = 'success'
+      return
+    }
+    locationSuggestion.value = null
+    locationSuggestionStatus.value = 'empty'
+  } catch (err) {
+    locationSuggestion.value = null
+    locationSuggestionStatus.value = 'empty'
+  }
+}
+
+function useLocationSuggestion() {
+  if (!locationSuggestion.value?.locationName) {
+    return
+  }
+  form.locationName = locationSuggestion.value.locationName
+  locationNameTouched.value = true
+}
+
+function onLocationNameInput() {
+  locationNameTouched.value = true
+  if (form.locationName.trim()) {
+    resetLocationSuggestion()
+  }
+}
+
+function onCoordinateInput() {
+  resetLocationSuggestion()
+}
+
 function onPhotoChange(event) {
   error.value = ''
   const selectedFile = event.target.files?.[0] || null
@@ -127,6 +186,9 @@ async function loadMemory() {
     form.latitude = memory.latitude == null ? '' : String(memory.latitude)
     form.longitude = memory.longitude == null ? '' : String(memory.longitude)
     currentPhotoUrl.value = memory.photoUrl || ''
+    if (hasCoordinateValues() && !form.locationName) {
+      requestLocationSuggestion()
+    }
   } catch (err) {
     loadError.value = err.message || '记忆暂时没有加载成功，请稍后再试。'
   } finally {
@@ -240,8 +302,17 @@ onBeforeUnmount(() => {
           id="edit-location"
           v-model="form.locationName"
           placeholder="例如：海河边上、酒店楼下、那家很好吃的店"
+          @input="onLocationNameInput"
         />
         <p class="hint">可以写你自己记得住的地点名，不一定是官方地址。</p>
+        <div v-if="locationSuggestionStatus !== 'idle'" class="location-suggestion">
+          <p v-if="locationSuggestionStatus === 'loading'">正在根据定位推荐地点...</p>
+          <template v-else-if="hasLocationSuggestion">
+            <p>已根据照片定位推荐地点：{{ locationSuggestion.locationName }}</p>
+            <button type="button" @click="useLocationSuggestion">使用这个地点</button>
+          </template>
+          <p v-else>暂时没有识别出地点名称，你可以手动填写。</p>
+        </div>
       </div>
 
       <div class="more">
@@ -267,6 +338,7 @@ onBeforeUnmount(() => {
                 v-model.trim="form.latitude"
                 inputmode="decimal"
                 placeholder="例如：39.1234000"
+                @input="onCoordinateInput"
               />
               <p v-if="latitudeError" class="error">{{ latitudeError }}</p>
             </div>
@@ -277,10 +349,20 @@ onBeforeUnmount(() => {
                 v-model.trim="form.longitude"
                 inputmode="decimal"
                 placeholder="例如：117.1234000"
+                @input="onCoordinateInput"
               />
               <p v-if="longitudeError" class="error">{{ longitudeError }}</p>
             </div>
           </div>
+          <button
+            v-if="hasCoordinates"
+            type="button"
+            class="location-suggestion-refresh"
+            :disabled="locationSuggestionStatus === 'loading'"
+            @click="requestLocationSuggestion({ force: true })"
+          >
+            {{ locationSuggestionStatus === 'loading' ? '推荐中...' : '重新推荐地点' }}
+          </button>
         </div>
       </div>
 

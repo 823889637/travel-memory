@@ -397,8 +397,8 @@ V1 优先保证核心链路稳定。后续可考虑：
    - `docs/ROADMAP.md`
 
 2. 不要偏离产品定位：
-   - Travel Memory 不是帮助用户记录旅行。
-   - Travel Memory 是帮助用户多年以后重新体验一次旅行。
+   - Travel Memory 不只是帮助用户记录旅行。
+   - Travel Memory 更重要的是帮助用户多年以后重新体验一次真实发生过的旅行。
 
 3. 不要随意改写用户原始内容：
    - `content` 是用户原话。

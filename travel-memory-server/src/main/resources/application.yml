@@ -28,3 +28,14 @@ mybatis-plus:
 app:
   upload:
     dir: ../uploads
+    cleanup:
+      enabled: false
+      orphan-retention-hours: 24
+
+map:
+  reverse-geocode:
+    key: ${MAP_REVERSE_GEOCODE_KEY:}
+
+amap:
+  web:
+    key: ${AMAP_WEB_KEY:}

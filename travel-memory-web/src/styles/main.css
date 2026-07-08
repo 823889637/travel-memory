@@ -644,6 +644,39 @@ textarea {
   padding: 10px 12px;
 }
 
+.memory-edit-page .location-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  background: #fff8ef;
+  color: #805135;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.memory-edit-page .location-suggestion p {
+  margin: 0;
+}
+
+.memory-edit-page .location-suggestion button,
+.memory-edit-page .location-suggestion-refresh {
+  flex: 0 0 auto;
+  border: 1px solid rgba(181, 97, 60, 0.28);
+  border-radius: 999px;
+  background: var(--tm-surface);
+  color: var(--tm-accent);
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.memory-edit-page .location-suggestion-refresh {
+  justify-self: start;
+}
+
 .memory-edit-page .more {
   overflow: hidden;
   border: 1px solid var(--tm-border);

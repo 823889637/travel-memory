@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { createMemory, uploadPhoto } from '../api/memory'
+import { createMemory, reverseGeocode, uploadPhoto } from '../api/memory'
 
 const props = defineProps({
   id: {
@@ -23,6 +23,9 @@ const showMoreLocation = ref(false)
 const recordTimeTouched = ref(false)
 const latitudeTouched = ref(false)
 const longitudeTouched = ref(false)
+const locationNameTouched = ref(false)
+const locationSuggestion = ref(null)
+const locationSuggestionStatus = ref('idle')
 
 const MAX_PHOTO_SIZE = 50 * 1024 * 1024
 const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
@@ -52,6 +55,9 @@ const formattedExifLocation = computed(() => {
   }
   return `${formatCoordinate(photoUploadResult.value.latitude)}, ${formatCoordinate(photoUploadResult.value.longitude)}`
 })
+const hasLocationSuggestion = computed(() => (
+  locationSuggestionStatus.value === 'success' && locationSuggestion.value?.locationName
+))
 
 function formatLocalDateTime(date) {
   const offset = date.getTimezoneOffset()
@@ -142,6 +148,7 @@ function clearPhoto() {
   photo.value = null
   photoPreview.value = ''
   photoUploadResult.value = null
+  resetLocationSuggestion()
   if (photoInput.value) {
     photoInput.value.value = ''
   }
@@ -174,6 +181,55 @@ function applyPhotoMetadata(result) {
   if (result?.longitude != null && !longitudeTouched.value && !form.longitude) {
     form.longitude = String(result.longitude)
   }
+
+  if (hasCoordinateValues() && !form.locationName && !locationNameTouched.value) {
+    requestLocationSuggestion()
+  }
+}
+
+function hasCoordinateValues() {
+  return Boolean(form.latitude && form.longitude)
+}
+
+function resetLocationSuggestion() {
+  locationSuggestion.value = null
+  locationSuggestionStatus.value = 'idle'
+}
+
+async function requestLocationSuggestion(options = {}) {
+  const force = options.force === true
+  if (!hasCoordinateValues() || coordinateError.value) {
+    return
+  }
+  if (form.locationName?.trim()) {
+    return
+  }
+  if (!force && locationNameTouched.value) {
+    return
+  }
+
+  locationSuggestionStatus.value = 'loading'
+  try {
+    const result = await reverseGeocode(form.latitude, form.longitude)
+    if (result?.success && result.locationName) {
+      locationSuggestion.value = result
+      locationSuggestionStatus.value = 'success'
+      return
+    }
+    locationSuggestion.value = null
+    locationSuggestionStatus.value = 'empty'
+  } catch (err) {
+    locationSuggestion.value = null
+    locationSuggestionStatus.value = 'empty'
+  }
+}
+
+function useLocationSuggestion() {
+  if (!locationSuggestion.value?.locationName) {
+    return
+  }
+  form.locationName = locationSuggestion.value.locationName
+  locationNameTouched.value = true
 }
 
 function getFileExtension(filename) {
@@ -198,6 +254,7 @@ function getLocation() {
       form.longitude = position.coords.longitude.toFixed(7)
       latitudeTouched.value = true
       longitudeTouched.value = true
+      requestLocationSuggestion({ force: true })
       locating.value = false
     },
     (positionError) => {
@@ -223,10 +280,19 @@ function onRecordTimeInput() {
 
 function onLatitudeInput() {
   latitudeTouched.value = true
+  resetLocationSuggestion()
 }
 
 function onLongitudeInput() {
   longitudeTouched.value = true
+  resetLocationSuggestion()
+}
+
+function onLocationNameInput() {
+  locationNameTouched.value = true
+  if (form.locationName.trim()) {
+    resetLocationSuggestion()
+  }
 }
 
 async function submit() {
@@ -358,8 +424,20 @@ onBeforeUnmount(() => {
           id="moment-location"
           v-model="form.locationName"
           placeholder="例如：海河边上、酒店楼下、那家很好吃的店"
+          @input="onLocationNameInput"
         />
         <p class="hint">可以写你自己记得住的地点名，不一定是官方地址。</p>
+        <div
+          v-if="locationSuggestionStatus !== 'idle' && !form.locationName"
+          class="location-suggestion"
+        >
+          <p v-if="locationSuggestionStatus === 'loading'">正在根据定位推荐地点...</p>
+          <template v-else-if="hasLocationSuggestion">
+            <p>已根据照片定位推荐地点：{{ locationSuggestion.locationName }}</p>
+            <button type="button" @click="useLocationSuggestion">使用这个地点</button>
+          </template>
+          <p v-else>暂时没有识别出地点名称，你可以手动填写。</p>
+        </div>
       </div>
 
       <div class="more">
@@ -386,6 +464,15 @@ onBeforeUnmount(() => {
 
           <button type="button" class="locate-btn" :disabled="locating" @click="getLocation">
             {{ locating ? '定位中...' : '获取当前位置' }}
+          </button>
+          <button
+            v-if="hasCoordinates && !form.locationName"
+            type="button"
+            class="locate-btn"
+            :disabled="locationSuggestionStatus === 'loading'"
+            @click="requestLocationSuggestion({ force: true })"
+          >
+            {{ locationSuggestionStatus === 'loading' ? '推荐中...' : '推荐地点名称' }}
           </button>
 
           <div class="coord-grid">
@@ -623,6 +710,34 @@ onBeforeUnmount(() => {
   font-size: 13px;
   line-height: 1.5;
   padding: 10px 12px;
+}
+
+.location-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  background: #fff8ef;
+  color: #805135;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.location-suggestion p {
+  margin: 0;
+}
+
+.location-suggestion button {
+  flex: 0 0 auto;
+  border: 1px solid rgba(200, 115, 74, 0.28);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent);
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .more {
