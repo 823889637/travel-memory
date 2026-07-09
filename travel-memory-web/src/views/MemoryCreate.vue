@@ -433,7 +433,7 @@ onBeforeUnmount(() => {
         >
           <p v-if="locationSuggestionStatus === 'loading'">正在根据定位推荐地点...</p>
           <template v-else-if="hasLocationSuggestion">
-            <p>已根据照片定位推荐地点：{{ locationSuggestion.locationName }}</p>
+            <p>根据照片定位，可能是：{{ locationSuggestion.locationName }}</p>
             <button type="button" @click="useLocationSuggestion">使用这个地点</button>
           </template>
           <p v-else>暂时没有识别出地点名称，你可以手动填写。</p>

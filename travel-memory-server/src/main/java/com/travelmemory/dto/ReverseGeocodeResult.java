@@ -6,10 +6,16 @@ public class ReverseGeocodeResult {
     private String formattedAddress;
     private String source;
     private boolean success;
+    private String message;
 
     public static ReverseGeocodeResult empty() {
+        return failure(null);
+    }
+
+    public static ReverseGeocodeResult failure(String message) {
         ReverseGeocodeResult result = new ReverseGeocodeResult();
         result.setSuccess(false);
+        result.setMessage(message);
         return result;
     }
 
@@ -19,6 +25,7 @@ public class ReverseGeocodeResult {
         result.setFormattedAddress(formattedAddress);
         result.setSource(source);
         result.setSuccess(true);
+        result.setMessage(null);
         return result;
     }
 
@@ -52,5 +59,13 @@ public class ReverseGeocodeResult {
 
     public void setSuccess(boolean success) {
         this.success = success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 }
