@@ -6,9 +6,9 @@ spring:
     name: travel-memory-server
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/travel_memory?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: travel_user
-    password: Travel@123456
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/travel_memory?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:travel_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
   servlet:
     multipart:
       max-file-size: 50MB
@@ -27,7 +27,7 @@ mybatis-plus:
 
 app:
   upload:
-    dir: ../uploads
+    dir: ${APP_UPLOAD_DIR:../uploads}
     cleanup:
       enabled: false
       orphan-retention-hours: 24
