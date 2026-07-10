@@ -4,5 +4,5 @@ import com.travelmemory.dto.CleanupResult;
 
 public interface OrphanUploadCleanupService {
 
-    CleanupResult cleanupOrphans(boolean dryRun);
+    CleanupResult cleanupOrphans();
 }

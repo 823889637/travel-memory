@@ -84,6 +84,7 @@ ECS 公网部署必须使用安全覆盖配置，详见 [安全部署说明](doc
 - 生产 MySQL 保持 `mysql:8.4`；不得让 MySQL 8.0 使用现有 `mysql_data` volume。
 - MySQL 使用 Docker volume `mysql_data`；上传图片使用 `${UPLOADS_DIR:-./uploads}` 挂载到 backend `/app/uploads`。
 - 上线前运行 `./scripts/backup-production.sh`，在 ECS 与受控本地副本分别校验 `SHA256SUMS`。
+- 孤儿图片清理默认关闭且默认 dry-run。生产验证时先设置 `APP_UPLOAD_CLEANUP_ENABLED=true`、`APP_UPLOAD_CLEANUP_DRY_RUN=true`、`APP_UPLOAD_CLEANUP_RETENTION_HOURS=24`，确认扫描结果后再单独评估真实删除。
 - `.env`、`.htpasswd`、`uploads/`、`backups/`、证书和私钥均不得提交 Git。
 - 不要删除 `mysql_data` volume，也不要在需要保留数据的环境执行 `docker compose down -v`。
 

@@ -1,12 +1,19 @@
 package com.travelmemory.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.travelmemory.config.UploadCleanupProperties;
 import com.travelmemory.dto.CleanupResult;
 import com.travelmemory.entity.TravelMemory;
+import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.mapper.TravelMemoryMapper;
+import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.OrphanUploadCleanupService;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
@@ -14,154 +21,246 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 @Service
 public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupService {
 
     private static final Logger log = LoggerFactory.getLogger(OrphanUploadCleanupServiceImpl.class);
-    private static final Set<String> IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp", "heic", "heif");
 
     private final TravelMemoryMapper travelMemoryMapper;
+    private final TravelTripMapper travelTripMapper;
+    private final UploadCleanupProperties cleanupProperties;
 
     @Value("${app.upload.dir:../uploads}")
     private String uploadDir;
 
-    @Value("${app.upload.cleanup.enabled:false}")
-    private boolean cleanupEnabled;
-
-    @Value("${app.upload.cleanup.orphan-retention-hours:24}")
-    private long orphanRetentionHours;
-
-    public OrphanUploadCleanupServiceImpl(TravelMemoryMapper travelMemoryMapper) {
+    public OrphanUploadCleanupServiceImpl(
+            TravelMemoryMapper travelMemoryMapper,
+            TravelTripMapper travelTripMapper,
+            UploadCleanupProperties cleanupProperties
+    ) {
         this.travelMemoryMapper = travelMemoryMapper;
+        this.travelTripMapper = travelTripMapper;
+        this.cleanupProperties = cleanupProperties;
     }
 
     @Override
-    public CleanupResult cleanupOrphans(boolean dryRun) {
+    public CleanupResult cleanupOrphans() {
+        Instant startedAt = Instant.now();
         CleanupResult result = new CleanupResult();
-        result.setDryRun(dryRun);
+        result.setDryRun(cleanupProperties.isDryRun());
 
-        if (!cleanupEnabled) {
-            result.setMessage("Upload orphan cleanup is disabled");
-            return result;
+        if (!cleanupProperties.isEnabled()) {
+            return finish(result, startedAt, "Upload cleanup is disabled");
+        }
+
+        if (cleanupProperties.getRetentionHours() <= 0) {
+            return finish(result, startedAt, "Invalid retention hours; cleanup skipped");
         }
 
         Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
-        if (!Files.isDirectory(uploadRoot)) {
-            result.setMessage("Upload directory does not exist");
-            return result;
+        if (!Files.isDirectory(uploadRoot, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(uploadRoot)) {
+            return finish(result, startedAt, "Upload directory is unavailable; cleanup skipped");
         }
 
-        Set<Path> referencedPaths = findReferencedPaths(uploadRoot);
-        Instant deleteBefore = Instant.now().minus(Duration.ofHours(Math.max(orphanRetentionHours, 0)));
+        Set<Path> referencedPaths;
+        try {
+            referencedPaths = findReferencedPaths(uploadRoot);
+        } catch (RuntimeException exception) {
+            result.setFailedCount(1);
+            log.warn("Upload cleanup skipped because database reference collection failed", exception);
+            return finish(result, startedAt, "Database reference collection failed; cleanup skipped");
+        }
 
+        Instant deleteBefore = startedAt.minus(Duration.ofHours(cleanupProperties.getRetentionHours()));
         try (Stream<Path> paths = Files.walk(uploadRoot)) {
-            paths.filter(Files::isRegularFile)
-                    .forEach(file -> processFile(file, uploadRoot, referencedPaths, deleteBefore, dryRun, result));
-        } catch (IOException e) {
-            log.warn("Failed to scan upload directory: {}", uploadRoot, e);
+            paths.forEach(path -> processPath(path, uploadRoot, referencedPaths, deleteBefore, result));
+        } catch (IOException | RuntimeException exception) {
             result.setFailedCount(result.getFailedCount() + 1);
+            log.warn("Upload cleanup scan failed", exception);
         }
 
-        result.setMessage(dryRun ? "Dry run completed" : "Upload orphan cleanup completed");
-        return result;
+        String message = cleanupProperties.isDryRun()
+                ? "Dry-run completed"
+                : "Upload cleanup completed";
+        return finish(result, startedAt, message);
     }
 
     private Set<Path> findReferencedPaths(Path uploadRoot) {
-        List<TravelMemory> memories = travelMemoryMapper.selectList(new LambdaQueryWrapper<TravelMemory>()
-                .isNotNull(TravelMemory::getPhotoPath));
         Set<Path> referencedPaths = new HashSet<>();
-        for (TravelMemory memory : memories) {
-            Path referencedPath = normalizeReferencedPath(uploadRoot, memory.getPhotoPath());
-            if (referencedPath != null && isInsideUploadRoot(referencedPath, uploadRoot)) {
-                referencedPaths.add(referencedPath);
-            }
-        }
+        addReferencedUrls(referencedPaths, uploadRoot, travelMemoryMapper.selectObjs(
+                new QueryWrapper<TravelMemory>()
+                        .select("photo_url")
+                        .isNotNull("photo_url")));
+        addReferencedUrls(referencedPaths, uploadRoot, travelTripMapper.selectObjs(
+                new QueryWrapper<TravelTrip>()
+                        .select("cover_photo_url")
+                        .isNotNull("cover_photo_url")));
         return referencedPaths;
     }
 
-    private Path normalizeReferencedPath(Path uploadRoot, String photoPath) {
-        if (!StringUtils.hasText(photoPath)) {
+    private void addReferencedUrls(Set<Path> referencedPaths, Path uploadRoot, List<Object> urls) {
+        for (Object value : urls) {
+            Path relativePath = normalizeReferencedUrl(value == null ? null : value.toString(), uploadRoot);
+            if (relativePath != null) {
+                referencedPaths.add(relativePath);
+            }
+        }
+    }
+
+    private Path normalizeReferencedUrl(String value, Path uploadRoot) {
+        if (value == null || value.trim().isEmpty()) {
             return null;
         }
 
-        String normalized = photoPath.trim().replace('\\', '/');
-        if (normalized.startsWith("/uploads/")) {
-            return uploadRoot.resolve(normalized.substring("/uploads/".length())).toAbsolutePath().normalize();
+        String normalized = decode(value.trim()).replace('\\', '/');
+        String pathPart = extractUploadsPath(normalized);
+        if (pathPart == null) {
+            return null;
         }
-        return Paths.get(photoPath.trim()).toAbsolutePath().normalize();
+
+        while (pathPart.startsWith("/")) {
+            pathPart = pathPart.substring(1);
+        }
+        if (pathPart.startsWith("uploads/")) {
+            pathPart = pathPart.substring("uploads/".length());
+        }
+        if (pathPart.isBlank() || pathPart.contains(":") || pathPart.startsWith("..")) {
+            return null;
+        }
+
+        Path candidate;
+        try {
+            candidate = Paths.get(pathPart).normalize();
+        } catch (RuntimeException exception) {
+            return null;
+        }
+        if (candidate.isAbsolute() || candidate.startsWith("..")) {
+            return null;
+        }
+
+        Path resolved = uploadRoot.resolve(candidate).normalize();
+        if (!resolved.startsWith(uploadRoot) || resolved.equals(uploadRoot)) {
+            return null;
+        }
+        return uploadRoot.relativize(resolved);
     }
 
-    private void processFile(
-            Path file,
+    private String extractUploadsPath(String value) {
+        try {
+            URI uri = URI.create(value);
+            if (uri.isAbsolute()) {
+                String path = uri.getPath();
+                int uploadsIndex = path == null ? -1 : path.indexOf("/uploads/");
+                return uploadsIndex < 0 ? null : path.substring(uploadsIndex + 1);
+            }
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+
+        int queryIndex = value.indexOf('?');
+        String withoutQuery = queryIndex >= 0 ? value.substring(0, queryIndex) : value;
+        int fragmentIndex = withoutQuery.indexOf('#');
+        return fragmentIndex >= 0 ? withoutQuery.substring(0, fragmentIndex) : withoutQuery;
+    }
+
+    private String decode(String value) {
+        try {
+            return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException exception) {
+            return value;
+        }
+    }
+
+    private void processPath(
+            Path path,
             Path uploadRoot,
             Set<Path> referencedPaths,
             Instant deleteBefore,
-            boolean dryRun,
             CleanupResult result
     ) {
-        Path normalizedFile = file.toAbsolutePath().normalize();
-        if (!isInsideUploadRoot(normalizedFile, uploadRoot) || !isImageFile(normalizedFile)) {
+        if (path.equals(uploadRoot) || Files.isSymbolicLink(path)
+                || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
             result.setSkippedCount(result.getSkippedCount() + 1);
             return;
         }
 
+        Path candidate = path.toAbsolutePath().normalize();
+        if (!candidate.startsWith(uploadRoot) || candidate.equals(uploadRoot)) {
+            result.setSkippedCount(result.getSkippedCount() + 1);
+            return;
+        }
+
+        Path relativePath = uploadRoot.relativize(candidate);
         result.setScannedCount(result.getScannedCount() + 1);
-        if (referencedPaths.contains(normalizedFile)) {
+        if (referencedPaths.contains(relativePath)) {
             result.setReferencedCount(result.getReferencedCount() + 1);
-            result.setSkippedCount(result.getSkippedCount() + 1);
             return;
         }
 
-        result.setOrphanCount(result.getOrphanCount() + 1);
-        if (!isOlderThanRetention(normalizedFile, deleteBefore)) {
-            result.setSkippedCount(result.getSkippedCount() + 1);
-            return;
-        }
-
-        if (dryRun) {
-            result.setSkippedCount(result.getSkippedCount() + 1);
-            return;
-        }
-
+        FileTime lastModifiedTime;
         try {
-            Files.delete(normalizedFile);
-            result.setDeletedCount(result.getDeletedCount() + 1);
-        } catch (IOException e) {
-            log.warn("Failed to delete orphan upload file: {}", normalizedFile, e);
+            lastModifiedTime = Files.getLastModifiedTime(candidate, LinkOption.NOFOLLOW_LINKS);
+        } catch (IOException exception) {
             result.setFailedCount(result.getFailedCount() + 1);
+            log.debug("Unable to read upload file time: {}", relativePath, exception);
+            return;
         }
-    }
 
-    private boolean isOlderThanRetention(Path file, Instant deleteBefore) {
+        if (!lastModifiedTime.toInstant().isBefore(deleteBefore)) {
+            result.setRecentCount(result.getRecentCount() + 1);
+            return;
+        }
+
+        long size;
         try {
-            FileTime lastModifiedTime = Files.getLastModifiedTime(file);
-            return lastModifiedTime.toInstant().isBefore(deleteBefore);
-        } catch (IOException e) {
-            log.warn("Failed to read upload file last modified time: {}", file, e);
-            return false;
+            size = Files.size(candidate);
+        } catch (IOException exception) {
+            result.setFailedCount(result.getFailedCount() + 1);
+            log.debug("Unable to read upload file size: {}", relativePath, exception);
+            return;
+        }
+
+        result.setCandidateCount(result.getCandidateCount() + 1);
+        result.setCandidateBytes(result.getCandidateBytes() + size);
+        if (cleanupProperties.isDryRun()) {
+            log.debug("DRY-RUN orphan upload candidate: {}", relativePath);
+            return;
+        }
+
+        try {
+            if (Files.isSymbolicLink(candidate) || !candidate.startsWith(uploadRoot)) {
+                result.setSkippedCount(result.getSkippedCount() + 1);
+                return;
+            }
+            if (Files.deleteIfExists(candidate)) {
+                result.setDeletedCount(result.getDeletedCount() + 1);
+                result.setDeletedBytes(result.getDeletedBytes() + size);
+            }
+        } catch (IOException exception) {
+            result.setFailedCount(result.getFailedCount() + 1);
+            log.warn("Failed to delete orphan upload file: {}", relativePath, exception);
         }
     }
 
-    private boolean isInsideUploadRoot(Path path, Path uploadRoot) {
-        return path.toAbsolutePath().normalize().startsWith(uploadRoot);
-    }
-
-    private boolean isImageFile(Path file) {
-        String filename = file.getFileName().toString();
-        int dotIndex = filename.lastIndexOf('.');
-        if (dotIndex < 0 || dotIndex == filename.length() - 1) {
-            return false;
+    private CleanupResult finish(CleanupResult result, Instant startedAt, String message) {
+        result.setDurationMillis(Duration.between(startedAt, Instant.now()).toMillis());
+        result.setMessage(message);
+        if (result.getFailedCount() > 0) {
+            log.warn("Upload cleanup finished: dryRun={}, scanned={}, referenced={}, candidates={}, deleted={}, failed={}, candidateBytes={}, durationMillis={}",
+                    result.isDryRun(), result.getScannedCount(), result.getReferencedCount(), result.getCandidateCount(),
+                    result.getDeletedCount(), result.getFailedCount(), result.getCandidateBytes(), result.getDurationMillis());
+        } else {
+            log.info("Upload cleanup finished: dryRun={}, scanned={}, referenced={}, candidates={}, deleted={}, failed={}, candidateBytes={}, durationMillis={}",
+                    result.isDryRun(), result.getScannedCount(), result.getReferencedCount(), result.getCandidateCount(),
+                    result.getDeletedCount(), result.getFailedCount(), result.getCandidateBytes(), result.getDurationMillis());
         }
-        String extension = filename.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
-        return IMAGE_EXTENSIONS.contains(extension);
+        return result;
     }
 }

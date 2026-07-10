@@ -29,8 +29,10 @@ app:
   upload:
     dir: ${APP_UPLOAD_DIR:../uploads}
     cleanup:
-      enabled: false
-      orphan-retention-hours: 24
+      enabled: ${APP_UPLOAD_CLEANUP_ENABLED:false}
+      dry-run: ${APP_UPLOAD_CLEANUP_DRY_RUN:true}
+      retention-hours: ${APP_UPLOAD_CLEANUP_RETENTION_HOURS:24}
+      cron: ${APP_UPLOAD_CLEANUP_CRON:0 30 3 * * ?}
 
 amap:
   web-service:
