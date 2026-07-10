@@ -19,6 +19,8 @@ travel-memory-server/target/
 .mysql/
 .tools/
 uploads/
+backups/
+deploy/secrets/
 
 # Environment files
 .env
