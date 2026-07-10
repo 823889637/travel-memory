@@ -11,6 +11,7 @@ public class TravelTripListVO {
     private LocalDate startDate;
     private LocalDate endDate;
     private String coverPhotoUrl;
+    private String effectiveCoverPhotoUrl;
     private Long memoryCount;
 
     public Long getId() {
@@ -67,6 +68,14 @@ public class TravelTripListVO {
 
     public void setCoverPhotoUrl(String coverPhotoUrl) {
         this.coverPhotoUrl = coverPhotoUrl;
+    }
+
+    public String getEffectiveCoverPhotoUrl() {
+        return effectiveCoverPhotoUrl;
+    }
+
+    public void setEffectiveCoverPhotoUrl(String effectiveCoverPhotoUrl) {
+        this.effectiveCoverPhotoUrl = effectiveCoverPhotoUrl;
     }
 
     public Long getMemoryCount() {

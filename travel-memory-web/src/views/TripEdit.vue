@@ -171,7 +171,6 @@ async function submit() {
   try {
     await updateTrip(route.params.id, {
       ...normalized,
-      coverPhotoUrl: originalTrip.value.coverPhotoUrl ?? null,
     })
     originalForm.value = normalized
     skipLeavePrompt.value = true

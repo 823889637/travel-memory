@@ -1,7 +1,7 @@
 package com.travelmemory.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.entity.TravelTrip;
@@ -10,7 +10,9 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.vo.TravelTripListVO;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +32,27 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         List<TravelTrip> trips = travelTripMapper.selectList(new LambdaQueryWrapper<TravelTrip>()
                 .orderByDesc(TravelTrip::getStartDate)
                 .orderByDesc(TravelTrip::getCreateTime));
-        return trips.stream().map(this::toListVO).toList();
+        if (trips.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> tripIds = trips.stream().map(TravelTrip::getId).toList();
+        List<TravelMemory> memories = travelMemoryMapper.selectList(new LambdaQueryWrapper<TravelMemory>()
+                .in(TravelMemory::getTripId, tripIds)
+                .orderByAsc(TravelMemory::getRecordTime)
+                .orderByAsc(TravelMemory::getCreateTime));
+        Map<Long, String> firstPhotoByTrip = new HashMap<>();
+        Map<Long, Long> memoryCountByTrip = new HashMap<>();
+        memories.forEach(memory -> {
+            memoryCountByTrip.merge(memory.getTripId(), 1L, Long::sum);
+            String photoUrl = normalizePhotoUrl(memory.getPhotoUrl());
+            if (photoUrl != null) {
+                firstPhotoByTrip.putIfAbsent(memory.getTripId(), photoUrl);
+            }
+        });
+        return trips.stream()
+                .map(trip -> toListVO(trip, firstPhotoByTrip.get(trip.getId()), memoryCountByTrip.get(trip.getId())))
+                .toList();
     }
 
     @Override
@@ -46,6 +68,10 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Transactional
     public TravelTrip create(TravelTrip travelTrip) {
         validateDateRange(travelTrip);
+        travelTrip.setCoverPhotoUrl(null);
+        travelTrip.setCreateTime(null);
+        travelTrip.setUpdateTime(null);
+        travelTrip.setDeleted(null);
         travelTripMapper.insert(travelTrip);
         return getById(travelTrip.getId());
     }
@@ -53,9 +79,13 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Override
     @Transactional
     public TravelTrip update(Long id, TravelTrip travelTrip) {
-        getById(id);
+        TravelTrip existing = getById(id);
         validateDateRange(travelTrip);
         travelTrip.setId(id);
+        travelTrip.setCoverPhotoUrl(existing.getCoverPhotoUrl());
+        travelTrip.setCreateTime(existing.getCreateTime());
+        travelTrip.setUpdateTime(null);
+        travelTrip.setDeleted(existing.getDeleted());
         travelTripMapper.updateById(travelTrip);
         return getById(id);
     }
@@ -89,10 +119,11 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Transactional
     public TravelTrip clearCover(Long tripId) {
         requirePositiveId(tripId, "tripId");
-        getById(tripId);
-        travelTripMapper.update(null, new LambdaUpdateWrapper<TravelTrip>()
-                .eq(TravelTrip::getId, tripId)
-                .set(TravelTrip::getCoverPhotoUrl, null));
+        TravelTrip travelTrip = getById(tripId);
+        travelTrip.setCoverPhotoUrl(null);
+        travelTripMapper.update(null, new UpdateWrapper<TravelTrip>()
+                .eq("id", tripId)
+                .set("cover_photo_url", null));
         return getById(tripId);
     }
 
@@ -106,9 +137,10 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
 
         TravelTrip travelTrip = getById(tripId);
         if (samePhotoUrl(travelTrip.getCoverPhotoUrl(), normalizedPhotoUrl)) {
-            travelTripMapper.update(null, new LambdaUpdateWrapper<TravelTrip>()
-                    .eq(TravelTrip::getId, tripId)
-                    .set(TravelTrip::getCoverPhotoUrl, null));
+            travelTrip.setCoverPhotoUrl(null);
+            travelTripMapper.update(null, new UpdateWrapper<TravelTrip>()
+                    .eq("id", tripId)
+                    .set("cover_photo_url", null));
         }
     }
 
@@ -123,9 +155,10 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
 
         TravelTrip travelTrip = getById(tripId);
         if (samePhotoUrl(travelTrip.getCoverPhotoUrl(), normalizedPreviousUrl)) {
-            travelTripMapper.update(null, new LambdaUpdateWrapper<TravelTrip>()
-                    .eq(TravelTrip::getId, tripId)
-                    .set(TravelTrip::getCoverPhotoUrl, normalizedNextUrl));
+            travelTrip.setCoverPhotoUrl(normalizedNextUrl);
+            travelTripMapper.update(null, new UpdateWrapper<TravelTrip>()
+                    .eq("id", tripId)
+                    .set("cover_photo_url", normalizedNextUrl));
         }
     }
 
@@ -165,7 +198,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         return normalizedFirst != null && normalizedFirst.equals(normalizedSecond);
     }
 
-    private TravelTripListVO toListVO(TravelTrip trip) {
+    private TravelTripListVO toListVO(TravelTrip trip, String defaultCoverPhotoUrl, Long memoryCount) {
         TravelTripListVO vo = new TravelTripListVO();
         vo.setId(trip.getId());
         vo.setTitle(trip.getTitle());
@@ -173,28 +206,10 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         vo.setDestination(trip.getDestination());
         vo.setStartDate(trip.getStartDate());
         vo.setEndDate(trip.getEndDate());
-        vo.setCoverPhotoUrl(resolveCoverPhotoUrl(trip));
-        vo.setMemoryCount(countMemories(trip.getId()));
+        String explicitCoverPhotoUrl = normalizePhotoUrl(trip.getCoverPhotoUrl());
+        vo.setCoverPhotoUrl(explicitCoverPhotoUrl);
+        vo.setEffectiveCoverPhotoUrl(explicitCoverPhotoUrl != null ? explicitCoverPhotoUrl : defaultCoverPhotoUrl);
+        vo.setMemoryCount(memoryCount == null ? 0L : memoryCount);
         return vo;
-    }
-
-    private String resolveCoverPhotoUrl(TravelTrip trip) {
-        if (trip.getCoverPhotoUrl() != null && !trip.getCoverPhotoUrl().isBlank()) {
-            return trip.getCoverPhotoUrl();
-        }
-
-        TravelMemory firstPhotoMemory = travelMemoryMapper.selectOne(new LambdaQueryWrapper<TravelMemory>()
-                .eq(TravelMemory::getTripId, trip.getId())
-                .isNotNull(TravelMemory::getPhotoUrl)
-                .ne(TravelMemory::getPhotoUrl, "")
-                .orderByAsc(TravelMemory::getRecordTime)
-                .orderByAsc(TravelMemory::getCreateTime)
-                .last("LIMIT 1"));
-        return firstPhotoMemory == null ? null : firstPhotoMemory.getPhotoUrl();
-    }
-
-    private Long countMemories(Long tripId) {
-        return travelMemoryMapper.selectCount(new LambdaQueryWrapper<TravelMemory>()
-                .eq(TravelMemory::getTripId, tripId));
     }
 }

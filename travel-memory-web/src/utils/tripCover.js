@@ -13,5 +13,10 @@ export function resolveTripCoverUrl(trip, memories = []) {
     return explicitCoverUrl
   }
 
+  const effectiveCoverUrl = normalizePhotoUrl(trip?.effectiveCoverPhotoUrl)
+  if (effectiveCoverUrl) {
+    return effectiveCoverUrl
+  }
+
   return normalizePhotoUrl(memories.find((memory) => normalizePhotoUrl(memory?.photoUrl))?.photoUrl)
 }

@@ -15,10 +15,10 @@ Travel Memory 更重要的是帮助用户多年以后重新体验一次真实发
 - Memory 新增、编辑、删除
 - Timeline
 - Journey
-- Map 坐标空间视图
+- Map 高德真实地图
 - 收藏和搜索
 
-旅行修改的后端接口已完成，但前端旅行编辑页面尚未完成。
+旅行编辑前端页面已完成。
 
 ### V1.1 已完成
 
@@ -30,7 +30,7 @@ Travel Memory 更重要的是帮助用户多年以后重新体验一次真实发
 - Basic Auth 临时访问保护、安全 Nginx 覆盖与 `/healthz`
 - MySQL 与 uploads 备份脚本
 
-`Map` 当前是基于经纬度的坐标空间视图，不是集成真实地图 SDK 的地图或导航功能。
+`Map` 已接入高德真实地图：有坐标的 Memory 可显示为点位，点击点位可查看对应记忆；不包含导航、路线规划或轨迹回放。
 
 ## 技术栈
 
@@ -59,6 +59,16 @@ UPLOADS_DIR
 AMAP_WEB_SERVICE_KEY
 AMAP_REVERSE_GEOCODE_ENABLED
 ```
+
+前端真实地图需要在 `travel-memory-web/.env.local` 配置单独申请的高德 Web 端（JS API）Key：
+
+```text
+VITE_AMAP_JS_API_KEY=
+VITE_AMAP_SECURITY_JS_CODE=
+VITE_AMAP_SERVICE_HOST=
+```
+
+`VITE_AMAP_JS_API_KEY` 不能复用后端逆地理编码使用的 `AMAP_WEB_SERVICE_KEY`。Vite 的 `VITE_` 变量会在构建时注入浏览器产物；生产环境应优先配置安全代理地址 `VITE_AMAP_SERVICE_HOST`，`VITE_AMAP_SECURITY_JS_CODE` 仅适合本地开发或临时测试。当前 Docker 构建未注入这些前端变量，部署真实地图前需在构建环境提供它们，且不得把真实 Key 或安全密钥提交到仓库。
 
 ```bash
 cd travel-memory-server
@@ -102,4 +112,4 @@ travel-memory-web/          Vue 前端
 
 ## 后续方向
 
-优先处理域名、HTTPS、HTTP 跳转 HTTPS、旅行编辑前端页面、旅行封面、孤儿图片清理和真实地图 SDK。正式登录、多用户数据隔离和对象存储备份留待独立任务。
+优先处理域名、HTTPS、HTTP 跳转 HTTPS、旅行封面和孤儿图片清理。正式登录、多用户数据隔离和对象存储备份留待独立任务。

@@ -1,6 +1,7 @@
 package com.travelmemory.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -17,6 +18,7 @@ import com.travelmemory.service.FileStorageService;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.util.ImageMetadataExtractor;
 import com.travelmemory.util.ImageMetadataInfo;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -49,6 +51,80 @@ class TravelCoverServiceTest {
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper);
 
         assertThrows(BusinessException.class, () -> service.setCover(1L, 10L));
+    }
+
+    @Test
+    void rejectsMemoryWithoutPhotoAsCover() {
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        TravelMemoryMapper memoryMapper = mock(TravelMemoryMapper.class);
+        when(tripMapper.selectById(1L)).thenReturn(trip(1L, null));
+        when(memoryMapper.selectById(10L)).thenReturn(memory(10L, 1L, "  "));
+
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper);
+
+        assertThrows(BusinessException.class, () -> service.setCover(1L, 10L));
+    }
+
+    @Test
+    void clearsExplicitCoverWithoutChangingMemoryPhotos() {
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        TravelTrip trip = trip(1L, "/uploads/cover.jpg");
+        when(tripMapper.selectById(1L)).thenReturn(trip);
+
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+
+        TravelTrip updated = service.clearCover(1L);
+
+        assertNull(updated.getCoverPhotoUrl());
+        verify(tripMapper).update(any(), any());
+    }
+
+    @Test
+    void replacingCurrentCoverPhotoKeepsTheSameMemoryAsCover() {
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        TravelTrip trip = trip(1L, "/uploads/old.jpg");
+        when(tripMapper.selectById(1L)).thenReturn(trip);
+
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+
+        service.replaceCoverIfMatches(1L, " /uploads/old.jpg ", "/uploads/new.jpg");
+
+        assertEquals("/uploads/new.jpg", trip.getCoverPhotoUrl());
+        verify(tripMapper).update(any(), any());
+    }
+
+    @Test
+    void regularTripUpdateCannotReplaceExplicitCover() {
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        TravelTrip existing = trip(1L, "/uploads/cover.jpg");
+        TravelTrip request = trip(99L, "https://example.test/not-allowed.jpg");
+        when(tripMapper.selectById(1L)).thenReturn(existing);
+
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+
+        service.update(1L, request);
+
+        assertEquals("/uploads/cover.jpg", request.getCoverPhotoUrl());
+        assertEquals(1L, request.getId());
+        verify(tripMapper).updateById(request);
+    }
+
+    @Test
+    void listKeepsExplicitCoverSeparateFromEffectiveDefaultCover() {
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        TravelMemoryMapper memoryMapper = mock(TravelMemoryMapper.class);
+        TravelTrip trip = trip(1L, null);
+        TravelMemory memory = memory(10L, 1L, "/uploads/first.jpg");
+        when(tripMapper.selectList(any())).thenReturn(List.of(trip));
+        when(memoryMapper.selectList(any())).thenReturn(List.of(memory));
+
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper);
+
+        var result = service.listForHome();
+
+        assertNull(result.get(0).getCoverPhotoUrl());
+        assertEquals("/uploads/first.jpg", result.get(0).getEffectiveCoverPhotoUrl());
+        assertEquals(1L, result.get(0).getMemoryCount());
     }
 
     @Test

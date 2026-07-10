@@ -1,8 +1,10 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import MemoryMap from '../components/MemoryMap.vue'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
+import { isValidWgs84Coordinate } from '../utils/coordinates'
 
 const props = defineProps({
   id: {
@@ -16,6 +18,8 @@ const memories = ref([])
 const loading = ref(false)
 const error = ref('')
 const selectedMemoryId = ref(null)
+const failedPhotoId = ref(null)
+const memoryMap = ref(null)
 
 const points = computed(() => memories.value.filter((item) => hasValidCoordinates(item)))
 const memoriesWithoutLocation = computed(() => memories.value.length - points.value.length)
@@ -26,45 +30,12 @@ const selectedMemory = computed(() => {
   return points.value.find((item) => item.id === selectedMemoryId.value) || points.value[0]
 })
 
-const bounds = computed(() => {
-  if (points.value.length === 0) {
-    return null
-  }
-  const lats = points.value.map((item) => Number(item.latitude))
-  const lngs = points.value.map((item) => Number(item.longitude))
-  return {
-    minLat: Math.min(...lats),
-    maxLat: Math.max(...lats),
-    minLng: Math.min(...lngs),
-    maxLng: Math.max(...lngs),
-  }
-})
-
 function hasValidCoordinates(memory) {
-  const lat = Number(memory.latitude)
-  const lng = Number(memory.longitude)
-  return Number.isFinite(lat) && Number.isFinite(lng)
+  return isValidWgs84Coordinate(memory.latitude, memory.longitude)
 }
 
-function pointStyle(memory) {
-  const box = bounds.value
-  if (!box) {
-    return {}
-  }
-  const lat = Number(memory.latitude)
-  const lng = Number(memory.longitude)
-  const latRange = box.maxLat - box.minLat || 1
-  const lngRange = box.maxLng - box.minLng || 1
-  const left = 8 + ((lng - box.minLng) / lngRange) * 84
-  const top = 92 - ((lat - box.minLat) / latRange) * 84
-  return {
-    left: `${left}%`,
-    top: `${top}%`,
-  }
-}
-
-function selectMemory(memory) {
-  selectedMemoryId.value = memory.id
+function focusSelectedMemory() {
+  memoryMap.value?.focusSelected()
 }
 
 function photoSrc(url) {
@@ -91,8 +62,9 @@ async function loadPage() {
       getTimeline(props.id),
     ])
     trip.value = tripData
-    memories.value = memoryData
-    selectedMemoryId.value = memoryData.find((item) => hasValidCoordinates(item))?.id || null
+    memories.value = Array.isArray(memoryData) ? memoryData : []
+    selectedMemoryId.value = memories.value.find((item) => hasValidCoordinates(item))?.id || null
+    failedPhotoId.value = null
   } catch (err) {
     error.value = err.message || '地图暂时没有加载成功，请稍后再试。'
   } finally {
@@ -100,7 +72,7 @@ async function loadPage() {
   }
 }
 
-onMounted(loadPage)
+watch(() => props.id, loadPage, { immediate: true })
 </script>
 
 <template>
@@ -146,24 +118,20 @@ onMounted(loadPage)
         </span>
       </div>
 
-      <div class="map-stage">
-        <button
-          v-for="memory in points"
-          :key="memory.id"
-          type="button"
-          :class="memory.id === selectedMemory?.id ? 'map-point active' : 'map-point'"
-          :style="pointStyle(memory)"
-          :aria-label="memory.locationName || '未填写地点'"
-          @click="selectMemory(memory)"
-        ></button>
-      </div>
+      <MemoryMap
+        ref="memoryMap"
+        :points="points"
+        :selected-id="selectedMemory?.id"
+        @select="selectedMemoryId = $event"
+      />
 
       <article v-if="selectedMemory" class="map-memory-card">
         <img
-          v-if="selectedMemory.photoUrl"
+          v-if="selectedMemory.photoUrl && failedPhotoId !== selectedMemory.id"
           class="map-memory-photo"
           :src="photoSrc(selectedMemory.photoUrl)"
           alt="地图记忆照片"
+          @error="failedPhotoId = selectedMemory.id"
         />
         <div v-else class="map-memory-photo empty">没有照片</div>
 
@@ -173,6 +141,9 @@ onMounted(loadPage)
             <span>{{ selectedMemory.locationName || '未填写地点' }}</span>
             <span>{{ formatDateTime(selectedMemory.recordTime) }}</span>
           </div>
+          <button type="button" class="map-memory-focus" @click="focusSelectedMemory">
+            在地图上定位
+          </button>
         </div>
       </article>
     </template>
