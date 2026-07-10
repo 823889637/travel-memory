@@ -1,54 +1,27 @@
-Controller
+# Travel Memory 工程规则
 
+## 产品边界
 
+- Travel Memory 不只是帮助用户记录旅行，更重要的是帮助用户多年以后重新体验一次真实发生过的旅行。
+- 不自动改写、补写或生成用户原话；`content` 属于用户的原始记忆。
+- Journey、Timeline 和 Map 展示真实记录，不为叙事效果虚构内容。
 
-xxxController
+## 代码与接口
 
+- 不随意修改既有接口路径、请求字段、返回结构或错误语义。
+- 不做与当前任务无关的大范围重构。
+- 新增数据库变更必须提供独立、可审查的升级 SQL；不通过修改已有初始化 SQL 影响已部署数据。
+- 不新增依赖，除非任务明确需要且已评估影响。
 
+## 数据与部署
 
-Service
+- 禁止删除、重建或替换生产 MySQL volume。
+- 禁止在需要保留数据的环境执行 `docker compose down -v` 或 `docker-compose down -v`。
+- 生产 MySQL 版本变更必须先备份、核验版本和数据卷兼容性；不得原地跨大版本降级。
+- `.env`、`.htpasswd`、备份、证书、私钥、真实密码和第三方 Key 不得提交 Git。
 
+## 验证要求
 
-
-xxxService
-
-
-
-DTO
-
-
-
-xxxDTO
-
-
-
-Result统一返回
-
-
-
-RESTful
-
-
-
-Java17
-
-
-
-Vue3
-
-
-
-Composition API
-
-
-
-MyBatis Plus
-
-
-
-所有接口必须有异常处理
-
-
-
-所有图片统一 uploads
-
+- 前端修改后执行 `npm run build`。
+- 后端修改后执行 `mvn test`，或至少完成可验证的编译。
+- 上传、Timeline、Journey 和 Map 是核心回归链路；涉及其依赖配置时必须回归检查。

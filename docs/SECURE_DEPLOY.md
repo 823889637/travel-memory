@@ -1,102 +1,77 @@
 # Travel Memory 安全部署说明
 
-本方案通过 Nginx Basic Auth 为单用户或小范围试用提供临时公网访问保护。它不等同于正式账号系统或数据隔离，也不等同于 HTTPS。
+本方案通过 Nginx Basic Auth 为单用户、小范围试用提供临时访问保护。它不是正式登录系统，也不提供多用户数据隔离，更不等同于 HTTPS。
 
-## 1. 准备环境变量和认证文件
+## 创建单用户认证
 
-在 ECS 项目根目录创建 `.env`，并设置强且唯一的数据库密码：
-
-```bash
-cp .env.example .env
-chmod 600 .env
-```
-
-创建或更新 Basic Auth 用户。脚本会交互读取用户名和两次隐藏输入的密码，不会把明文密码写入脚本、Compose 文件或终端命令历史：
+在 ECS 项目根目录执行：
 
 ```bash
 chmod +x scripts/create-basic-auth.sh scripts/backup-production.sh
 ./scripts/create-basic-auth.sh
 ```
 
-生成的 `deploy/secrets/.htpasswd` 已被 Git 忽略，绝不能提交。修改 Basic Auth 密码时重新执行该脚本，并确认覆盖现有文件。
+脚本只支持单用户，并会在覆盖 `deploy/secrets/.htpasswd` 前要求确认。用户名和密码仅在 ECS 上交互输入；密码不会写入脚本、Compose、命令历史或 Git。`deploy/secrets/` 已被忽略，`.htpasswd` 不得提交。
 
-## 2. 安全启动
-
-推荐新版 Docker Compose：
+由于脚本用临时文件替换 `.htpasswd`，修改密码后必须强制重新创建 frontend，使 bind mount 使用新文件：
 
 ```bash
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.secure.yml \
-  up -d --build
+  up -d --no-deps --force-recreate frontend
 ```
 
-兼容旧版命令：
+旧版 Docker Compose：
 
 ```bash
 docker-compose \
   -f docker-compose.yml \
   -f docker-compose.secure.yml \
-  up -d --build
+  up -d --no-deps --force-recreate frontend
 ```
 
-停止服务但保留 MySQL volume 和上传文件：
+## 安全启动与验证
+
+新部署使用：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.secure.yml stop
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.secure.yml \
+ up -d --build
 ```
 
-不要执行 `docker compose down -v`，它会删除命名 volume。
+旧版命令将 `docker compose` 替换为 `docker-compose`。不要执行 `down -v`。
 
-## 3. 访问保护与验证
+已有 ECS 环境完成备份和 Compose 配置检查后，只更新 backend 与 frontend，避免触碰 MySQL：
 
-受保护路径为 `/`、`/trips`、`/api/` 和 `/uploads/`；它们使用同一个认证域，浏览器完成一次登录后，前端请求和图片访问会自动携带认证信息。`/healthz` 是唯一无需认证的健康检查地址，只返回 `200 OK` 和简单文本。
+```bash
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.secure.yml \
+  up -d --build --no-deps backend frontend
+```
+
+`/`、`/trips`、`/api/` 和 `/uploads/` 使用同一 Basic Auth 域；浏览器认证一次后，前端 API 请求和图片访问会复用该认证。`/healthz` 不需要认证，只返回简单的 `200 OK`。
 
 ```bash
 curl -i http://localhost/healthz
 curl -i http://localhost/
-```
-
-第二个命令应返回 `401 Unauthorized`。在浏览器打开站点后输入 Basic Auth 凭据，确认页面、API 请求和图片均能加载。也可以使用会交互提示密码的 curl：
-
-```bash
 curl -i -u '<username>' http://localhost/api/trips
 curl -I -u '<username>' http://localhost/uploads/<image-path>
 ```
 
-查看运行状态和日志：
+未认证的受保护路径应返回 `401 Unauthorized`。认证后确认页面、API、Vue Router 页面和已有图片均正常。
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.secure.yml ps
-docker compose -f docker-compose.yml -f docker-compose.secure.yml logs -f frontend
-docker compose -f docker-compose.yml -f docker-compose.secure.yml logs -f backend
-docker compose -f docker-compose.yml -f docker-compose.secure.yml logs -f mysql
-```
+## 备份与恢复边界
 
-## 4. 备份与手工恢复
+运行 `./scripts/backup-production.sh` 会创建 `backups/YYYY-MM-DD_HH-mm-ss/`，包含数据库导出、uploads 归档和 SHA-256 清单。存在 `INCOMPLETE` 的目录不是可恢复备份，不能用于上线前校验。
 
-服务运行时执行：
+备份必须在 ECS 校验后下载到受控、非公开的本地管理员设备，并在本地再次核对 SHA-256。脚本不会删除历史备份、上传第三方服务或自动恢复。
 
-```bash
-./scripts/backup-production.sh
-```
+数据库和图片恢复必须由管理员手工确认执行；恢复不是部署失败时的首选回滚方式。先保留现场，再决定是否使用已验证备份。
 
-脚本会在 `backups/YYYY-MM-DD_HH-mm-ss/` 创建 `mysql.sql` 与 `uploads.tar.gz`，不会删除历史备份或上传到第三方服务。MySQL 密码只在 MySQL 容器内部环境变量中读取。
+## HTTPS 后续工作
 
-恢复必须由管理员确认后手工执行。先停止会写入数据的服务并确认目标环境，再导入数据库：
-
-```bash
-docker compose exec -T mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < backups/<timestamp>/mysql.sql
-```
-
-恢复图片前使用 `docker inspect` 确认 backend 容器 `/app/uploads` 对应的宿主机目录，并确认目标目录中没有需要保留的新文件，然后解压：
-
-```bash
-tar -xzf backups/<timestamp>/uploads.tar.gz -C <uploads-parent-directory>
-```
-
-不要把恢复自动化为未经确认的部署步骤。
-
-## 5. HTTPS 后续工作
-
-HTTPS 需要正式域名解析到 ECS 公网 IP，并在安全组开放 `443`。可使用 Certbot 或其他成熟的证书方案。证书文件和私钥不可提交到 Git；启用 HTTPS 后，应将 HTTP 重定向到 HTTPS。在启用前，不应宣称当前传输已加密。
+Basic Auth 不会加密 HTTP 传输。后续仍需域名、HTTPS、`443` 安全组规则和 HTTP 到 HTTPS 跳转；证书和私钥不能提交 Git。
