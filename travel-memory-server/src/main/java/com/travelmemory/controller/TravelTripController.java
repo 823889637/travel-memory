@@ -1,6 +1,7 @@
 package com.travelmemory.controller;
 
 import com.travelmemory.common.Result;
+import com.travelmemory.dto.TripCoverRequest;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.vo.TravelTripListVO;
@@ -43,6 +44,16 @@ public class TravelTripController {
     @PutMapping("/{id}")
     public Result<TravelTrip> update(@PathVariable Long id, @Valid @RequestBody TravelTrip travelTrip) {
         return Result.success(travelTripService.update(id, travelTrip));
+    }
+
+    @PutMapping("/{id}/cover")
+    public Result<TravelTrip> setCover(@PathVariable Long id, @Valid @RequestBody TripCoverRequest request) {
+        return Result.success(travelTripService.setCover(id, request.getMemoryId()));
+    }
+
+    @DeleteMapping("/{id}/cover")
+    public Result<TravelTrip> clearCover(@PathVariable Long id) {
+        return Result.success(travelTripService.clearCover(id));
     }
 
     @DeleteMapping("/{id}")

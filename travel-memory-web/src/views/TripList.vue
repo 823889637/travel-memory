@@ -2,10 +2,12 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { deleteTrip, getTrips } from '../api/trip'
+import { resolveTripCoverUrl } from '../utils/tripCover'
 
 const trips = ref([])
 const loading = ref(false)
 const error = ref('')
+const failedCoverIds = ref(new Set())
 
 function formatDateRange(trip) {
   const start = trip.startDate || '未知日期'
@@ -18,11 +20,20 @@ async function loadTrips() {
   error.value = ''
   try {
     trips.value = await getTrips()
+    failedCoverIds.value = new Set()
   } catch (err) {
     error.value = err.message || '加载失败'
   } finally {
     loading.value = false
   }
+}
+
+function coverPhotoUrl(trip) {
+  return failedCoverIds.value.has(trip.id) ? '' : resolveTripCoverUrl(trip)
+}
+
+function handleCoverError(tripId) {
+  failedCoverIds.value = new Set([...failedCoverIds.value, tripId])
 }
 
 async function removeTrip(id) {
@@ -67,7 +78,12 @@ onMounted(loadTrips)
     <div v-if="trips.length > 0" class="trip-grid">
       <article v-for="trip in trips" :key="trip.id" class="trip-card">
         <div class="trip-cover">
-          <img v-if="trip.coverPhotoUrl" :src="trip.coverPhotoUrl" alt="旅行封面" />
+          <img
+            v-if="coverPhotoUrl(trip)"
+            :src="coverPhotoUrl(trip)"
+            alt="旅行封面"
+            @error="handleCoverError(trip.id)"
+          />
           <div v-else class="trip-cover-empty">
             <span>{{ trip.destination || '一段旅程' }}</span>
           </div>
@@ -91,6 +107,7 @@ onMounted(loadTrips)
           <div class="trip-soft-actions">
             <RouterLink :to="`/trips/${trip.id}/memories/new`">留下一段记忆</RouterLink>
             <RouterLink :to="`/trips/${trip.id}/map`">地图</RouterLink>
+            <RouterLink :to="`/trips/${trip.id}/edit`">编辑旅行</RouterLink>
             <button class="danger-text" @click="removeTrip(trip.id)">删除</button>
           </div>
         </div>

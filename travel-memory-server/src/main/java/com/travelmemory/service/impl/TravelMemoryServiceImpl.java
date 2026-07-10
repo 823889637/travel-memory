@@ -132,11 +132,16 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     @Transactional
     public UploadResult uploadPhoto(Long id, MultipartFile photo) {
         TravelMemory travelMemory = getById(id);
+        String previousPhotoUrl = travelMemory.getPhotoUrl();
         UploadResult uploadResult = uploadPhoto(photo);
 
         travelMemory.setPhotoUrl(uploadResult.getPhotoUrl());
         travelMemory.setPhotoPath(uploadResult.getPhotoPath());
         travelMemoryMapper.updateById(travelMemory);
+        travelTripService.replaceCoverIfMatches(
+                travelMemory.getTripId(),
+                previousPhotoUrl,
+                uploadResult.getPhotoUrl());
         return uploadResult;
     }
 
@@ -165,7 +170,8 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     @Override
     @Transactional
     public void delete(Long id) {
-        getById(id);
+        TravelMemory travelMemory = getById(id);
         travelMemoryMapper.deleteById(id);
+        travelTripService.clearCoverIfMatches(travelMemory.getTripId(), travelMemory.getPhotoUrl());
     }
 }

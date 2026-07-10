@@ -14,5 +14,13 @@ public interface TravelTripService {
 
     TravelTrip update(Long id, TravelTrip travelTrip);
 
+    TravelTrip setCover(Long tripId, Long memoryId);
+
+    TravelTrip clearCover(Long tripId);
+
+    void clearCoverIfMatches(Long tripId, String photoUrl);
+
+    void replaceCoverIfMatches(Long tripId, String previousPhotoUrl, String nextPhotoUrl);
+
     void delete(Long id);
 }

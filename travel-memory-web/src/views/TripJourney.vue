@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
+import { resolveTripCoverUrl } from '../utils/tripCover'
 
 const props = defineProps({
   id: {
@@ -18,6 +19,7 @@ const loading = ref(false)
 const error = ref('')
 const selectedPhotoByStop = ref({})
 const photoOrientations = ref({})
+const coverImageFailed = ref(false)
 
 const dayGroups = computed(() => {
   const groups = []
@@ -57,10 +59,7 @@ const dayGroups = computed(() => {
 const activeDay = computed(() => dayGroups.value[activeDayIndex.value] || null)
 
 const coverPhotoUrl = computed(() => {
-  if (trip.value?.coverPhotoUrl) {
-    return trip.value.coverPhotoUrl
-  }
-  return memories.value.find((memory) => memory.photoUrl)?.photoUrl || ''
+  return coverImageFailed.value ? '' : resolveTripCoverUrl(trip.value, memories.value)
 })
 
 const tripDateRange = computed(() => {
@@ -222,6 +221,7 @@ async function loadPage() {
     ])
     trip.value = tripData
     memories.value = memoryData
+    coverImageFailed.value = false
     activeDayIndex.value = 0
   } catch (err) {
     error.value = err.message || '加载失败'
@@ -241,6 +241,7 @@ onMounted(loadPage)
         class="journey-hero-photo"
         :src="photoSrc(coverPhotoUrl)"
         alt="旅行封面"
+        @error="coverImageFailed = true"
       />
       <div class="journey-hero-content">
         <p class="journey-kicker">重新走一遍</p>

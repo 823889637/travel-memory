@@ -1,8 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { getTrip } from '../api/trip'
+import { clearTripCover, getTrip, setTripCover } from '../api/trip'
 import { deleteMemory, favoriteMemory, getTimeline, searchMemories } from '../api/memory'
+import { hasExplicitTripCover, normalizePhotoUrl, resolveTripCoverUrl } from '../utils/tripCover'
 
 const props = defineProps({
   id: {
@@ -20,6 +21,10 @@ const searchResults = ref([])
 const searchLoading = ref(false)
 const searchError = ref('')
 const hasSearched = ref(false)
+const coverActionId = ref(null)
+const coverMessage = ref('')
+const coverError = ref('')
+const coverImageFailed = ref(false)
 
 const dayGroups = computed(() => {
   const groups = []
@@ -52,11 +57,10 @@ const dayGroups = computed(() => {
 })
 
 const coverPhotoUrl = computed(() => {
-  if (trip.value?.coverPhotoUrl) {
-    return trip.value.coverPhotoUrl
-  }
-  return memories.value.find((memory) => memory.photoUrl)?.photoUrl || ''
+  return coverImageFailed.value ? '' : resolveTripCoverUrl(trip.value, memories.value)
 })
+
+const hasExplicitCover = computed(() => hasExplicitTripCover(trip.value))
 
 const photoCount = computed(() => memories.value.filter((memory) => memory.photoUrl).length)
 
@@ -128,10 +132,57 @@ async function loadPage() {
     ])
     trip.value = tripData
     memories.value = memoryData
+    coverImageFailed.value = false
   } catch (err) {
     error.value = err.message || '记忆暂时没有加载成功，请稍后再试。'
   } finally {
     loading.value = false
+  }
+}
+
+function isExplicitCover(memory) {
+  return hasExplicitCover.value
+    && normalizePhotoUrl(trip.value?.coverPhotoUrl) === normalizePhotoUrl(memory.photoUrl)
+}
+
+async function setCover(memory) {
+  if (!memory.photoUrl || coverActionId.value) {
+    return
+  }
+
+  coverMessage.value = ''
+  coverError.value = ''
+  coverActionId.value = memory.id
+  try {
+    trip.value = await setTripCover(props.id, memory.id)
+    coverImageFailed.value = false
+    coverMessage.value = '已设为旅行封面。'
+  } catch (err) {
+    coverError.value = err.message || '设置旅行封面失败，请稍后再试。'
+  } finally {
+    coverActionId.value = null
+  }
+}
+
+async function clearCover() {
+  if (!hasExplicitCover.value || coverActionId.value) {
+    return
+  }
+  if (!window.confirm('确定取消自定义封面吗？之后会自动使用第一张旅行照片。')) {
+    return
+  }
+
+  coverMessage.value = ''
+  coverError.value = ''
+  coverActionId.value = 'clear'
+  try {
+    trip.value = await clearTripCover(props.id)
+    coverImageFailed.value = false
+    coverMessage.value = '已取消自定义封面。'
+  } catch (err) {
+    coverError.value = err.message || '取消自定义封面失败，请稍后再试。'
+  } finally {
+    coverActionId.value = null
   }
 }
 
@@ -193,6 +244,7 @@ onMounted(loadPage)
         class="trip-memory-cover"
         :src="photoSrc(coverPhotoUrl)"
         alt="旅行封面"
+        @error="coverImageFailed = true"
       />
       <div class="trip-memory-hero-content">
         <p class="journey-kicker">Timeline</p>
@@ -232,8 +284,19 @@ onMounted(loadPage)
         <RouterLink :to="`/trips/${id}/map`">
           <button class="ghost">地图</button>
         </RouterLink>
+        <RouterLink :to="`/trips/${id}/edit`">
+          <button class="ghost">编辑旅行</button>
+        </RouterLink>
+        <button v-if="hasExplicitCover" class="ghost" :disabled="coverActionId" @click="clearCover">
+          {{ coverActionId === 'clear' ? '取消中…' : '取消自定义封面' }}
+        </button>
       </div>
     </div>
+
+    <p v-if="hasExplicitCover" class="muted">当前使用已设置的旅行封面。</p>
+    <p v-else class="muted">当前自动使用按时间排序的第一张旅行照片。</p>
+    <p v-if="coverMessage" class="muted">{{ coverMessage }}</p>
+    <p v-if="coverError" class="error">{{ coverError }}</p>
 
     <p v-if="loading" class="timeline-status">正在整理这次旅行的记忆...</p>
     <p v-if="error" class="error timeline-status">{{ error }}</p>
@@ -330,6 +393,15 @@ onMounted(loadPage)
                   <button class="ghost">编辑</button>
                 </RouterLink>
                 <button class="ghost danger-text" @click="removeMemory(memory.id)">删除</button>
+                <span v-if="memory.photoUrl && isExplicitCover(memory)" class="favorite-badge">当前封面</span>
+                <button
+                  v-else-if="memory.photoUrl"
+                  class="ghost"
+                  :disabled="Boolean(coverActionId)"
+                  @click="setCover(memory)"
+                >
+                  {{ coverActionId === memory.id ? '设置中…' : '设为旅行封面' }}
+                </button>
               </div>
             </div>
           </article>
