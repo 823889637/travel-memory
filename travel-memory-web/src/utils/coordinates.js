@@ -3,6 +3,11 @@ const A = 6378245.0
 const EE = 0.00669342162296594323
 
 export function isValidWgs84Coordinate(latitude, longitude) {
+  if (latitude == null || longitude == null
+    || String(latitude).trim() === '' || String(longitude).trim() === '') {
+    return false
+  }
+
   const lat = Number(latitude)
   const lng = Number(longitude)
 

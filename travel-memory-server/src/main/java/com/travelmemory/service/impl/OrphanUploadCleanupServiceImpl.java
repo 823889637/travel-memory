@@ -19,6 +19,7 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -87,7 +88,7 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
         }
 
         String message = cleanupProperties.isDryRun()
-                ? "Dry-run completed"
+                ? "DRY-RUN completed"
                 : "Upload cleanup completed";
         return finish(result, startedAt, message);
     }
@@ -156,9 +157,9 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
         try {
             URI uri = URI.create(value);
             if (uri.isAbsolute()) {
-                String path = uri.getPath();
-                int uploadsIndex = path == null ? -1 : path.indexOf("/uploads/");
-                return uploadsIndex < 0 ? null : path.substring(uploadsIndex + 1);
+                // The current application stores relative /uploads URLs. Without a configured trusted host,
+                // treating an arbitrary absolute URL as local would incorrectly protect a local file.
+                return null;
             }
         } catch (IllegalArgumentException ignored) {
             return null;
@@ -198,6 +199,10 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
         }
 
         Path relativePath = uploadRoot.relativize(candidate);
+        if (isTemporaryUpload(relativePath)) {
+            result.setSkippedCount(result.getSkippedCount() + 1);
+            return;
+        }
         result.setScannedCount(result.getScannedCount() + 1);
         if (referencedPaths.contains(relativePath)) {
             result.setReferencedCount(result.getReferencedCount() + 1);
@@ -247,6 +252,15 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
             result.setFailedCount(result.getFailedCount() + 1);
             log.warn("Failed to delete orphan upload file: {}", relativePath, exception);
         }
+    }
+
+    private boolean isTemporaryUpload(Path relativePath) {
+        String filename = relativePath.getFileName().toString().toLowerCase(Locale.ROOT);
+        return filename.endsWith(".tmp")
+                || filename.endsWith(".part")
+                || filename.endsWith(".upload")
+                || filename.endsWith(".uploading")
+                || filename.endsWith(".crdownload");
     }
 
     private CleanupResult finish(CleanupResult result, Instant startedAt, String message) {

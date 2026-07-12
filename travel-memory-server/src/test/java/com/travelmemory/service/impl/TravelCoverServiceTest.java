@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -91,6 +92,34 @@ class TravelCoverServiceTest {
 
         assertEquals("/uploads/new.jpg", trip.getCoverPhotoUrl());
         verify(tripMapper).update(any(), any());
+    }
+
+    @Test
+    void deletingNonCoverMemoryDoesNotClearExplicitCover() {
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        TravelTrip trip = trip(1L, "/uploads/cover.jpg");
+        when(tripMapper.selectById(1L)).thenReturn(trip);
+
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+
+        service.clearCoverIfMatches(1L, "/uploads/other.jpg");
+
+        assertEquals("/uploads/cover.jpg", trip.getCoverPhotoUrl());
+        verify(tripMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void replacingNonCoverMemoryPhotoDoesNotChangeExplicitCover() {
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        TravelTrip trip = trip(1L, "/uploads/cover.jpg");
+        when(tripMapper.selectById(1L)).thenReturn(trip);
+
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+
+        service.replaceCoverIfMatches(1L, "/uploads/other.jpg", "/uploads/new.jpg");
+
+        assertEquals("/uploads/cover.jpg", trip.getCoverPhotoUrl());
+        verify(tripMapper, never()).update(any(), any());
     }
 
     @Test

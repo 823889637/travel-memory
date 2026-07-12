@@ -91,6 +91,32 @@ class OrphanUploadCleanupServiceImplTest {
         assertEquals(0, result.getDeletedCount());
     }
 
+    @Test
+    void doesNotTreatAnExternalAbsoluteUrlAsALocalReference() throws IOException {
+        Path orphan = oldFile("orphan.jpg");
+        OrphanUploadCleanupService service = service(true, false,
+                List.of("https://untrusted.example/uploads/orphan.jpg"), List.of());
+
+        CleanupResult result = service.cleanupOrphans();
+
+        assertFalse(Files.exists(orphan));
+        assertEquals(0, result.getReferencedCount());
+        assertEquals(1, result.getDeletedCount());
+    }
+
+    @Test
+    void preservesOldTemporaryUploadFiles() throws IOException {
+        Path temporaryFile = oldFile("in-progress.part");
+        OrphanUploadCleanupService service = service(true, false, List.of(), List.of());
+
+        CleanupResult result = service.cleanupOrphans();
+
+        assertTrue(Files.exists(temporaryFile));
+        assertEquals(0, result.getCandidateCount());
+        assertEquals(0, result.getDeletedCount());
+        assertTrue(result.getSkippedCount() >= 1);
+    }
+
     private OrphanUploadCleanupService service(
             boolean enabled,
             boolean dryRun,
