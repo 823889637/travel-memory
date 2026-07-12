@@ -13,11 +13,17 @@ public interface TravelMemoryService {
 
     TravelMemory getById(Long id);
 
-    TravelMemory create(TravelMemory travelMemory, MultipartFile photo);
+    TravelMemory create(TravelMemory travelMemory, List<MultipartFile> photos);
 
     UploadResult uploadPhoto(MultipartFile photo);
 
     UploadResult uploadPhoto(Long id, MultipartFile photo);
+
+    TravelMemory addPhoto(Long id, MultipartFile photo);
+
+    TravelMemory deletePhoto(Long id, Long photoId);
+
+    TravelMemory reorderPhotos(Long id, List<Long> photoIds);
 
     TravelMemory update(Long id, TravelMemory travelMemory);
 

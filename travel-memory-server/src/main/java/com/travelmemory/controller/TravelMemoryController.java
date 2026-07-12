@@ -2,12 +2,14 @@ package com.travelmemory.controller;
 
 import com.travelmemory.common.Result;
 import com.travelmemory.dto.UploadResult;
+import com.travelmemory.dto.MemoryPhotoOrderRequest;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.service.TravelMemoryService;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,20 +53,28 @@ public class TravelMemoryController {
             @RequestParam(required = false) BigDecimal longitude,
             @RequestParam(required = false) String locationName,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime recordTime,
-            @RequestParam(required = false) String photoUrl,
-            @RequestParam(required = false) String photoPath,
-            @RequestParam(required = false) MultipartFile photo
+            @RequestParam(name = "photoUrl", required = false) List<String> photoUrls,
+            @RequestParam(name = "photoPath", required = false) List<String> photoPaths,
+            @RequestParam(name = "photo", required = false) List<MultipartFile> photos
     ) {
         TravelMemory travelMemory = new TravelMemory();
         travelMemory.setTripId(tripId);
         travelMemory.setContent(content);
-        travelMemory.setPhotoUrl(photoUrl);
-        travelMemory.setPhotoPath(photoPath);
+        if (photoUrls != null) {
+            List<com.travelmemory.entity.MemoryPhoto> existingPhotos = new ArrayList<>();
+            for (int index = 0; index < photoUrls.size(); index++) {
+                com.travelmemory.entity.MemoryPhoto memoryPhoto = new com.travelmemory.entity.MemoryPhoto();
+                memoryPhoto.setPhotoUrl(photoUrls.get(index));
+                memoryPhoto.setPhotoPath(photoPaths != null && index < photoPaths.size() ? photoPaths.get(index) : null);
+                existingPhotos.add(memoryPhoto);
+            }
+            travelMemory.setPhotos(existingPhotos);
+        }
         travelMemory.setLatitude(latitude);
         travelMemory.setLongitude(longitude);
         travelMemory.setLocationName(locationName);
         travelMemory.setRecordTime(recordTime);
-        return Result.success(travelMemoryService.create(travelMemory, photo));
+        return Result.success(travelMemoryService.create(travelMemory, photos));
     }
 
     @PostMapping("/photo")
@@ -75,6 +85,24 @@ public class TravelMemoryController {
     @PostMapping("/{id}/photo")
     public Result<UploadResult> uploadPhoto(@PathVariable Long id, @RequestParam MultipartFile photo) {
         return Result.success(travelMemoryService.uploadPhoto(id, photo));
+    }
+
+    @PostMapping("/{id}/photos")
+    public Result<TravelMemory> addPhoto(@PathVariable Long id, @RequestParam MultipartFile photo) {
+        return Result.success(travelMemoryService.addPhoto(id, photo));
+    }
+
+    @DeleteMapping("/{id}/photos/{photoId}")
+    public Result<TravelMemory> deletePhoto(@PathVariable Long id, @PathVariable Long photoId) {
+        return Result.success(travelMemoryService.deletePhoto(id, photoId));
+    }
+
+    @PutMapping("/{id}/photos/order")
+    public Result<TravelMemory> reorderPhotos(
+            @PathVariable Long id,
+            @Valid @RequestBody MemoryPhotoOrderRequest request
+    ) {
+        return Result.success(travelMemoryService.reorderPhotos(id, request.getPhotoIds()));
     }
 
     @GetMapping("/{id}")

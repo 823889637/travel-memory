@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableField;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @TableName("travel_memory")
 public class TravelMemory {
@@ -19,6 +21,10 @@ public class TravelMemory {
     private String content;
     private String photoUrl;
     private String photoPath;
+    @TableField(exist = false)
+    private List<MemoryPhoto> photos;
+    @TableField(exist = false)
+    private Integer photoCount;
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String locationName;
@@ -71,6 +77,11 @@ public class TravelMemory {
     public void setPhotoPath(String photoPath) {
         this.photoPath = photoPath;
     }
+
+    public List<MemoryPhoto> getPhotos() { return photos; }
+    public void setPhotos(List<MemoryPhoto> photos) { this.photos = photos; }
+    public Integer getPhotoCount() { return photoCount; }
+    public void setPhotoCount(Integer photoCount) { this.photoCount = photoCount; }
 
     public BigDecimal getLatitude() {
         return latitude;

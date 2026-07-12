@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { resolveTripCoverUrl } from '../utils/tripCover'
+import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 
 const props = defineProps({
   id: {
@@ -104,7 +105,7 @@ function buildStops(dayMemories) {
   })
 
   return stops.map((stop) => {
-    const photos = stop.memories.filter((memory) => memory.photoUrl)
+    const photos = stop.memories.flatMap((memory) => memory.photos?.length ? memory.photos : (memory.photoUrl ? [memory] : []))
     const contents = stop.memories.filter((memory) => memory.content)
     return {
       ...stop,
@@ -300,17 +301,7 @@ onMounted(loadPage)
                 </div>
 
                 <div v-if="stop.photos.length > 0" class="journey-stop-photos">
-                  <div
-                    :class="['journey-stop-main-photo-frame', photoOrientationClass(selectedPhoto(stop))]"
-                    :style="{ '--journey-photo-bg': `url(${photoSrc(selectedPhoto(stop).photoUrl)})` }"
-                  >
-                  <img
-                    :class="['journey-stop-main-photo', photoOrientationClass(selectedPhoto(stop))]"
-                    :src="photoSrc(selectedPhoto(stop).photoUrl)"
-                    @load="handlePhotoLoad(selectedPhoto(stop), $event)"
-                    :alt="`${stop.locationName} 旅行记忆照片`"
-                  />
-                  </div>
+                  <MemoryPhotoGallery :photos="stop.photos" :fallback-url="photoSrc(selectedPhoto(stop).photoUrl)" :alt="`${stop.locationName} 旅行记忆照片`" />
                   <div v-if="stop.photos.length > 1" class="journey-stop-thumbs">
                     <img
                       v-for="photo in stop.photos"

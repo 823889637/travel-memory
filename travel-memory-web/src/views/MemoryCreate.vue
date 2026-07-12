@@ -19,6 +19,7 @@ const photo = ref(null)
 const photoPreview = ref('')
 const photoInput = ref(null)
 const photoUploadResult = ref(null)
+const photoItems = ref([])
 const showMoreLocation = ref(false)
 const recordTimeTouched = ref(false)
 const latitudeTouched = ref(false)
@@ -107,30 +108,21 @@ function triggerPhotoPicker() {
 
 async function onPhotoChange(event) {
   error.value = ''
-  photoUploadResult.value = null
-  const selectedFile = event.target.files?.[0] || null
-  if (!selectedFile) {
-    clearPhoto()
-    return
+  const selectedFiles = Array.from(event.target.files || [])
+  const available = 6 - photoItems.value.length
+  if (selectedFiles.length > available) error.value = '同一段记忆最多保存 6 张照片'
+  for (const selectedFile of selectedFiles.slice(0, available)) {
+    const extension = getFileExtension(selectedFile.name)
+    if (!ALLOWED_PHOTO_EXTENSIONS.includes(extension) || selectedFile.size > MAX_PHOTO_SIZE) {
+      error.value = '仅支持 50MB 以内的 jpg、jpeg、png、gif、webp、heic、heif 图片'
+      continue
+    }
+    const item = { file: selectedFile, preview: URL.createObjectURL(selectedFile), result: null, error: '', uploading: false }
+    photoItems.value.push(item)
+    if (photoItems.value.length === 1) setPhoto(selectedFile)
+    await uploadSelectedPhoto(item)
   }
-
-  const extension = getFileExtension(selectedFile.name)
-  if (!ALLOWED_PHOTO_EXTENSIONS.includes(extension)) {
-    event.target.value = ''
-    clearPhoto()
-    error.value = '仅支持 jpg、jpeg、png、gif、webp、heic、heif 图片'
-    return
-  }
-
-  if (selectedFile.size > MAX_PHOTO_SIZE) {
-    event.target.value = ''
-    clearPhoto()
-    error.value = '图片不能超过 50MB，请压缩后再上传'
-    return
-  }
-
-  setPhoto(selectedFile)
-  await uploadSelectedPhoto(selectedFile)
+  event.target.value = ''
 }
 
 function setPhoto(selectedFile) {
@@ -148,26 +140,50 @@ function clearPhoto() {
   photo.value = null
   photoPreview.value = ''
   photoUploadResult.value = null
+  photoItems.value.forEach(item => { if (item.preview && item.preview !== photoPreview.value) URL.revokeObjectURL(item.preview) })
+  photoItems.value = []
   resetLocationSuggestion()
   if (photoInput.value) {
     photoInput.value.value = ''
   }
 }
 
-async function uploadSelectedPhoto(selectedFile) {
+async function uploadSelectedPhoto(item) {
   uploading.value = true
+  item.uploading = true
+  item.error = ''
   const data = new FormData()
-  data.append('photo', selectedFile)
+  data.append('photo', item.file)
 
   try {
     const result = await uploadPhoto(data)
-    photoUploadResult.value = result
-    applyPhotoMetadata(result)
+    item.result = result
+    if (photoItems.value[0] === item) {
+      photoUploadResult.value = result
+      applyPhotoMetadata(result)
+    }
   } catch (err) {
-    error.value = err.message || '图片上传失败，请稍后重试'
+    item.error = err.message || '图片上传失败，请稍后重试'
   } finally {
+    item.uploading = false
     uploading.value = false
   }
+}
+
+function retryPhoto(item) { uploadSelectedPhoto(item) }
+function removePhoto(index) {
+  const [item] = photoItems.value.splice(index, 1)
+  if (item?.preview) URL.revokeObjectURL(item.preview)
+  const first = photoItems.value[0]
+  photo.value = first?.file || null
+  photoPreview.value = first?.preview || ''
+  photoUploadResult.value = first?.result || null
+}
+function movePhoto(index, direction) {
+  const next = index + direction
+  if (next < 0 || next >= photoItems.value.length) return
+  const [item] = photoItems.value.splice(index, 1); photoItems.value.splice(next, 0, item)
+  const first = photoItems.value[0]; photo.value = first.file; photoPreview.value = first.preview; photoUploadResult.value = first.result
 }
 
 function applyPhotoMetadata(result) {
@@ -322,12 +338,10 @@ async function submit() {
   if (form.locationName) data.append('locationName', form.locationName)
   data.append('recordTime', recordTime)
 
-  if (photoUploadResult.value?.photoUrl) {
-    data.append('photoUrl', photoUploadResult.value.photoUrl)
-    data.append('photoPath', photoUploadResult.value.photoPath)
-  } else if (photo.value) {
-    data.append('photo', photo.value)
-  }
+  photoItems.value.filter(item => item.result?.photoUrl).forEach((item) => {
+    data.append('photoUrl', item.result.photoUrl)
+    data.append('photoPath', item.result.photoPath || '')
+  })
 
   try {
     await createMemory(data)
@@ -360,6 +374,7 @@ onBeforeUnmount(() => {
           class="sr-only"
           type="file"
           accept="image/*"
+          multiple
           @change="onPhotoChange"
         />
 
@@ -384,6 +399,17 @@ onBeforeUnmount(() => {
           <img :src="photoPreview" alt="照片预览" />
           <button type="button" class="photo-change" @click="triggerPhotoPicker">更换</button>
           <button type="button" class="photo-remove" aria-label="移除照片" @click="clearPhoto">×</button>
+        </div>
+
+        <div v-if="photoItems.length > 1" class="photo-queue">
+          <div v-for="(item, index) in photoItems" :key="item.preview" class="photo-queue-item">
+            <img :src="item.preview" :alt="`照片 ${index + 1}`" />
+            <span v-if="index === 0">主图</span>
+            <button type="button" :disabled="index === 0" @click="movePhoto(index, -1)">前移</button>
+            <button type="button" :disabled="index === photoItems.length - 1" @click="movePhoto(index, 1)">后移</button>
+            <button v-if="item.error" type="button" @click="retryPhoto(item)">重试</button>
+            <button type="button" @click="removePhoto(index)">删除</button>
+          </div>
         </div>
 
         <div v-if="uploading || hasUploadResult" class="exif-strip">
@@ -638,6 +664,11 @@ onBeforeUnmount(() => {
   line-height: 1;
   backdrop-filter: blur(4px);
 }
+
+.photo-queue { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.photo-queue-item { display: grid; gap: 4px; min-width: 0; font-size: 12px; color: var(--ink-soft); }
+.photo-queue-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.photo-queue-item button { padding: 4px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); font-size: 11px; }
 
 .exif-strip,
 .exif-detail {

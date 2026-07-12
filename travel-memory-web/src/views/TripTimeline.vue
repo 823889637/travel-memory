@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { clearTripCover, getTrip, setTripCover } from '../api/trip'
 import { deleteMemory, favoriteMemory, getTimeline, searchMemories } from '../api/memory'
 import { hasExplicitTripCover, normalizePhotoUrl, resolveTripCoverUrl } from '../utils/tripCover'
+import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 
 const props = defineProps({
   id: {
@@ -62,7 +63,7 @@ const coverPhotoUrl = computed(() => {
 
 const hasExplicitCover = computed(() => hasExplicitTripCover(trip.value))
 
-const photoCount = computed(() => memories.value.filter((memory) => memory.photoUrl).length)
+const photoCount = computed(() => memories.value.reduce((total, memory) => total + (memory.photoCount || (memory.photoUrl ? 1 : 0)), 0))
 
 const tripDateRange = computed(() => {
   if (!trip.value) {
@@ -364,11 +365,7 @@ onMounted(loadPage)
               <div class="memory-main">
                 <div class="memory-body">
                   <div v-if="memory.photoUrl" class="memory-photo-frame">
-                    <img
-                      class="memory-photo"
-                      :src="photoSrc(memory.photoUrl)"
-                      alt="旅行记忆照片"
-                    />
+                    <MemoryPhotoGallery :photos="memory.photos" :fallback-url="photoSrc(memory.photoUrl)" alt="旅行记忆照片" />
                   </div>
                   <div v-else class="memory-photo-empty">这段记忆没有照片，文字还在。</div>
 

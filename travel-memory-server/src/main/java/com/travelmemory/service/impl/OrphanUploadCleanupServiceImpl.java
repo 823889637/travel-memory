@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.travelmemory.config.UploadCleanupProperties;
 import com.travelmemory.dto.CleanupResult;
 import com.travelmemory.entity.TravelMemory;
+import com.travelmemory.entity.MemoryPhoto;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.mapper.TravelMemoryMapper;
+import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.OrphanUploadCleanupService;
 import java.io.IOException;
@@ -36,6 +38,7 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
 
     private final TravelMemoryMapper travelMemoryMapper;
     private final TravelTripMapper travelTripMapper;
+    private final MemoryPhotoMapper memoryPhotoMapper;
     private final UploadCleanupProperties cleanupProperties;
 
     @Value("${app.upload.dir:../uploads}")
@@ -44,11 +47,19 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
     public OrphanUploadCleanupServiceImpl(
             TravelMemoryMapper travelMemoryMapper,
             TravelTripMapper travelTripMapper,
+            MemoryPhotoMapper memoryPhotoMapper,
             UploadCleanupProperties cleanupProperties
     ) {
         this.travelMemoryMapper = travelMemoryMapper;
         this.travelTripMapper = travelTripMapper;
+        this.memoryPhotoMapper = memoryPhotoMapper;
         this.cleanupProperties = cleanupProperties;
+    }
+
+    // Retained for focused legacy unit tests; Spring uses the complete constructor above.
+    public OrphanUploadCleanupServiceImpl(TravelMemoryMapper travelMemoryMapper, TravelTripMapper travelTripMapper,
+            UploadCleanupProperties cleanupProperties) {
+        this(travelMemoryMapper, travelTripMapper, null, cleanupProperties);
     }
 
     @Override
@@ -103,6 +114,10 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
                 new QueryWrapper<TravelTrip>()
                         .select("cover_photo_url")
                         .isNotNull("cover_photo_url")));
+        if (memoryPhotoMapper != null) {
+            addReferencedUrls(referencedPaths, uploadRoot, memoryPhotoMapper.selectObjs(
+                    new QueryWrapper<MemoryPhoto>().select("photo_url").isNotNull("photo_url")));
+        }
         return referencedPaths;
     }
 

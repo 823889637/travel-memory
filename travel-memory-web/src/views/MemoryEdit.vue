@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMemory, reverseGeocode, updateMemory, uploadMemoryPhoto } from '../api/memory'
+import { addMemoryPhoto, deleteMemoryPhoto, getMemory, reorderMemoryPhotos, reverseGeocode, updateMemory } from '../api/memory'
 
 const props = defineProps({
   tripId: {
@@ -21,6 +21,7 @@ const error = ref('')
 const loadError = ref('')
 const showMoreLocation = ref(false)
 const currentPhotoUrl = ref('')
+const memoryPhotos = ref([])
 const newPhoto = ref(null)
 const newPhotoPreview = ref('')
 const photoInput = ref(null)
@@ -186,6 +187,7 @@ async function loadMemory() {
     form.latitude = memory.latitude == null ? '' : String(memory.latitude)
     form.longitude = memory.longitude == null ? '' : String(memory.longitude)
     currentPhotoUrl.value = memory.photoUrl || ''
+    memoryPhotos.value = memory.photos?.length ? memory.photos : (memory.photoUrl ? [{ photoUrl: memory.photoUrl }] : [])
     if (hasCoordinateValues() && !form.locationName) {
       requestLocationSuggestion()
     }
@@ -216,7 +218,9 @@ async function submit() {
     if (newPhoto.value) {
       const data = new FormData()
       data.append('photo', newPhoto.value)
-      await uploadMemoryPhoto(props.memoryId, data)
+      const updated = await addMemoryPhoto(props.memoryId, data)
+      memoryPhotos.value = updated.photos || []
+      currentPhotoUrl.value = updated.photoUrl || ''
     }
 
     router.push(`/trips/${props.tripId}`)
@@ -225,6 +229,28 @@ async function submit() {
   } finally {
     saving.value = false
   }
+}
+
+async function removeStoredPhoto(photo) {
+  if (!photo.id || saving.value) return
+  error.value = ''
+  try {
+    const updated = await deleteMemoryPhoto(props.memoryId, photo.id)
+    memoryPhotos.value = updated.photos || []
+    currentPhotoUrl.value = updated.photoUrl || ''
+  } catch (err) { error.value = err.message || '删除照片失败' }
+}
+
+async function moveStoredPhoto(index, direction) {
+  const next = index + direction
+  if (next < 0 || next >= memoryPhotos.value.length || saving.value) return
+  const photos = [...memoryPhotos.value]; const [photo] = photos.splice(index, 1); photos.splice(next, 0, photo)
+  if (photos.some(photo => !photo.id)) return
+  try {
+    const updated = await reorderMemoryPhotos(props.memoryId, photos.map(photo => photo.id))
+    memoryPhotos.value = updated.photos || []
+    currentPhotoUrl.value = updated.photoUrl || ''
+  } catch (err) { error.value = err.message || '调整照片顺序失败' }
 }
 
 onMounted(loadMemory)
@@ -277,6 +303,15 @@ onBeforeUnmount(() => {
         </button>
 
         <p v-if="newPhoto" class="hint">已选择新照片，保存修改后会替换当前照片。</p>
+        <div v-if="memoryPhotos.length" class="stored-photo-list">
+          <div v-for="(photo, index) in memoryPhotos" :key="photo.id || photo.photoUrl" class="stored-photo-item">
+            <img :src="photo.photoUrl" :alt="`照片 ${index + 1}`" />
+            <span v-if="index === 0">主图</span>
+            <button type="button" :disabled="index === 0" @click="moveStoredPhoto(index, -1)">前移</button>
+            <button type="button" :disabled="index === memoryPhotos.length - 1" @click="moveStoredPhoto(index, 1)">后移</button>
+            <button type="button" @click="removeStoredPhoto(photo)">删除</button>
+          </div>
+        </div>
       </div>
 
       <div class="field memory-edit-sentence">
@@ -379,3 +414,10 @@ onBeforeUnmount(() => {
     </form>
   </section>
 </template>
+
+<style scoped>
+.stored-photo-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.stored-photo-item { display: grid; gap: 4px; color: #8a7f76; font-size: 12px; }
+.stored-photo-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.stored-photo-item button { padding: 4px; border: 1px solid #ece3d8; border-radius: 5px; background: #fff; color: #2c2521; font-size: 11px; }
+</style>

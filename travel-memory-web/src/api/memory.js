@@ -36,6 +36,18 @@ export function uploadMemoryPhoto(id, data) {
   return request.post(`/api/memories/${id}/photo`, data)
 }
 
+export function addMemoryPhoto(id, data) {
+  return request.post(`/api/memories/${id}/photos`, data)
+}
+
+export function deleteMemoryPhoto(id, photoId) {
+  return request.delete(`/api/memories/${id}/photos/${photoId}`)
+}
+
+export function reorderMemoryPhotos(id, photoIds) {
+  return request.put(`/api/memories/${id}/photos/order`, { photoIds })
+}
+
 export function deleteMemory(id) {
   return request.delete(`/api/memories/${id}`)
 }

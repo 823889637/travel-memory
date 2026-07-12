@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.travelmemory.entity.TravelMemory;
+import com.travelmemory.entity.MemoryPhoto;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.exception.BusinessException;
 import com.travelmemory.mapper.TravelMemoryMapper;
+import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.vo.TravelTripListVO;
@@ -21,10 +23,18 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
 
     private final TravelTripMapper travelTripMapper;
     private final TravelMemoryMapper travelMemoryMapper;
+    private final MemoryPhotoMapper memoryPhotoMapper;
 
-    public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper) {
+    public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper,
+            MemoryPhotoMapper memoryPhotoMapper) {
         this.travelTripMapper = travelTripMapper;
         this.travelMemoryMapper = travelMemoryMapper;
+        this.memoryPhotoMapper = memoryPhotoMapper;
+    }
+
+    // Retained for focused legacy unit tests; Spring uses the complete constructor above.
+    public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper) {
+        this(travelTripMapper, travelMemoryMapper, null);
     }
 
     @Override
@@ -166,6 +176,15 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Transactional
     public void delete(Long id) {
         getById(id);
+        List<TravelMemory> memories = travelMemoryMapper.selectList(new LambdaQueryWrapper<TravelMemory>()
+                .eq(TravelMemory::getTripId, id));
+        if (!memories.isEmpty()) {
+            List<Long> memoryIds = memories.stream().map(TravelMemory::getId).toList();
+            if (memoryPhotoMapper != null) {
+                memoryPhotoMapper.delete(new LambdaQueryWrapper<MemoryPhoto>().in(MemoryPhoto::getMemoryId, memoryIds));
+            }
+            travelMemoryMapper.delete(new LambdaQueryWrapper<TravelMemory>().in(TravelMemory::getId, memoryIds));
+        }
         travelTripMapper.deleteById(id);
     }
 

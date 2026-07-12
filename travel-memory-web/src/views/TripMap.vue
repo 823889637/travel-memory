@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import MemoryMap from '../components/MemoryMap.vue'
+import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { isValidWgs84Coordinate } from '../utils/coordinates'
@@ -126,12 +127,12 @@ watch(() => props.id, loadPage, { immediate: true })
       />
 
       <article v-if="selectedMemory" class="map-memory-card">
-        <img
+        <MemoryPhotoGallery
           v-if="selectedMemory.photoUrl && failedPhotoId !== selectedMemory.id"
           class="map-memory-photo"
-          :src="photoSrc(selectedMemory.photoUrl)"
+          :photos="selectedMemory.photos"
+          :fallback-url="photoSrc(selectedMemory.photoUrl)"
           alt="地图记忆照片"
-          @error="failedPhotoId = selectedMemory.id"
         />
         <div v-else class="map-memory-photo empty">没有照片</div>
 
