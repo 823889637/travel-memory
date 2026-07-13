@@ -107,6 +107,7 @@ onMounted(loadTrips)
           <div class="trip-soft-actions">
             <RouterLink :to="`/trips/${trip.id}/memories/new`">留下一段记忆</RouterLink>
             <RouterLink :to="`/trips/${trip.id}/map`">地图</RouterLink>
+            <RouterLink :to="`/trips/${trip.id}/favorites`">收藏回看</RouterLink>
             <RouterLink :to="`/trips/${trip.id}/edit`">编辑旅行</RouterLink>
             <button class="danger-text" @click="removeTrip(trip.id)">删除</button>
           </div>

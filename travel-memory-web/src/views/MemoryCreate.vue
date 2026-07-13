@@ -340,7 +340,6 @@ async function submit() {
 
   photoItems.value.filter(item => item.result?.photoUrl).forEach((item) => {
     data.append('photoUrl', item.result.photoUrl)
-    data.append('photoPath', item.result.photoPath || '')
   })
 
   try {

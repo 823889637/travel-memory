@@ -14,6 +14,7 @@ const routes = [
   { path: '/trips/new', component: TripCreate },
   { path: '/trips/:id/edit', component: TripEdit, props: true },
   { path: '/trips/:id/journey', component: TripJourney, props: true },
+  { path: '/trips/:id/favorites', component: TripTimeline, props: (route) => ({ id: route.params.id, favoriteOnly: true }) },
   { path: '/trips/:id', component: TripTimeline, props: true },
   { path: '/trips/:id/memories/new', component: MemoryCreate, props: true },
   { path: '/trips/:tripId/memories/:memoryId/edit', component: MemoryEdit, props: true },

@@ -14,6 +14,7 @@ import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.exception.BusinessException;
 import com.travelmemory.mapper.TravelMemoryMapper;
+import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.FileStorageService;
 import com.travelmemory.service.TravelTripService;
@@ -34,7 +35,7 @@ class TravelCoverServiceTest {
         when(tripMapper.selectById(1L)).thenReturn(trip);
         when(memoryMapper.selectById(10L)).thenReturn(memory);
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper);
+        TravelTripServiceImpl service = tripService(tripMapper, memoryMapper);
 
         TravelTrip updated = service.setCover(1L, 10L);
 
@@ -49,7 +50,7 @@ class TravelCoverServiceTest {
         when(tripMapper.selectById(1L)).thenReturn(trip(1L, null));
         when(memoryMapper.selectById(10L)).thenReturn(memory(10L, 2L, "/uploads/other.jpg"));
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper);
+        TravelTripServiceImpl service = tripService(tripMapper, memoryMapper);
 
         assertThrows(BusinessException.class, () -> service.setCover(1L, 10L));
     }
@@ -61,7 +62,7 @@ class TravelCoverServiceTest {
         when(tripMapper.selectById(1L)).thenReturn(trip(1L, null));
         when(memoryMapper.selectById(10L)).thenReturn(memory(10L, 1L, "  "));
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper);
+        TravelTripServiceImpl service = tripService(tripMapper, memoryMapper);
 
         assertThrows(BusinessException.class, () -> service.setCover(1L, 10L));
     }
@@ -72,7 +73,7 @@ class TravelCoverServiceTest {
         TravelTrip trip = trip(1L, "/uploads/cover.jpg");
         when(tripMapper.selectById(1L)).thenReturn(trip);
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+        TravelTripServiceImpl service = tripService(tripMapper, mock(TravelMemoryMapper.class));
 
         TravelTrip updated = service.clearCover(1L);
 
@@ -86,7 +87,7 @@ class TravelCoverServiceTest {
         TravelTrip trip = trip(1L, "/uploads/old.jpg");
         when(tripMapper.selectById(1L)).thenReturn(trip);
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+        TravelTripServiceImpl service = tripService(tripMapper, mock(TravelMemoryMapper.class));
 
         service.replaceCoverIfMatches(1L, " /uploads/old.jpg ", "/uploads/new.jpg");
 
@@ -100,7 +101,7 @@ class TravelCoverServiceTest {
         TravelTrip trip = trip(1L, "/uploads/cover.jpg");
         when(tripMapper.selectById(1L)).thenReturn(trip);
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+        TravelTripServiceImpl service = tripService(tripMapper, mock(TravelMemoryMapper.class));
 
         service.clearCoverIfMatches(1L, "/uploads/other.jpg");
 
@@ -114,7 +115,7 @@ class TravelCoverServiceTest {
         TravelTrip trip = trip(1L, "/uploads/cover.jpg");
         when(tripMapper.selectById(1L)).thenReturn(trip);
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+        TravelTripServiceImpl service = tripService(tripMapper, mock(TravelMemoryMapper.class));
 
         service.replaceCoverIfMatches(1L, "/uploads/other.jpg", "/uploads/new.jpg");
 
@@ -129,7 +130,7 @@ class TravelCoverServiceTest {
         TravelTrip request = trip(99L, "https://example.test/not-allowed.jpg");
         when(tripMapper.selectById(1L)).thenReturn(existing);
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class));
+        TravelTripServiceImpl service = tripService(tripMapper, mock(TravelMemoryMapper.class));
 
         service.update(1L, request);
 
@@ -147,7 +148,7 @@ class TravelCoverServiceTest {
         when(tripMapper.selectList(any())).thenReturn(List.of(trip));
         when(memoryMapper.selectList(any())).thenReturn(List.of(memory));
 
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper);
+        TravelTripServiceImpl service = tripService(tripMapper, memoryMapper);
 
         var result = service.listForHome();
 
@@ -164,7 +165,7 @@ class TravelCoverServiceTest {
         when(memoryMapper.selectById(10L)).thenReturn(memory);
 
         TravelMemoryServiceImpl service = new TravelMemoryServiceImpl(
-                memoryMapper,
+                memoryMapper, mock(MemoryPhotoMapper.class),
                 tripService,
                 mock(FileStorageService.class),
                 mock(ImageMetadataExtractor.class));
@@ -181,13 +182,20 @@ class TravelCoverServiceTest {
         TravelTripService tripService = mock(TravelTripService.class);
         FileStorageService storageService = mock(FileStorageService.class);
         ImageMetadataExtractor metadataExtractor = mock(ImageMetadataExtractor.class);
+        MemoryPhotoMapper photoMapper = mock(MemoryPhotoMapper.class);
         TravelMemory memory = memory(10L, 1L, "/uploads/old.jpg");
+        var replacement = new com.travelmemory.entity.MemoryPhoto();
+        replacement.setId(1L);
+        replacement.setMemoryId(10L);
+        replacement.setPhotoUrl("/uploads/new.jpg");
+        replacement.setSortOrder(0);
         when(memoryMapper.selectById(10L)).thenReturn(memory);
+        when(photoMapper.selectList(any())).thenReturn(List.of(), List.of(replacement));
         when(storageService.store(any())).thenReturn(new StoredFile("/uploads/new.jpg", "/app/uploads/new.jpg"));
         when(metadataExtractor.extract("/app/uploads/new.jpg")).thenReturn(new ImageMetadataInfo());
 
         TravelMemoryServiceImpl service = new TravelMemoryServiceImpl(
-                memoryMapper,
+                memoryMapper, photoMapper,
                 tripService,
                 storageService,
                 metadataExtractor);
@@ -204,6 +212,10 @@ class TravelCoverServiceTest {
         trip.setTitle("Trip");
         trip.setCoverPhotoUrl(coverPhotoUrl);
         return trip;
+    }
+
+    private TravelTripServiceImpl tripService(TravelTripMapper tripMapper, TravelMemoryMapper memoryMapper) {
+        return new TravelTripServiceImpl(tripMapper, memoryMapper, mock(MemoryPhotoMapper.class));
     }
 
     private TravelMemory memory(Long id, Long tripId, String photoUrl) {

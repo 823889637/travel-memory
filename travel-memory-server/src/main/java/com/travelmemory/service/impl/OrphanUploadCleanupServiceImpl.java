@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupService {
@@ -44,6 +45,7 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
     @Value("${app.upload.dir:../uploads}")
     private String uploadDir;
 
+    @Autowired
     public OrphanUploadCleanupServiceImpl(
             TravelMemoryMapper travelMemoryMapper,
             TravelTripMapper travelTripMapper,
@@ -54,12 +56,6 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
         this.travelTripMapper = travelTripMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
         this.cleanupProperties = cleanupProperties;
-    }
-
-    // Retained for focused legacy unit tests; Spring uses the complete constructor above.
-    public OrphanUploadCleanupServiceImpl(TravelMemoryMapper travelMemoryMapper, TravelTripMapper travelTripMapper,
-            UploadCleanupProperties cleanupProperties) {
-        this(travelMemoryMapper, travelTripMapper, null, cleanupProperties);
     }
 
     @Override
@@ -114,10 +110,8 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
                 new QueryWrapper<TravelTrip>()
                         .select("cover_photo_url")
                         .isNotNull("cover_photo_url")));
-        if (memoryPhotoMapper != null) {
-            addReferencedUrls(referencedPaths, uploadRoot, memoryPhotoMapper.selectObjs(
-                    new QueryWrapper<MemoryPhoto>().select("photo_url").isNotNull("photo_url")));
-        }
+        addReferencedUrls(referencedPaths, uploadRoot, memoryPhotoMapper.selectObjs(
+                new QueryWrapper<MemoryPhoto>().select("photo_url").isNotNull("photo_url")));
         return referencedPaths;
     }
 

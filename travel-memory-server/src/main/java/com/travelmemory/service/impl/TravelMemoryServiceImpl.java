@@ -15,6 +15,13 @@ import com.travelmemory.service.TravelTripService;
 import com.travelmemory.util.ImageMetadataExtractor;
 import com.travelmemory.util.ImageMetadataInfo;
 import java.time.LocalDateTime;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -36,6 +45,10 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     private final FileStorageService fileStorageService;
     private final ImageMetadataExtractor imageMetadataExtractor;
 
+    @Value("${app.upload.dir:../uploads}")
+    private String uploadDir;
+
+    @Autowired
     public TravelMemoryServiceImpl(TravelMemoryMapper travelMemoryMapper, MemoryPhotoMapper memoryPhotoMapper,
             TravelTripService travelTripService, FileStorageService fileStorageService,
             ImageMetadataExtractor imageMetadataExtractor) {
@@ -44,12 +57,6 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         this.travelTripService = travelTripService;
         this.fileStorageService = fileStorageService;
         this.imageMetadataExtractor = imageMetadataExtractor;
-    }
-
-    // Retained for focused legacy unit tests; Spring uses the complete constructor above.
-    public TravelMemoryServiceImpl(TravelMemoryMapper travelMemoryMapper, TravelTripService travelTripService,
-            FileStorageService fileStorageService, ImageMetadataExtractor imageMetadataExtractor) {
-        this(travelMemoryMapper, null, travelTripService, fileStorageService, imageMetadataExtractor);
     }
 
     @Override
@@ -95,15 +102,15 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
                 UploadResult result = uploadPhoto(upload);
                 MemoryPhoto photo = new MemoryPhoto();
                 photo.setPhotoUrl(result.getPhotoUrl());
-                photo.setPhotoPath(result.getPhotoPath());
                 photos.add(photo);
                 if (photos.size() == 1) applyPhotoMetadata(memory, result);
             }
         }
         if (photos.isEmpty() && hasUrl(memory.getPhotoUrl())) {
-            MemoryPhoto photo = new MemoryPhoto(); photo.setPhotoUrl(memory.getPhotoUrl()); photo.setPhotoPath(memory.getPhotoPath()); photos.add(photo);
+            MemoryPhoto photo = new MemoryPhoto(); photo.setPhotoUrl(memory.getPhotoUrl()); photos.add(photo);
         }
         validatePhotoCount(photos.size());
+        validatePhotoUrls(photos);
         setPrimary(memory, photos);
         if (memory.getRecordTime() == null) memory.setRecordTime(LocalDateTime.now());
         memory.setPhotos(null); memory.setPhotoCount(null);
@@ -129,18 +136,11 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     public UploadResult uploadPhoto(Long id, MultipartFile photo) {
         TravelMemory memory = getById(id);
         UploadResult result = uploadPhoto(photo);
-        if (memoryPhotoMapper == null) {
-            String previous = memory.getPhotoUrl();
-            memory.setPhotoUrl(result.getPhotoUrl()); memory.setPhotoPath(result.getPhotoPath());
-            travelMemoryMapper.updateById(memory);
-            travelTripService.replaceCoverIfMatches(memory.getTripId(), previous, result.getPhotoUrl());
-            return result;
-        }
         List<MemoryPhoto> photos = new ArrayList<>(memory.getPhotos());
         if (photos.isEmpty()) {
-            MemoryPhoto item = new MemoryPhoto(); item.setMemoryId(id); item.setPhotoUrl(result.getPhotoUrl()); item.setPhotoPath(result.getPhotoPath()); item.setSortOrder(0); memoryPhotoMapper.insert(item);
+            MemoryPhoto item = new MemoryPhoto(); item.setMemoryId(id); item.setPhotoUrl(result.getPhotoUrl()); item.setSortOrder(0); memoryPhotoMapper.insert(item);
         } else {
-            MemoryPhoto primary = photos.get(0); primary.setPhotoUrl(result.getPhotoUrl()); primary.setPhotoPath(result.getPhotoPath()); memoryPhotoMapper.updateById(primary);
+            MemoryPhoto primary = photos.get(0); primary.setPhotoUrl(result.getPhotoUrl()); memoryPhotoMapper.updateById(primary);
         }
         updatePrimary(memory, loadPhotos(id));
         return result;
@@ -153,7 +153,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         List<MemoryPhoto> photos = loadPhotos(id);
         validatePhotoCount(photos.size() + 1);
         UploadResult result = uploadPhoto(photo);
-        MemoryPhoto item = new MemoryPhoto(); item.setMemoryId(id); item.setPhotoUrl(result.getPhotoUrl()); item.setPhotoPath(result.getPhotoPath()); item.setSortOrder(photos.size());
+        MemoryPhoto item = new MemoryPhoto(); item.setMemoryId(id); item.setPhotoUrl(result.getPhotoUrl()); item.setSortOrder(photos.size());
         memoryPhotoMapper.insert(item);
         if (photos.isEmpty()) updatePrimary(memory, List.of(item));
         return getById(id);
@@ -209,7 +209,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     @Transactional
     public void delete(Long id) {
         TravelMemory memory = getById(id);
-        if (memoryPhotoMapper != null) memoryPhotoMapper.delete(new LambdaQueryWrapper<MemoryPhoto>().eq(MemoryPhoto::getMemoryId, id));
+        memoryPhotoMapper.delete(new LambdaQueryWrapper<MemoryPhoto>().eq(MemoryPhoto::getMemoryId, id));
         travelMemoryMapper.deleteById(id);
         travelTripService.clearCoverIfMatches(memory.getTripId(), memory.getPhotoUrl());
     }
@@ -222,7 +222,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         memories.forEach(memory -> {
             List<MemoryPhoto> photos = byMemory.getOrDefault(memory.getId(), new ArrayList<>());
             if (photos.isEmpty() && hasUrl(memory.getPhotoUrl())) {
-                MemoryPhoto legacy = new MemoryPhoto(); legacy.setMemoryId(memory.getId()); legacy.setPhotoUrl(memory.getPhotoUrl()); legacy.setPhotoPath(memory.getPhotoPath()); legacy.setSortOrder(0); photos = List.of(legacy);
+                MemoryPhoto legacy = new MemoryPhoto(); legacy.setMemoryId(memory.getId()); legacy.setPhotoUrl(memory.getPhotoUrl()); legacy.setSortOrder(0); photos = List.of(legacy);
             }
             memory.setPhotos(photos); memory.setPhotoCount(photos.size());
         });
@@ -232,7 +232,6 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     private List<MemoryPhoto> loadPhotos(Long memoryId) { return loadPhotos(Set.of(memoryId)); }
     private List<MemoryPhoto> loadPhotos(Set<Long> memoryIds) {
         if (memoryIds.isEmpty()) return List.of();
-        if (memoryPhotoMapper == null) return List.of();
         return memoryPhotoMapper.selectList(new LambdaQueryWrapper<MemoryPhoto>().in(MemoryPhoto::getMemoryId, memoryIds)
                 .orderByAsc(MemoryPhoto::getMemoryId).orderByAsc(MemoryPhoto::getSortOrder).orderByAsc(MemoryPhoto::getId));
     }
@@ -248,14 +247,44 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     }
     private void setPrimary(TravelMemory memory, List<MemoryPhoto> photos) {
         if (photos.isEmpty()) { memory.setPhotoUrl(null); memory.setPhotoPath(null); return; }
-        memory.setPhotoUrl(photos.get(0).getPhotoUrl()); memory.setPhotoPath(photos.get(0).getPhotoPath());
+        memory.setPhotoUrl(photos.get(0).getPhotoUrl()); memory.setPhotoPath(null);
     }
     private void applyPhotoMetadata(TravelMemory memory, UploadResult result) {
         if (memory.getRecordTime() == null && result.getPhotoTakenTime() != null) memory.setRecordTime(result.getPhotoTakenTime());
         if (memory.getLatitude() == null && result.getLatitude() != null) memory.setLatitude(result.getLatitude());
         if (memory.getLongitude() == null && result.getLongitude() != null) memory.setLongitude(result.getLongitude());
     }
-    private MemoryPhoto copyPhoto(MemoryPhoto source) { MemoryPhoto photo = new MemoryPhoto(); photo.setPhotoUrl(source.getPhotoUrl()); photo.setPhotoPath(source.getPhotoPath()); return photo; }
+    private MemoryPhoto copyPhoto(MemoryPhoto source) { MemoryPhoto photo = new MemoryPhoto(); photo.setPhotoUrl(source.getPhotoUrl()); return photo; }
+    private void validatePhotoUrls(List<MemoryPhoto> photos) {
+        Set<String> urls = new HashSet<>();
+        for (MemoryPhoto photo : photos) {
+            String normalizedUrl = normalizeAndVerifyUploadUrl(photo.getPhotoUrl());
+            if (!urls.add(normalizedUrl)) throw new BusinessException(400, "Duplicate photo URLs are not allowed");
+            photo.setPhotoUrl(normalizedUrl);
+        }
+    }
+    private String normalizeAndVerifyUploadUrl(String value) {
+        if (!hasUrl(value)) throw new BusinessException(400, "Photo URL is required");
+        String raw = value.trim();
+        try { if (URI.create(raw).isAbsolute()) throw new BusinessException(400, "Photo URL must use /uploads/"); }
+        catch (IllegalArgumentException exception) { throw new BusinessException(400, "Invalid photo URL"); }
+        String decoded;
+        try { decoded = URLDecoder.decode(raw, StandardCharsets.UTF_8); }
+        catch (IllegalArgumentException exception) { throw new BusinessException(400, "Invalid photo URL"); }
+        decoded = decoded.replace('\\', '/');
+        if (!decoded.startsWith("/uploads/") || decoded.contains("?") || decoded.contains("#")) throw new BusinessException(400, "Photo URL must use /uploads/");
+        String relative = decoded.substring("/uploads/".length());
+        if (relative.isBlank()) throw new BusinessException(400, "Invalid photo URL");
+        Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path candidate;
+        try { candidate = root.resolve(relative).normalize(); }
+        catch (RuntimeException exception) { throw new BusinessException(400, "Invalid photo URL"); }
+        if (!candidate.startsWith(root) || candidate.equals(root) || Files.isSymbolicLink(candidate)
+                || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) {
+            throw new BusinessException(400, "Photo URL does not reference an uploaded file");
+        }
+        return "/uploads/" + root.relativize(candidate).toString().replace('\\', '/');
+    }
     private void validatePhotoCount(int count) { if (count > MAX_PHOTOS) throw new BusinessException(400, "A memory can contain at most " + MAX_PHOTOS + " photos"); }
     private boolean hasUrl(String value) { return value != null && !value.trim().isEmpty(); }
     private boolean sameUrl(String first, String second) { return hasUrl(first) && hasUrl(second) && first.trim().equals(second.trim()); }

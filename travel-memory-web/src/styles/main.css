@@ -792,13 +792,13 @@ textarea {
 
 .timeline-page {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 
 .trip-memory-hero {
   position: relative;
   display: grid;
-  min-height: 300px;
+  min-height: 240px;
   overflow: hidden;
   border-radius: var(--tm-radius-lg);
   background:
@@ -829,7 +829,7 @@ textarea {
   display: grid;
   align-content: end;
   gap: 10px;
-  padding: 32px;
+  padding: 24px 28px;
 }
 
 .trip-memory-hero-content h1,
@@ -1012,9 +1012,10 @@ textarea {
   display: grid;
   place-items: center;
   overflow: hidden;
-  margin-bottom: 18px;
-  border-radius: var(--tm-radius-lg);
-  background: var(--tm-accent-soft);
+  width: 100%;
+  margin: 0;
+  border-radius: var(--tm-radius-md);
+  background: transparent;
 }
 
 .memory-photo {
@@ -1026,12 +1027,12 @@ textarea {
 
 .day-timeline {
   display: grid;
-  gap: 34px;
+  gap: 24px;
 }
 
 .day-section {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .day-header {
@@ -1064,19 +1065,20 @@ textarea {
 
 .memory-item {
   display: grid;
-  grid-template-columns: 56px 24px minmax(0, 1fr);
+  grid-template-columns: 48px 20px minmax(0, 1fr);
   align-items: start;
 }
 
 .memory-main {
-  display: block;
+  display: flex;
+  min-width: 0;
 }
 
 .memory-time {
   color: var(--tm-text-muted);
   font-size: 13px;
   font-weight: 700;
-  padding-top: 20px;
+  padding-top: 14px;
 }
 
 .timeline-marker {
@@ -1095,7 +1097,7 @@ textarea {
 
 .timeline-marker span {
   position: absolute;
-  top: 20px;
+  top: 14px;
   width: 12px;
   height: 12px;
   border: 3px solid var(--tm-accent);
@@ -1105,17 +1107,43 @@ textarea {
 
 .memory-card {
   display: grid;
-  gap: 14px;
-  margin-bottom: 18px;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
   border: 1px solid var(--tm-border);
   border-radius: var(--tm-radius-lg);
   background: rgba(251, 249, 244, 0.84);
-  box-shadow: var(--tm-shadow-soft);
-  padding: 18px;
+  box-shadow: 0 8px 22px rgba(68, 52, 39, 0.05);
+  padding: 12px 14px;
 }
 
-.memory-body p {
-  margin: 0 0 8px;
+.memory-card.has-photo {
+  grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
+  align-items: start;
+  gap: 14px;
+  padding: 12px;
+}
+
+.memory-card.has-photo .memory-main {
+  align-items: center;
+}
+
+.memory-photo-frame .gallery {
+  width: 100%;
+}
+
+.memory-photo-frame .gallery-main {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  background: #f0e8dc;
+}
+
+.memory-details {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 10px;
 }
 
 .memory-location {
@@ -1132,7 +1160,7 @@ textarea {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
-  margin-top: 12px;
+  margin-top: 6px;
 }
 
 .memory-title-line p {
@@ -1141,21 +1169,28 @@ textarea {
 
 .memory-quote {
   color: var(--tm-text);
-  font-size: 18px;
-  line-height: 1.75;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.memory-quote.muted,
+.memory-location.muted {
+  color: var(--tm-text-muted);
+  font-size: 15px;
+  font-weight: 400;
 }
 
 .memory-photo-empty {
   display: grid;
-  min-height: 130px;
+  min-height: 72px;
   place-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
   border: 1px dashed var(--tm-border);
   border-radius: var(--tm-radius-lg);
   background: rgba(239, 225, 213, 0.42);
   color: var(--tm-text-muted);
   text-align: center;
-  padding: 18px;
+  padding: 12px;
 }
 
 .favorite-badge {
@@ -1168,13 +1203,16 @@ textarea {
 }
 
 .memory-actions {
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 2px;
   border-top: 1px solid var(--tm-border);
-  padding-top: 12px;
+  padding-top: 8px;
 }
 
 .memory-actions button {
-  padding: 7px 11px;
+  padding: 6px 9px;
 }
 
 .memory-actions button.favorite {
@@ -1187,6 +1225,63 @@ textarea {
   border-color: var(--tm-accent);
   background: var(--tm-accent-soft);
   color: var(--tm-accent);
+}
+
+.memory-more {
+  position: relative;
+  margin-left: auto;
+}
+
+.memory-more summary {
+  list-style: none;
+  border: 1px solid var(--tm-border);
+  border-radius: var(--tm-radius-md);
+  background: rgba(251, 249, 244, 0.58);
+  color: var(--tm-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 9px;
+}
+
+.memory-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.memory-more-menu {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: calc(100% + 6px);
+  display: grid;
+  min-width: 132px;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--tm-border);
+  border-radius: var(--tm-radius-md);
+  background: var(--tm-surface);
+  box-shadow: var(--tm-shadow-soft);
+}
+
+.memory-more-menu a,
+.memory-more-menu button {
+  width: 100%;
+  text-align: left;
+}
+
+.cover-context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--tm-text-muted);
+  font-size: 13px;
+}
+
+.cover-clear-link {
+  padding: 0;
+  background: transparent;
+  color: var(--tm-accent);
+  font-size: inherit;
 }
 
 .timeline-empty {
@@ -1299,13 +1394,20 @@ textarea {
   opacity: 0.7;
 }
 
+.journey-top-controls {
+  display: grid;
+  gap: 0;
+  width: min(1040px, 100%);
+  margin: 0 auto;
+}
+
 .journey-quiet-nav {
   display: flex;
   justify-content: flex-end;
   gap: 18px;
-  width: min(1040px, 100%);
-  margin: 0 auto 18px;
-  padding-top: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0 2px;
 }
 
 .journey-quiet-nav a {
@@ -1320,11 +1422,12 @@ textarea {
 
 .day-switcher {
   display: flex;
+  flex-wrap: nowrap;
   gap: 10px;
   overflow-x: auto;
-  width: min(1000px, 100%);
-  margin: 0 auto;
-  padding: 20px 2px 10px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 2px 4px;
   scrollbar-width: none;
 }
 
@@ -1372,7 +1475,7 @@ textarea {
 
 .journey-day {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .journey-day-header {
@@ -1381,7 +1484,7 @@ textarea {
   text-align: left;
   width: min(1000px, 100%);
   margin: 0 auto;
-  padding: 10px 0 16px;
+  padding: 6px 0 8px;
 }
 
 .journey-day-header p {
@@ -1471,8 +1574,15 @@ textarea {
   font-weight: 700;
   letter-spacing: 0.04em;
   width: 100%;
-  height: 52px;
-  margin: 6px 0;
+  height: 28px;
+  margin: 18px 0 12px;
+}
+
+.journey-step-connector span {
+  flex: 0 0 auto;
+  color: var(--j-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .journey-step-connector::before {
@@ -1491,9 +1601,9 @@ textarea {
 
 .journey-stop-card {
   display: grid;
-  gap: 20px;
-  margin-bottom: 4px;
-  padding: 16px 0 4px;
+  gap: 16px;
+  margin-bottom: 8px;
+  padding: 8px 0 14px;
   overflow: visible;
   border: 0;
   border-radius: 0;
@@ -1503,7 +1613,7 @@ textarea {
 
 .journey-stop-header {
   display: grid;
-  gap: 10px;
+  gap: 5px;
   padding-bottom: 0;
 }
 
@@ -1514,15 +1624,19 @@ textarea {
 
 .journey-stop-header h3 {
   color: var(--j-ink);
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
   line-height: 1.18;
 }
 
 .journey-stop-header p {
   color: var(--j-ink-soft);
-  font-size: 14px;
-  margin-top: 4px;
+  font-size: 13px;
+  margin-top: 0;
+}
+
+.journey-stop-meta {
+  letter-spacing: 0;
 }
 
 .journey-stop-order {
@@ -1542,7 +1656,13 @@ textarea {
 
 .journey-stop-photos {
   display: grid;
-  gap: 12px;
+  gap: 8px;
+}
+
+.journey-stop-photos .gallery-main {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .journey-stop-main-photo {
@@ -1668,7 +1788,7 @@ textarea {
 .journey-stop-contents {
   display: grid;
   gap: 14px;
-  padding: 4px 8px 0;
+  padding: 4px 8px 8px;
 }
 
 .journey-content {
@@ -1677,14 +1797,20 @@ textarea {
   color: var(--j-ink);
   border-left: 0;
   background: transparent;
-  padding: 0 40px;
+  padding: 0 36px;
   font-size: 20px;
-  line-height: 1.85;
+  line-height: 1.8;
 }
 
 .journey-content.muted {
   color: var(--j-ink-soft);
   font-size: 16px;
+  padding: 0;
+}
+
+.journey-content.muted::before,
+.journey-content.muted::after {
+  display: none;
 }
 
 .journey-content::before,
@@ -2097,10 +2223,6 @@ textarea {
     flex: 1 1 auto;
   }
 
-  .memory-main {
-    grid-template-columns: 1fr;
-  }
-
   .memory-item {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -2115,8 +2237,18 @@ textarea {
   }
 
   .memory-card {
-    padding: 16px;
-    margin-bottom: 14px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .memory-card.has-photo {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .memory-details {
+    gap: 10px;
   }
 
   .memory-photo {
@@ -2133,6 +2265,11 @@ textarea {
 
   .memory-actions button {
     min-height: 38px;
+  }
+
+  .memory-more summary {
+    min-height: 38px;
+    padding: 9px 11px;
   }
 
   .search-form,
@@ -2169,8 +2306,8 @@ textarea {
   }
 
   .journey-stop-card {
-    padding: 10px 0 0;
-    gap: 16px;
+    padding: 8px 0 12px;
+    gap: 14px;
   }
 
   .journey-flow {
@@ -2182,8 +2319,8 @@ textarea {
   }
 
   .journey-step-connector {
-    height: 44px;
-    margin: 2px 0;
+    height: 26px;
+    margin: 14px 0 10px;
   }
 
   .journey-stop-header h3 {
@@ -2215,7 +2352,7 @@ textarea {
   }
 
   .journey-content {
-    font-size: 17px;
+    font-size: 18px;
     padding: 0 32px;
   }
 

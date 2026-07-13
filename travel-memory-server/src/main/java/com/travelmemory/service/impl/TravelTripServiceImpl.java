@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -25,16 +26,12 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     private final TravelMemoryMapper travelMemoryMapper;
     private final MemoryPhotoMapper memoryPhotoMapper;
 
+    @Autowired
     public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper,
             MemoryPhotoMapper memoryPhotoMapper) {
         this.travelTripMapper = travelTripMapper;
         this.travelMemoryMapper = travelMemoryMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
-    }
-
-    // Retained for focused legacy unit tests; Spring uses the complete constructor above.
-    public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper) {
-        this(travelTripMapper, travelMemoryMapper, null);
     }
 
     @Override
@@ -180,9 +177,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
                 .eq(TravelMemory::getTripId, id));
         if (!memories.isEmpty()) {
             List<Long> memoryIds = memories.stream().map(TravelMemory::getId).toList();
-            if (memoryPhotoMapper != null) {
-                memoryPhotoMapper.delete(new LambdaQueryWrapper<MemoryPhoto>().in(MemoryPhoto::getMemoryId, memoryIds));
-            }
+            memoryPhotoMapper.delete(new LambdaQueryWrapper<MemoryPhoto>().in(MemoryPhoto::getMemoryId, memoryIds));
             travelMemoryMapper.delete(new LambdaQueryWrapper<TravelMemory>().in(TravelMemory::getId, memoryIds));
         }
         travelTripMapper.deleteById(id);

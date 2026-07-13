@@ -54,7 +54,6 @@ public class TravelMemoryController {
             @RequestParam(required = false) String locationName,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime recordTime,
             @RequestParam(name = "photoUrl", required = false) List<String> photoUrls,
-            @RequestParam(name = "photoPath", required = false) List<String> photoPaths,
             @RequestParam(name = "photo", required = false) List<MultipartFile> photos
     ) {
         TravelMemory travelMemory = new TravelMemory();
@@ -65,7 +64,6 @@ public class TravelMemoryController {
             for (int index = 0; index < photoUrls.size(); index++) {
                 com.travelmemory.entity.MemoryPhoto memoryPhoto = new com.travelmemory.entity.MemoryPhoto();
                 memoryPhoto.setPhotoUrl(photoUrls.get(index));
-                memoryPhoto.setPhotoPath(photoPaths != null && index < photoPaths.size() ? photoPaths.get(index) : null);
                 existingPhotos.add(memoryPhoto);
             }
             travelMemory.setPhotos(existingPhotos);

@@ -4,6 +4,7 @@ CREATE DATABASE IF NOT EXISTS travel_memory
 
 USE travel_memory;
 
+DROP TABLE IF EXISTS memory_photo;
 DROP TABLE IF EXISTS travel_memory;
 DROP TABLE IF EXISTS travel_trip;
 
@@ -46,3 +47,16 @@ CREATE TABLE travel_memory (
     FOREIGN KEY (trip_id) REFERENCES travel_trip (id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Travel memory';
+
+CREATE TABLE memory_photo (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+  memory_id BIGINT NOT NULL COMMENT 'Memory ID',
+  photo_url VARCHAR(255) NOT NULL COMMENT 'Photo access URL',
+  sort_order INT NOT NULL DEFAULT 1 COMMENT 'Display order, first is primary',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
+  PRIMARY KEY (id),
+  KEY idx_memory_photo_memory_sort (memory_id, sort_order),
+  CONSTRAINT fk_memory_photo_memory
+    FOREIGN KEY (memory_id) REFERENCES travel_memory (id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Memory photos';

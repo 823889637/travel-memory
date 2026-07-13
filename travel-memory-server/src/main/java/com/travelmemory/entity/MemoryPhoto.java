@@ -12,7 +12,6 @@ public class MemoryPhoto {
     private Long id;
     private Long memoryId;
     private String photoUrl;
-    private String photoPath;
     private Integer sortOrder;
     private LocalDateTime createTime;
 
@@ -22,8 +21,6 @@ public class MemoryPhoto {
     public void setMemoryId(Long memoryId) { this.memoryId = memoryId; }
     public String getPhotoUrl() { return photoUrl; }
     public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
-    public String getPhotoPath() { return photoPath; }
-    public void setPhotoPath(String photoPath) { this.photoPath = photoPath; }
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     public LocalDateTime getCreateTime() { return createTime; }

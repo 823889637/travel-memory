@@ -18,8 +18,6 @@ const memories = ref([])
 const activeDayIndex = ref(0)
 const loading = ref(false)
 const error = ref('')
-const selectedPhotoByStop = ref({})
-const photoOrientations = ref({})
 const coverImageFailed = ref(false)
 
 const dayGroups = computed(() => {
@@ -40,7 +38,7 @@ const dayGroups = computed(() => {
     if (!groupMap.has(dateKey)) {
       const group = {
         date: dateKey,
-        dayLabel: `Day${groups.length + 1}`,
+        dayLabel: `第 ${groups.length + 1} 天`,
         memories: [],
         stops: [],
       }
@@ -122,11 +120,6 @@ function normalizeLocationName(value) {
   return normalized || '途中留下的记忆'
 }
 
-function stopLabel(index) {
-  const labels = ['第一站', '第二站', '第三站', '第四站', '第五站', '第六站', '第七站', '第八站', '第九站', '第十站']
-  return labels[index] || `第${index + 1}站`
-}
-
 function formatTime(value) {
   if (!value) {
     return '--:--'
@@ -155,57 +148,8 @@ function formatTimeRange(startTime, endTime) {
   return `${start} - ${end}`
 }
 
-function stopTimeText(stop) {
-  return `${formatTimeRange(stop.startTime, stop.endTime)} · ${stop.memories.length} 段记忆`
-}
-
 function photoSrc(url) {
   return url || ''
-}
-
-function photoKey(photo) {
-  return photo?.id || photo?.photoUrl || ''
-}
-
-function stopKey(stop) {
-  return `${stop.order}-${stop.locationName}`
-}
-
-function selectedPhoto(stop) {
-  const selectedKey = selectedPhotoByStop.value[stopKey(stop)]
-  return stop.photos.find((photo) => photoKey(photo) === selectedKey) || stop.photos[0]
-}
-
-function selectStopPhoto(stop, photo) {
-  selectedPhotoByStop.value = {
-    ...selectedPhotoByStop.value,
-    [stopKey(stop)]: photoKey(photo),
-  }
-}
-
-function photoOrientationClass(photo) {
-  const orientation = photoOrientations.value[photoKey(photo)] || 'landscape'
-  return `is-${orientation}`
-}
-
-function handlePhotoLoad(photo, event) {
-  const image = event.target
-  const width = image.naturalWidth
-  const height = image.naturalHeight
-  if (!width || !height) {
-    return
-  }
-  const ratio = width / height
-  let orientation = 'square'
-  if (ratio >= 1.15) {
-    orientation = 'landscape'
-  } else if (ratio <= 0.85) {
-    orientation = 'portrait'
-  }
-  photoOrientations.value = {
-    ...photoOrientations.value,
-    [photoKey(photo)]: orientation,
-  }
 }
 
 function selectDay(index) {
@@ -252,11 +196,6 @@ onMounted(loadPage)
       </div>
     </div>
 
-    <div class="journey-quiet-nav">
-      <RouterLink :to="`/trips/${id}`">返回 Timeline</RouterLink>
-      <RouterLink :to="`/trips/${id}/map`">查看 Map</RouterLink>
-    </div>
-
     <p v-if="loading">加载中...</p>
     <p v-if="error" class="error">{{ error }}</p>
 
@@ -266,17 +205,23 @@ onMounted(loadPage)
     </div>
 
     <template v-if="!loading && activeDay">
-      <div class="day-switcher">
-        <button
-          v-for="(group, index) in dayGroups"
-          :key="group.date"
-          type="button"
-          :class="index === activeDayIndex ? 'day-switch active' : 'day-switch'"
-          @click="selectDay(index)"
-        >
-          <span>{{ group.dayLabel }}</span>
-          <small>{{ group.date }}</small>
-        </button>
+      <div class="journey-top-controls">
+        <div class="journey-quiet-nav">
+          <RouterLink :to="`/trips/${id}`">返回时间线</RouterLink>
+          <RouterLink :to="`/trips/${id}/map`">查看地图</RouterLink>
+        </div>
+        <div class="day-switcher">
+          <button
+            v-for="(group, index) in dayGroups"
+            :key="group.date"
+            type="button"
+            :class="index === activeDayIndex ? 'day-switch active' : 'day-switch'"
+            @click="selectDay(index)"
+          >
+            <span>{{ group.dayLabel }}</span>
+            <small>{{ group.date }}</small>
+          </button>
+        </div>
       </div>
 
       <section class="journey-day">
@@ -289,34 +234,23 @@ onMounted(loadPage)
 
         <div class="journey-flow">
           <article v-for="(stop, index) in activeDay.stops" :key="`${stop.order}-${stop.locationName}`" class="journey-stop">
-            <div v-if="index > 0" class="journey-step-connector" aria-hidden="true">然后，去了下一个地方</div>
+            <div v-if="index > 0" class="journey-step-connector" aria-label="下一站"><span>下一站</span></div>
 
             <div class="journey-stop-card">
                 <div class="journey-stop-header">
-                  <span class="journey-stop-order">{{ stopLabel(index) }}</span>
-                  <div class="journey-stop-title-block">
-                    <h3>{{ stop.locationName }}</h3>
-                    <p>{{ stopTimeText(stop) }}</p>
-                  </div>
+                  <h3>{{ stop.locationName }}</h3>
+                  <p class="journey-stop-meta">第 {{ stop.order }} 站 · {{ formatTimeRange(stop.startTime, stop.endTime) }} · {{ stop.memories.length }} 段记忆</p>
                 </div>
 
                 <div v-if="stop.photos.length > 0" class="journey-stop-photos">
-                  <MemoryPhotoGallery :photos="stop.photos" :fallback-url="photoSrc(selectedPhoto(stop).photoUrl)" :alt="`${stop.locationName} 旅行记忆照片`" />
-                  <div v-if="stop.photos.length > 1" class="journey-stop-thumbs">
-                    <img
-                      v-for="photo in stop.photos"
-                      :key="photo.id"
-                      :class="[
-                        'journey-stop-thumb',
-                        photoKey(selectedPhoto(stop)) === photoKey(photo) ? 'active' : '',
-                        photoOrientationClass(photo),
-                      ]"
-                      :src="photoSrc(photo.photoUrl)"
-                      @click="selectStopPhoto(stop, photo)"
-                      @load="handlePhotoLoad(photo, $event)"
-                      :alt="`${stop.locationName} 旅行记忆照片`"
-                    />
-                  </div>
+                  <MemoryPhotoGallery
+                    :photos="stop.photos"
+                    :fallback-url="photoSrc(stop.photos[0]?.photoUrl)"
+                    fit="contain"
+                    layout="journey"
+                    count-label="张照片"
+                    :alt="`${stop.locationName} 旅行记忆照片`"
+                  />
                 </div>
                 <div v-else class="journey-stop-photo-empty">这一站没有留下照片，但当时的文字还在。</div>
 
@@ -329,13 +263,6 @@ onMounted(loadPage)
             </div>
           </article>
 
-          <div class="journey-day-end">
-            <span></span>
-            <div>
-              <strong>这一天，到这里就结束了</strong>
-              <p>{{ activeDay.memories.length }} 段记忆，被重新走了一遍。</p>
-            </div>
-          </div>
         </div>
       </section>
     </template>
