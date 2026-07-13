@@ -243,7 +243,13 @@ onBeforeUnmount(() => {
     <form v-else-if="originalTrip" class="form card" @submit.prevent="submit">
       <div class="field">
         <label>旅行封面</label>
-        <img v-if="coverPhotoUrl" :src="coverPhotoUrl" alt="当前旅行封面" @error="coverImageFailed = true" />
+        <img
+          v-if="coverPhotoUrl"
+          class="trip-edit-cover-preview"
+          :src="coverPhotoUrl"
+          alt="当前旅行封面"
+          @error="coverImageFailed = true"
+        />
         <p v-else class="muted">这次旅行还没有照片可作为封面。</p>
         <p class="muted">{{ hasExplicitCover ? '当前使用已设置的旅行封面。' : '当前自动使用按时间排序的第一张旅行照片。' }}</p>
         <button v-if="hasExplicitCover" type="button" class="ghost" :disabled="clearingCover" @click="clearCover">
@@ -304,3 +310,22 @@ onBeforeUnmount(() => {
     </form>
   </section>
 </template>
+
+<style scoped>
+.trip-edit-cover-preview {
+  display: block;
+  width: min(100%, 420px);
+  height: 190px;
+  border-radius: 8px;
+  background: #f1ebe3;
+  object-fit: cover;
+  object-position: center;
+}
+
+@media (max-width: 640px) {
+  .trip-edit-cover-preview {
+    width: 100%;
+    height: min(52vw, 190px);
+  }
+}
+</style>

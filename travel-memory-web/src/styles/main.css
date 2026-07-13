@@ -1119,8 +1119,9 @@ textarea {
 
 .memory-card.has-photo {
   grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
-  align-items: start;
+  align-items: stretch;
   gap: 14px;
+  min-height: 214px;
   padding: 12px;
 }
 
@@ -1136,14 +1137,14 @@ textarea {
   display: grid;
   place-items: center;
   min-height: 0;
-  background: #f0e8dc;
+  background: transparent;
 }
 
 .memory-details {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  gap: 10px;
+  gap: 12px;
 }
 
 .memory-location {
@@ -1160,7 +1161,7 @@ textarea {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
 .memory-title-line p {
@@ -1206,9 +1207,9 @@ textarea {
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
-  margin-top: 2px;
-  border-top: 1px solid var(--tm-border);
-  padding-top: 8px;
+  margin-top: auto;
+  border-top: 0;
+  padding-top: 0;
 }
 
 .memory-actions button {
@@ -1216,14 +1217,14 @@ textarea {
 }
 
 .memory-actions button.favorite {
-  border: 1px solid var(--tm-border);
-  background: rgba(251, 249, 244, 0.58);
+  border: 1px solid rgba(181, 97, 60, 0.22);
+  background: transparent;
   color: var(--tm-text-muted);
 }
 
 .memory-actions button.favorite.active {
-  border-color: var(--tm-accent);
-  background: var(--tm-accent-soft);
+  border-color: rgba(181, 97, 60, 0.48);
+  background: transparent;
   color: var(--tm-accent);
 }
 
@@ -2244,6 +2245,7 @@ textarea {
   .memory-card.has-photo {
     grid-template-columns: 1fr;
     gap: 10px;
+    min-height: 0;
     padding: 12px;
   }
 

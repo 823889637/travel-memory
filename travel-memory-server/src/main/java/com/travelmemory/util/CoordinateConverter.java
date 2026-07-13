@@ -38,6 +38,25 @@ public final class CoordinateConverter {
         return new Coordinate(lat + dLat, lng + dLng);
     }
 
+    public static Coordinate gcj02ToWgs84(BigDecimal latitude, BigDecimal longitude) {
+        double gcjLat = latitude.doubleValue();
+        double gcjLng = longitude.doubleValue();
+        if (!isInChina(latitude, longitude)) {
+            return new Coordinate(gcjLat, gcjLng);
+        }
+
+        // The inverse transform has no simple closed form. Iterating from the GCJ-02
+        // point keeps stored WGS84 values aligned with the map display conversion.
+        double wgsLat = gcjLat;
+        double wgsLng = gcjLng;
+        for (int index = 0; index < 6; index++) {
+            Coordinate converted = wgs84ToGcj02(BigDecimal.valueOf(wgsLat), BigDecimal.valueOf(wgsLng));
+            wgsLat -= converted.latitude() - gcjLat;
+            wgsLng -= converted.longitude() - gcjLng;
+        }
+        return new Coordinate(wgsLat, wgsLng);
+    }
+
     private static double transformLat(double x, double y) {
         double ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y
                 + 0.2 * Math.sqrt(Math.abs(x));

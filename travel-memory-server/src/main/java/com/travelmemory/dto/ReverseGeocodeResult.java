@@ -1,5 +1,7 @@
 package com.travelmemory.dto;
 
+import java.util.List;
+
 public class ReverseGeocodeResult {
 
     private String locationName;
@@ -7,6 +9,7 @@ public class ReverseGeocodeResult {
     private String source;
     private boolean success;
     private String message;
+    private List<LocationNameCandidate> candidates = List.of();
 
     public static ReverseGeocodeResult empty() {
         return failure(null);
@@ -20,12 +23,22 @@ public class ReverseGeocodeResult {
     }
 
     public static ReverseGeocodeResult success(String locationName, String formattedAddress, String source) {
+        return success(locationName, formattedAddress, source, List.of());
+    }
+
+    public static ReverseGeocodeResult success(
+            String locationName,
+            String formattedAddress,
+            String source,
+            List<LocationNameCandidate> candidates
+    ) {
         ReverseGeocodeResult result = new ReverseGeocodeResult();
         result.setLocationName(locationName);
         result.setFormattedAddress(formattedAddress);
         result.setSource(source);
         result.setSuccess(true);
         result.setMessage(null);
+        result.setCandidates(candidates == null ? List.of() : candidates);
         return result;
     }
 
@@ -67,5 +80,13 @@ public class ReverseGeocodeResult {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public List<LocationNameCandidate> getCandidates() {
+        return candidates;
+    }
+
+    public void setCandidates(List<LocationNameCandidate> candidates) {
+        this.candidates = candidates == null ? List.of() : candidates;
     }
 }

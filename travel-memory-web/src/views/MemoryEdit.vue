@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { addMemoryPhoto, deleteMemoryPhoto, getMemory, reorderMemoryPhotos, reverseGeocode, updateMemory } from '../api/memory'
+import LocationPicker from '../components/LocationPicker.vue'
 
 const props = defineProps({
   tripId: {
@@ -28,6 +29,7 @@ const photoInput = ref(null)
 const locationNameTouched = ref(false)
 const locationSuggestion = ref(null)
 const locationSuggestionStatus = ref('idle')
+const showLocationPicker = ref(false)
 
 const MAX_PHOTO_SIZE = 50 * 1024 * 1024
 const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
@@ -141,6 +143,15 @@ function onLocationNameInput() {
   if (form.locationName.trim()) {
     resetLocationSuggestion()
   }
+}
+
+function applyPickedLocation(location) {
+  form.locationName = location.locationName || ''
+  form.latitude = location.latitude == null ? '' : String(location.latitude)
+  form.longitude = location.longitude == null ? '' : String(location.longitude)
+  locationNameTouched.value = true
+  resetLocationSuggestion()
+  showLocationPicker.value = false
 }
 
 function onCoordinateInput() {
@@ -348,6 +359,9 @@ onBeforeUnmount(() => {
           </template>
           <p v-else>暂时没有识别出地点名称，你可以手动填写。</p>
         </div>
+        <button type="button" class="location-picker-trigger" @click="showLocationPicker = true">
+          搜索 / 地图选点
+        </button>
       </div>
 
       <div class="more">
@@ -412,6 +426,15 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </form>
+
+    <LocationPicker
+      v-if="showLocationPicker"
+      :location-name="form.locationName"
+      :latitude="form.latitude"
+      :longitude="form.longitude"
+      @confirm="applyPickedLocation"
+      @cancel="showLocationPicker = false"
+    />
   </section>
 </template>
 
@@ -420,4 +443,5 @@ onBeforeUnmount(() => {
 .stored-photo-item { display: grid; gap: 4px; color: #8a7f76; font-size: 12px; }
 .stored-photo-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
 .stored-photo-item button { padding: 4px; border: 1px solid #ece3d8; border-radius: 5px; background: #fff; color: #2c2521; font-size: 11px; }
+.location-picker-trigger { margin-top: 8px; padding: 7px 10px; border: 1px solid #ece3d8; border-radius: 6px; background: transparent; color: #76543e; font: inherit; font-size: 13px; }
 </style>

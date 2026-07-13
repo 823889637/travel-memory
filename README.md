@@ -17,6 +17,7 @@ Travel Memory 更重要的是帮助用户多年以后重新体验一次真实发
 - Journey
 - Map 高德真实地图
 - 收藏和搜索
+- 收藏回看：只浏览当前旅行中已收藏的 Memory
 
 旅行编辑前端页面已完成。
 
@@ -26,11 +27,16 @@ Travel Memory 更重要的是帮助用户多年以后重新体验一次真实发
 - 浏览器当前位置和 WGS84 到 GCJ-02 转换
 - 高德逆地理编码与地点名称候选推荐
 - 用户确认后使用地点名称
+- 地点搜索与地图选点：搜索高德 POI、在地图点击选点，并保留用户自定义地点名称
+- 同一段 Memory 最多 6 张照片：支持排序、主图同步和统一图库浏览
+- 旅行封面管理：可从当前旅行已有的 Memory 照片中选择封面
 - Docker Compose 和阿里云 ECS 部署
 - Basic Auth 临时访问保护、安全 Nginx 覆盖与 `/healthz`
 - MySQL 与 uploads 备份脚本
 
-`Map` 已接入高德真实地图：有坐标的 Memory 可显示为点位，点击点位可查看对应记忆；不包含导航、路线规划或轨迹回放。
+`Map` 已接入高德真实地图：有坐标的 Memory 可显示为点位，点击点位可查看对应记忆；不包含导航、路线规划或轨迹回放。Memory 坐标在数据库统一保存为 WGS84，前端仅在高德地图展示时转换为 GCJ-02。
+
+地点搜索、地图选点、照片 EXIF 和浏览器定位都只帮助用户确定坐标与推荐名称；用户始终可以保留或修改自己的地点描述。
 
 ## 技术栈
 
@@ -68,7 +74,7 @@ VITE_AMAP_SECURITY_JS_CODE=
 VITE_AMAP_SERVICE_HOST=
 ```
 
-`VITE_AMAP_JS_API_KEY` 不能复用后端逆地理编码使用的 `AMAP_WEB_SERVICE_KEY`。Vite 的 `VITE_` 变量会在构建时注入浏览器产物；生产环境应优先配置安全代理地址 `VITE_AMAP_SERVICE_HOST`，`VITE_AMAP_SECURITY_JS_CODE` 仅适合本地开发或临时测试。当前 Docker 构建未注入这些前端变量，部署真实地图前需在构建环境提供它们，且不得把真实 Key 或安全密钥提交到仓库。
+`AMAP_WEB_SERVICE_KEY` 仅在后端使用，用于逆地理编码和地点 POI 搜索；`VITE_AMAP_JS_API_KEY` 不能复用它。Vite 的 `VITE_` 变量会在构建时注入浏览器产物；生产环境应优先配置安全代理地址 `VITE_AMAP_SERVICE_HOST`，`VITE_AMAP_SECURITY_JS_CODE` 仅适合本地开发或临时测试。当前 Docker 构建未注入这些前端变量，部署真实地图前需在构建环境提供它们，且不得把真实 Key 或安全密钥提交到仓库。
 
 ```bash
 cd travel-memory-server
@@ -112,4 +118,4 @@ travel-memory-web/          Vue 前端
 
 ## 后续方向
 
-优先处理域名、HTTPS、HTTP 跳转 HTTPS、旅行封面和孤儿图片清理。正式登录、多用户数据隔离和对象存储备份留待独立任务。
+优先处理域名、HTTPS、HTTP 跳转 HTTPS，以及孤儿图片清理的生产 dry-run 验证。正式登录、多用户数据隔离和对象存储备份留待独立任务。

@@ -374,7 +374,7 @@ onMounted(loadPage)
             <div class="memory-card" :class="{ 'has-photo': Boolean(memory.photoUrl) }">
               <div class="memory-main">
                 <div v-if="memory.photoUrl" class="memory-photo-frame">
-                  <MemoryPhotoGallery :photos="memory.photos" :fallback-url="photoSrc(memory.photoUrl)" fit="contain" count-label="张照片" max-height="200px" backdrop backdrop-portrait-only alt="旅行记忆照片" />
+                  <MemoryPhotoGallery :photos="memory.photos" :fallback-url="photoSrc(memory.photoUrl)" fit="contain" layout="timeline" count-label="张照片" alt="旅行记忆照片" />
                 </div>
                 <div v-else class="memory-photo-empty">这段记忆没有照片，文字还在。</div>
               </div>

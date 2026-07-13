@@ -20,6 +20,21 @@ export function reverseGeocode(latitude, longitude) {
   return request.get('/api/location/reverse-geocode', { params: { latitude, longitude } })
 }
 
+export function searchLocations(keyword, options = {}) {
+  return request.get('/api/location/search', {
+    params: {
+      keyword,
+      latitude: options.latitude ?? undefined,
+      longitude: options.longitude ?? undefined,
+      city: options.city ?? undefined,
+    },
+  })
+}
+
+export function normalizeCoordinate(data) {
+  return request.post('/api/location/normalize', data)
+}
+
 export function getMemory(id) {
   return request.get(`/api/memories/${id}`)
 }

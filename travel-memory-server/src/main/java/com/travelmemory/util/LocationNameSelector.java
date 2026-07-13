@@ -14,6 +14,10 @@ public class LocationNameSelector {
     private static final int MISSING_DISTANCE = Integer.MAX_VALUE;
 
     public Optional<LocationCandidate> select(JsonNode regeocode) {
+        return candidates(regeocode).stream().findFirst();
+    }
+
+    public List<LocationCandidate> candidates(JsonNode regeocode) {
         List<LocationCandidate> candidates = new ArrayList<>();
         JsonNode addressComponent = regeocode.path("addressComponent");
 
@@ -27,11 +31,13 @@ public class LocationNameSelector {
 
         return candidates.stream()
                 .filter(candidate -> StringUtils.hasText(candidate.getName()))
-                .max(Comparator
+                .sorted(Comparator
                         .comparingInt((LocationCandidate candidate) -> candidate.getSource().getRank())
                         .thenComparing(candidate -> -distanceValue(candidate))
                         .thenComparing(candidate -> -candidate.getIndex())
-                        .thenComparing(candidate -> -simpleLengthScore(candidate)));
+                        .thenComparing(candidate -> -simpleLengthScore(candidate))
+                        .reversed())
+                .toList();
     }
 
     private void addAois(List<LocationCandidate> candidates, JsonNode aois) {
