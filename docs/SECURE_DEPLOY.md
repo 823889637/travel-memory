@@ -1,6 +1,6 @@
 # Travel Memory 安全部署说明
 
-本方案通过 Nginx Basic Auth 为单用户、小范围试用提供临时访问保护。它不是正式登录系统，也不提供多用户数据隔离，更不等同于 HTTPS。
+本方案通过 Nginx Basic Auth 为单用户、小范围试用提供临时访问保护。应用当前另有基于 Session 的账号与数据隔离；Basic Auth 仍应在公网迁移期作为外层保护保留。两者都不等同于 HTTPS。
 
 ## 创建单用户认证
 

@@ -7,9 +7,18 @@ import TripJourney from '../views/TripJourney.vue'
 import MemoryCreate from '../views/MemoryCreate.vue'
 import MemoryEdit from '../views/MemoryEdit.vue'
 import TripMap from '../views/TripMap.vue'
+import Login from '../views/Login.vue'
+import Register from '../views/Register.vue'
+import ChangePassword from '../views/ChangePassword.vue'
+import AdminUsers from '../views/AdminUsers.vue'
+import { authResolved, currentUser, loadCurrentUser } from '../auth'
 
 const routes = [
   { path: '/', redirect: '/trips' },
+  { path: '/login', component: Login, meta: { public: true } },
+  { path: '/register', component: Register, meta: { public: true } },
+  { path: '/change-password', component: ChangePassword },
+  { path: '/admin/users', component: AdminUsers, meta: { admin: true } },
   { path: '/trips', component: TripList },
   { path: '/trips/new', component: TripCreate },
   { path: '/trips/:id/edit', component: TripEdit, props: true },
@@ -21,7 +30,17 @@ const routes = [
   { path: '/trips/:id/map', component: TripMap, props: true },
 ]
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes,
 })
+router.beforeEach(async (to) => {
+  if (!authResolved.value) await loadCurrentUser()
+  const user = currentUser.value
+  if (to.meta.public) return user ? (user.mustChangePassword ? '/change-password' : '/trips') : true
+  if (!user) return { path: '/login', query: { redirect: to.fullPath } }
+  if (user.mustChangePassword && to.path !== '/change-password') return '/change-password'
+  if (to.meta.admin && user.role !== 'ADMIN') return '/trips'
+  return true
+})
+export default router

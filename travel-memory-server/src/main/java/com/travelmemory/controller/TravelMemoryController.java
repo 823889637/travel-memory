@@ -39,7 +39,7 @@ public class TravelMemoryController {
 
     @GetMapping("/search")
     public Result<List<TravelMemory>> search(
-            @RequestParam(required = false) Long tripId,
+            @RequestParam Long tripId,
             @RequestParam String keyword
     ) {
         return Result.success(travelMemoryService.search(tripId, keyword));

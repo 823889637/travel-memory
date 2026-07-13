@@ -18,6 +18,7 @@ import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.FileStorageService;
 import com.travelmemory.service.TravelTripService;
+import com.travelmemory.security.CurrentUser;
 import com.travelmemory.util.ImageMetadataExtractor;
 import com.travelmemory.util.ImageMetadataInfo;
 import java.util.List;
@@ -168,7 +169,8 @@ class TravelCoverServiceTest {
                 memoryMapper, mock(MemoryPhotoMapper.class),
                 tripService,
                 mock(FileStorageService.class),
-                mock(ImageMetadataExtractor.class));
+                mock(ImageMetadataExtractor.class),
+                currentUser());
 
         service.delete(10L);
 
@@ -191,14 +193,15 @@ class TravelCoverServiceTest {
         replacement.setSortOrder(0);
         when(memoryMapper.selectById(10L)).thenReturn(memory);
         when(photoMapper.selectList(any())).thenReturn(List.of(), List.of(replacement));
-        when(storageService.store(any())).thenReturn(new StoredFile("/uploads/new.jpg", "/app/uploads/new.jpg"));
+        when(storageService.store(any(), any())).thenReturn(new StoredFile("/uploads/new.jpg", "/app/uploads/new.jpg"));
         when(metadataExtractor.extract("/app/uploads/new.jpg")).thenReturn(new ImageMetadataInfo());
 
         TravelMemoryServiceImpl service = new TravelMemoryServiceImpl(
                 memoryMapper, photoMapper,
                 tripService,
                 storageService,
-                metadataExtractor);
+                metadataExtractor,
+                currentUser());
 
         service.uploadPhoto(10L, mock(MultipartFile.class));
 
@@ -209,13 +212,20 @@ class TravelCoverServiceTest {
     private TravelTrip trip(Long id, String coverPhotoUrl) {
         TravelTrip trip = new TravelTrip();
         trip.setId(id);
+        trip.setUserId(1L);
         trip.setTitle("Trip");
         trip.setCoverPhotoUrl(coverPhotoUrl);
         return trip;
     }
 
     private TravelTripServiceImpl tripService(TravelTripMapper tripMapper, TravelMemoryMapper memoryMapper) {
-        return new TravelTripServiceImpl(tripMapper, memoryMapper, mock(MemoryPhotoMapper.class));
+        return new TravelTripServiceImpl(tripMapper, memoryMapper, mock(MemoryPhotoMapper.class), currentUser());
+    }
+
+    private CurrentUser currentUser() {
+        CurrentUser currentUser = mock(CurrentUser.class);
+        when(currentUser.requireId()).thenReturn(1L);
+        return currentUser;
     }
 
     private TravelMemory memory(Long id, Long tripId, String photoUrl) {

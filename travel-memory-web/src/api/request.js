@@ -3,6 +3,9 @@ import axios from 'axios'
 const request = axios.create({
   baseURL: '',
   timeout: 60000,
+  withCredentials: true,
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
 })
 
 request.interceptors.response.use(

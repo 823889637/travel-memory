@@ -27,9 +27,12 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
     private String uploadDir;
 
     @Override
-    public StoredFile store(MultipartFile file) {
+    public StoredFile store(MultipartFile file, Long userId) {
         if (file == null || file.isEmpty()) {
             return null;
+        }
+        if (userId == null || userId <= 0) {
+            throw new BusinessException(401, "Authentication is required");
         }
 
         String originalFilename = StringUtils.cleanPath(file.getOriginalFilename() == null ? "" : file.getOriginalFilename());
@@ -38,11 +41,14 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
             throw new BusinessException(400, "Only image files are allowed");
         }
 
-        String datePath = LocalDate.now().format(DATE_PATH_FORMATTER);
+        String datePath = "users/" + userId + "/" + LocalDate.now().format(DATE_PATH_FORMATTER);
         String storedFilename = UUID.randomUUID() + "." + extension;
         Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
         Path targetDirectory = uploadRoot.resolve(datePath).normalize();
         Path targetFile = targetDirectory.resolve(storedFilename).normalize();
+        if (!targetDirectory.startsWith(uploadRoot) || !targetFile.startsWith(uploadRoot)) {
+            throw new BusinessException(400, "Invalid upload path");
+        }
 
         try {
             Files.createDirectories(targetDirectory);

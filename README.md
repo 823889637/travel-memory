@@ -118,4 +118,4 @@ travel-memory-web/          Vue 前端
 
 ## 后续方向
 
-优先处理域名、HTTPS、HTTP 跳转 HTTPS，以及孤儿图片清理的生产 dry-run 验证。正式登录、多用户数据隔离和对象存储备份留待独立任务。
+优先处理域名、HTTPS、HTTP 跳转 HTTPS，以及孤儿图片清理的生产 dry-run 验证。第一版账号与数据隔离已经实现：受控邀请码注册、管理员账号管理、Spring Security Session、Trip 归属用户和按用户隔离的图片路径。迁移与初始化步骤见 [用户账号与数据隔离](docs/USER_ISOLATION.md)。正式公网启用仍需先完成 HTTPS，并在过渡期保留 Basic Auth。

@@ -1,0 +1,12 @@
+import request from './request'
+export const getCsrf = () => request.get('/api/auth/csrf')
+export const login = (data) => request.post('/api/auth/login', data)
+export const getRegistrationStatus = () => request.get('/api/auth/registration-status')
+export const register = (data) => request.post('/api/auth/register', data)
+export const getMe = () => request.get('/api/auth/me')
+export const logout = () => request.post('/api/auth/logout')
+export const changePassword = (data) => request.put('/api/auth/password', data)
+export const getUsers = () => request.get('/api/admin/users')
+export const createUser = (data) => request.post('/api/admin/users', data)
+export const setUserEnabled = (id, enabled) => request.put(`/api/admin/users/${id}/enabled`, { enabled })
+export const resetUserPassword = (id, temporaryPassword) => request.put(`/api/admin/users/${id}/password`, { temporaryPassword })

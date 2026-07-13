@@ -7,9 +7,32 @@ USE travel_memory;
 DROP TABLE IF EXISTS memory_photo;
 DROP TABLE IF EXISTS travel_memory;
 DROP TABLE IF EXISTS travel_trip;
+DROP TABLE IF EXISTS app_user;
+
+CREATE TABLE app_user (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+  username VARCHAR(64) DEFAULT NULL COMMENT 'Lowercase username',
+  display_name VARCHAR(100) NOT NULL COMMENT 'Display name',
+  password_hash VARCHAR(100) NOT NULL COMMENT 'BCrypt password hash',
+  role VARCHAR(16) NOT NULL COMMENT 'ADMIN or USER',
+  enabled TINYINT NOT NULL DEFAULT 1 COMMENT 'Enabled flag',
+  must_change_password TINYINT NOT NULL DEFAULT 0 COMMENT 'Require password change',
+  failed_login_count INT NOT NULL DEFAULT 0,
+  locked_until DATETIME DEFAULT NULL,
+  last_login_time DATETIME DEFAULT NULL,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_app_user_username (username),
+  KEY idx_app_user_role_enabled (role, enabled)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Application user';
+
+INSERT INTO app_user (id, username, display_name, password_hash, role, enabled, must_change_password)
+VALUES (1, NULL, 'Initial administrator', '!', 'ADMIN', 0, 1);
 
 CREATE TABLE travel_trip (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+  user_id BIGINT NOT NULL COMMENT 'Owner user ID',
   title VARCHAR(100) NOT NULL COMMENT 'Trip title',
   description VARCHAR(500) DEFAULT NULL COMMENT 'Trip description',
   destination VARCHAR(100) DEFAULT NULL COMMENT 'Destination',
@@ -21,7 +44,9 @@ CREATE TABLE travel_trip (
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'Deleted flag: 0 no, 1 yes',
   PRIMARY KEY (id),
   KEY idx_travel_trip_start_date (start_date),
-  KEY idx_travel_trip_create_time (create_time)
+  KEY idx_travel_trip_user_deleted_start (user_id, deleted, start_date),
+  KEY idx_travel_trip_create_time (create_time),
+  CONSTRAINT fk_travel_trip_user FOREIGN KEY (user_id) REFERENCES app_user (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Travel trip';
 
 CREATE TABLE travel_memory (

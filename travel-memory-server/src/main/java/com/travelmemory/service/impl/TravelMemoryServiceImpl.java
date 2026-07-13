@@ -12,6 +12,8 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.service.FileStorageService;
 import com.travelmemory.service.TravelMemoryService;
 import com.travelmemory.service.TravelTripService;
+import com.travelmemory.security.CurrentUser;
+import com.travelmemory.security.UploadPathGuard;
 import com.travelmemory.util.ImageMetadataExtractor;
 import com.travelmemory.util.ImageMetadataInfo;
 import java.time.LocalDateTime;
@@ -19,7 +21,6 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     private final TravelTripService travelTripService;
     private final FileStorageService fileStorageService;
     private final ImageMetadataExtractor imageMetadataExtractor;
+    private final CurrentUser currentUser;
 
     @Value("${app.upload.dir:../uploads}")
     private String uploadDir;
@@ -51,12 +53,13 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     @Autowired
     public TravelMemoryServiceImpl(TravelMemoryMapper travelMemoryMapper, MemoryPhotoMapper memoryPhotoMapper,
             TravelTripService travelTripService, FileStorageService fileStorageService,
-            ImageMetadataExtractor imageMetadataExtractor) {
+            ImageMetadataExtractor imageMetadataExtractor, CurrentUser currentUser) {
         this.travelMemoryMapper = travelMemoryMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
         this.travelTripService = travelTripService;
         this.fileStorageService = fileStorageService;
         this.imageMetadataExtractor = imageMetadataExtractor;
+        this.currentUser = currentUser;
     }
 
     @Override
@@ -71,9 +74,10 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     public List<TravelMemory> search(Long tripId, String keyword) {
         String normalizedKeyword = keyword == null ? "" : keyword.trim();
         if (normalizedKeyword.isEmpty()) return List.of();
-        if (tripId != null) travelTripService.getById(tripId);
+        if (tripId == null) throw new BusinessException(400, "tripId is required");
+        travelTripService.getById(tripId);
         LambdaQueryWrapper<TravelMemory> wrapper = new LambdaQueryWrapper<>();
-        if (tripId != null) wrapper.eq(TravelMemory::getTripId, tripId);
+        wrapper.eq(TravelMemory::getTripId, tripId);
         wrapper.and(query -> query.like(TravelMemory::getContent, normalizedKeyword)
                 .or().like(TravelMemory::getLocationName, normalizedKeyword))
                 .orderByAsc(TravelMemory::getRecordTime).orderByAsc(TravelMemory::getCreateTime);
@@ -84,6 +88,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     public TravelMemory getById(Long id) {
         TravelMemory memory = travelMemoryMapper.selectById(id);
         if (memory == null) throw new BusinessException(404, "Memory not found");
+        travelTripService.getById(memory.getTripId());
         return attachPhotos(List.of(memory)).get(0);
     }
 
@@ -121,7 +126,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
 
     @Override
     public UploadResult uploadPhoto(MultipartFile photo) {
-        StoredFile storedFile = fileStorageService.store(photo);
+        StoredFile storedFile = fileStorageService.store(photo, currentUser.requireId());
         if (storedFile == null) throw new BusinessException(400, "Photo file is required");
         ImageMetadataInfo info = imageMetadataExtractor.extract(storedFile.getPath());
         UploadResult result = new UploadResult();
@@ -275,12 +280,15 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         if (!decoded.startsWith("/uploads/") || decoded.contains("?") || decoded.contains("#")) throw new BusinessException(400, "Photo URL must use /uploads/");
         String relative = decoded.substring("/uploads/".length());
         if (relative.isBlank()) throw new BusinessException(400, "Invalid photo URL");
+        String userPrefix = "users/" + currentUser.requireId() + "/";
+        if (!relative.startsWith(userPrefix) && !(currentUser.requireId().equals(1L) && !relative.startsWith("users/"))) {
+            throw new BusinessException(404, "Photo URL not found");
+        }
         Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
         Path candidate;
         try { candidate = root.resolve(relative).normalize(); }
         catch (RuntimeException exception) { throw new BusinessException(400, "Invalid photo URL"); }
-        if (!candidate.startsWith(root) || candidate.equals(root) || Files.isSymbolicLink(candidate)
-                || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) {
+        if (!UploadPathGuard.isSafeRegularFile(root, candidate)) {
             throw new BusinessException(400, "Photo URL does not reference an uploaded file");
         }
         return "/uploads/" + root.relativize(candidate).toString().replace('\\', '/');

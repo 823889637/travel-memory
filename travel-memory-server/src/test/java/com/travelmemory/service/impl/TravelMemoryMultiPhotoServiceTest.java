@@ -17,6 +17,7 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.FileStorageService;
 import com.travelmemory.service.TravelTripService;
+import com.travelmemory.security.CurrentUser;
 import com.travelmemory.util.ImageMetadataExtractor;
 import java.time.LocalDateTime;
 import java.nio.file.Files;
@@ -88,6 +89,13 @@ class TravelMemoryMultiPhotoServiceTest {
     }
 
     @Test
+    void rejectsAnotherUsersUploadedPhotoUrl() {
+        Fixture fixture = fixture();
+
+        assertCreateRejected(fixture, "/uploads/users/2/2026/07/private.jpg");
+    }
+
+    @Test
     void rejectsDuplicatePhotoUrlsAfterNormalization() throws Exception {
         Fixture fixture = fixture();
         uploadedFile("duplicate.jpg");
@@ -153,10 +161,10 @@ class TravelMemoryMultiPhotoServiceTest {
         TravelTripMapper tripMapper = mock(TravelTripMapper.class);
         TravelMemoryMapper memoryMapper = mock(TravelMemoryMapper.class);
         MemoryPhotoMapper photoMapper = mock(MemoryPhotoMapper.class);
-        var trip = new com.travelmemory.entity.TravelTrip(); trip.setId(1L);
+        var trip = new com.travelmemory.entity.TravelTrip(); trip.setId(1L); trip.setUserId(1L);
         when(tripMapper.selectById(1L)).thenReturn(trip);
         when(memoryMapper.selectList(any())).thenReturn(List.of(memory(10L, "/uploads/one.jpg")));
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper, photoMapper);
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper, photoMapper, currentUser());
 
         service.delete(1L);
 
@@ -176,7 +184,7 @@ class TravelMemoryMultiPhotoServiceTest {
         when(photoMapper.insert(org.mockito.ArgumentMatchers.<MemoryPhoto>any())).thenAnswer(invocation -> { MemoryPhoto photo = invocation.getArgument(0); photo.setId(ids.getAndIncrement()); photos.add(photo); return 1; });
         when(photoMapper.updateById(org.mockito.ArgumentMatchers.<MemoryPhoto>any())).thenReturn(1);
         TravelMemoryServiceImpl service = new TravelMemoryServiceImpl(memoryMapper, photoMapper, tripService,
-                mock(FileStorageService.class), mock(ImageMetadataExtractor.class));
+                mock(FileStorageService.class), mock(ImageMetadataExtractor.class), currentUser());
         ReflectionTestUtils.setField(service, "uploadDir", uploadDir.toString());
         return new Fixture(service, memoryMapper, photoMapper, tripService, photos);
     }
@@ -193,6 +201,11 @@ class TravelMemoryMultiPhotoServiceTest {
     }
     private MemoryPhoto photo(Long id, String url, int order) {
         MemoryPhoto photo = new MemoryPhoto(); photo.setId(id); photo.setMemoryId(10L); photo.setPhotoUrl(url); photo.setSortOrder(order); return photo;
+    }
+    private CurrentUser currentUser() {
+        CurrentUser currentUser = mock(CurrentUser.class);
+        when(currentUser.requireId()).thenReturn(1L);
+        return currentUser;
     }
     private record Fixture(TravelMemoryServiceImpl service, TravelMemoryMapper memoryMapper, MemoryPhotoMapper photoMapper,
                            TravelTripService tripService, List<MemoryPhoto> photos) { }

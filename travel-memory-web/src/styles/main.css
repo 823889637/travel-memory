@@ -519,6 +519,17 @@ textarea {
 .memory-create-actions button {
   min-width: 128px;
 }
+.user-menu { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 13px; color: var(--tm-text-muted); }
+.user-menu a, .user-menu button { color: inherit; font: inherit; background: transparent; border: 0; padding: 4px; }
+.auth-page { display: grid; place-items: center; min-height: calc(100vh - 160px); }
+.auth-link { display: inline-block; margin-top: 12px; color: var(--tm-accent); font-size: 14px; }
+.auth-card { width: min(100%, 420px); padding: 28px; }
+.auth-card h1 { margin: 0; font-size: 25px; }
+.user-list { display: grid; gap: 10px; margin-top: 18px; }
+.user-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; }
+.user-row p { margin: 5px 0 0; }
+.user-password-reset { display: flex; flex: 1 0 100%; align-items: center; gap: 8px; }
+.user-password-reset input { flex: 1 1 240px; }
 
 .memory-edit-page {
   display: grid;
@@ -2369,5 +2380,15 @@ textarea {
 
   .trip-card-body {
     padding: 18px;
+  }
+
+  .user-row,
+  .user-password-reset {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-row .actions {
+    justify-content: flex-start;
   }
 }

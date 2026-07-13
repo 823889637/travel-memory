@@ -11,6 +11,7 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.TravelTripService;
+import com.travelmemory.security.CurrentUser;
 import com.travelmemory.vo.TravelTripListVO;
 import java.util.HashMap;
 import java.util.List;
@@ -25,18 +26,21 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     private final TravelTripMapper travelTripMapper;
     private final TravelMemoryMapper travelMemoryMapper;
     private final MemoryPhotoMapper memoryPhotoMapper;
+    private final CurrentUser currentUser;
 
     @Autowired
     public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper,
-            MemoryPhotoMapper memoryPhotoMapper) {
+            MemoryPhotoMapper memoryPhotoMapper, CurrentUser currentUser) {
         this.travelTripMapper = travelTripMapper;
         this.travelMemoryMapper = travelMemoryMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
+        this.currentUser = currentUser;
     }
 
     @Override
     public List<TravelTripListVO> listForHome() {
         List<TravelTrip> trips = travelTripMapper.selectList(new LambdaQueryWrapper<TravelTrip>()
+                .eq(TravelTrip::getUserId, currentUser.requireId())
                 .orderByDesc(TravelTrip::getStartDate)
                 .orderByDesc(TravelTrip::getCreateTime));
         if (trips.isEmpty()) {
@@ -65,7 +69,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Override
     public TravelTrip getById(Long id) {
         TravelTrip travelTrip = travelTripMapper.selectById(id);
-        if (travelTrip == null) {
+        if (travelTrip == null || !currentUser.requireId().equals(travelTrip.getUserId())) {
             throw new BusinessException(404, "Trip not found");
         }
         return travelTrip;
@@ -75,6 +79,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Transactional
     public TravelTrip create(TravelTrip travelTrip) {
         validateDateRange(travelTrip);
+        travelTrip.setUserId(currentUser.requireId());
         travelTrip.setCoverPhotoUrl(null);
         travelTrip.setCreateTime(null);
         travelTrip.setUpdateTime(null);
@@ -89,6 +94,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         TravelTrip existing = getById(id);
         validateDateRange(travelTrip);
         travelTrip.setId(id);
+        travelTrip.setUserId(existing.getUserId());
         travelTrip.setCoverPhotoUrl(existing.getCoverPhotoUrl());
         travelTrip.setCreateTime(existing.getCreateTime());
         travelTrip.setUpdateTime(null);
@@ -108,6 +114,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         if (memory == null) {
             throw new BusinessException(404, "Memory not found");
         }
+        getById(memory.getTripId());
         if (!tripId.equals(memory.getTripId())) {
             throw new BusinessException(400, "Memory does not belong to this trip");
         }
