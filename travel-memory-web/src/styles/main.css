@@ -1174,6 +1174,41 @@ textarea {
   color: var(--tm-accent);
 }
 
+.timeline-page > .view-tabs {
+  gap: 0;
+  overflow: visible;
+  border: 1px solid var(--tm-border);
+  border-radius: var(--tm-radius-lg);
+  background: rgba(251, 249, 244, 0.72);
+  padding: 5px;
+  box-shadow: 0 8px 22px rgba(68, 52, 39, 0.04);
+}
+
+.timeline-page > .view-tabs .view-tab {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--tm-radius-md);
+  background: transparent;
+  padding: 10px 8px;
+  white-space: nowrap;
+}
+
+.timeline-page > .view-tabs .view-tab.active {
+  background: var(--tm-accent-soft);
+}
+
+.view-tab-icon {
+  color: currentColor;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+
 .timeline-toolbar {
   display: flex;
   align-items: flex-end;
@@ -1215,6 +1250,15 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
+}
+
+.timeline-page .search-form input {
+  min-height: 42px;
+  padding-inline: 14px;
+}
+
+.timeline-page .search-form button {
+  min-width: 72px;
 }
 
 .search-summary {
@@ -1466,6 +1510,14 @@ textarea {
 
 .memory-more summary::-webkit-details-marker {
   display: none;
+}
+
+.memory-more-dots {
+  display: none;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
 }
 
 .memory-more-menu {
@@ -2392,6 +2444,16 @@ textarea {
     width: min(1080px, calc(100vw - 32px));
   }
 
+  .page:has(.timeline-page) {
+    width: calc(100vw - 24px);
+    margin-top: 12px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .timeline-page {
+    gap: 12px;
+  }
+
   .page-header {
     align-items: flex-start;
     flex-direction: column;
@@ -2492,39 +2554,161 @@ textarea {
   }
 
   .trip-memory-hero {
-    min-height: 250px;
+    min-height: 218px;
     border-radius: 14px;
   }
 
+  .trip-memory-hero::after {
+    background: linear-gradient(180deg, rgba(36, 30, 25, 0.05), rgba(36, 30, 25, 0.78));
+  }
+
   .trip-memory-hero-content {
-    padding: 20px;
+    align-content: end;
+    gap: 7px;
+    padding: 16px;
   }
 
   .trip-memory-hero-content h1 {
-    font-size: 28px;
+    font-size: 26px;
+  }
+
+  .trip-memory-subtitle {
+    display: none;
   }
 
   .trip-memory-info {
-    gap: 6px 10px;
+    gap: 4px 9px;
+    font-size: 12px;
+  }
+
+  .trip-memory-info strong {
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .trip-memory-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    margin-top: 5px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 250, 244, 0.22);
+    border-radius: 10px;
+    background: rgba(43, 38, 34, 0.32);
+    backdrop-filter: blur(8px);
+  }
+
+  .trip-memory-stats span {
+    border: 0;
+    border-right: 1px solid rgba(255, 250, 244, 0.18);
+    border-radius: 0;
+    background: transparent;
+    padding: 8px 5px;
+    text-align: center;
+  }
+
+  .trip-memory-stats span:last-child {
+    border-right: 0;
+  }
+
+  .timeline-page > .view-tabs {
+    gap: 0;
+    overflow-x: auto;
+    border-radius: 14px;
+    padding: 3px;
+    scroll-snap-type: x proximity;
+  }
+
+  .timeline-page > .view-tabs .view-tab {
+    display: grid;
+    flex: 0 0 66px;
+    justify-items: center;
+    gap: 4px;
+    padding: 8px 4px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    scroll-snap-align: start;
+  }
+
+  .timeline-page > .view-tabs .view-tab-icon {
+    font-size: 19px;
   }
 
   .timeline-toolbar {
     align-items: flex-start;
     flex-direction: column;
+    gap: 12px;
+    padding-top: 2px;
+  }
+
+  .timeline-toolbar h2 {
+    font-size: 23px;
+  }
+
+  .timeline-toolbar p {
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .timeline-toolbar .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     width: 100%;
   }
 
   .timeline-toolbar .actions a,
   .timeline-toolbar .actions button {
-    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .memory-search {
+    gap: 8px;
+    border-radius: 14px;
+    padding: 10px;
+  }
+
+  .timeline-page .search-form {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+  }
+
+  .timeline-page .search-form input {
+    min-width: 0;
+    min-height: 40px;
+    padding-inline: 11px;
+    font-size: 13px;
+  }
+
+  .timeline-page .search-form button {
+    min-width: 56px;
+    padding-inline: 10px;
+  }
+
+  .day-timeline {
+    gap: 20px;
+  }
+
+  .day-section {
+    gap: 7px;
+  }
+
+  .day-header {
+    padding-bottom: 8px;
+  }
+
+  .day-header h2 {
+    font-size: 19px;
+  }
+
+  .day-header p {
+    margin-top: 3px;
+    font-size: 12px;
   }
 
   .memory-item {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 5px;
   }
 
   .timeline-marker {
@@ -2532,23 +2716,27 @@ textarea {
   }
 
   .memory-time {
+    font-size: 12px;
     padding-top: 0;
   }
 
   .memory-card {
-    padding: 12px;
-    margin-bottom: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 14px;
   }
 
   .memory-card.has-photo {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(112px, 38%) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 11px;
     min-height: 0;
-    padding: 12px;
+    padding: 10px;
   }
 
   .memory-details {
-    gap: 10px;
+    gap: 6px;
+    min-height: 118px;
   }
 
   .memory-photo {
@@ -2556,24 +2744,66 @@ textarea {
   }
 
   .memory-quote {
-    font-size: 17px;
+    display: -webkit-box;
+    overflow: hidden;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .memory-title-line {
+    margin-top: 1px;
+  }
+
+  .memory-location,
+  .memory-quote.muted,
+  .memory-location.muted {
+    font-size: 13px;
+  }
+
+  .memory-companions {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .memory-actions {
     justify-content: flex-start;
+    gap: 5px;
   }
 
   .memory-actions button {
-    min-height: 38px;
+    min-height: 30px;
+    padding: 5px 7px;
+    font-size: 12px;
   }
 
   .memory-more summary {
-    min-height: 38px;
-    padding: 9px 11px;
+    display: grid;
+    width: 32px;
+    min-height: 30px;
+    place-items: center;
+    padding: 4px;
   }
 
-  .search-form {
-    grid-template-columns: 1fr;
+  .memory-more-label {
+    display: none;
+  }
+
+  .memory-more-dots {
+    display: inline;
+  }
+
+  .memory-more-menu {
+    min-width: 146px;
+  }
+
+  .memory-photo-empty {
+    min-height: 90px;
+    margin-bottom: 0;
   }
 
   .journey-hero {

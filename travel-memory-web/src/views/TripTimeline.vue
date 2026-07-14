@@ -83,6 +83,10 @@ const hasExplicitCover = computed(() => hasExplicitTripCover(trip.value))
 
 const photoCount = computed(() => baseMemories.value.reduce((total, memory) => total + (memory.photoCount || (memory.photoUrl ? 1 : 0)), 0))
 
+const tripDayCount = computed(() => new Set(
+  baseMemories.value.map(memory => getDateKey(memory.recordTime)),
+).size)
+
 const tripDateRange = computed(() => {
   if (!trip.value) {
     return ''
@@ -272,20 +276,32 @@ onMounted(loadPage)
           <span>{{ tripDateRange }}</span>
         </div>
         <div class="trip-memory-stats">
-          <span>{{ dayGroups.length }} 天</span>
-          <span>{{ displayedMemories.length }} 段记忆</span>
+          <span>{{ tripDayCount }} 天</span>
+          <span>{{ baseMemories.length }} 段记忆</span>
           <span>{{ photoCount }} 张照片</span>
         </div>
       </div>
     </header>
 
     <div v-if="!loading && trip" class="view-tabs">
-      <RouterLink :to="`/trips/${id}`" :class="['view-tab', { active: !favoriteOnly }]">时间线</RouterLink>
-      <RouterLink :to="`/trips/${id}/journey`" class="view-tab view-tab-journey">旅程回放</RouterLink>
-      <RouterLink :to="`/trips/${id}/map`" class="view-tab">地图</RouterLink>
-      <RouterLink :to="`/trips/${id}/recap`" class="view-tab">旅行回顾</RouterLink>
-      <RouterLink :to="`/trips/${id}/companions`" class="view-tab">同行的人</RouterLink>
-      <RouterLink :to="`/trips/${id}/favorites`" :class="['view-tab', { active: favoriteOnly }]">收藏回看</RouterLink>
+      <RouterLink :to="`/trips/${id}`" :class="['view-tab', { active: !favoriteOnly }]">
+        <span class="view-tab-icon" aria-hidden="true">◷</span><span>时间线</span>
+      </RouterLink>
+      <RouterLink :to="`/trips/${id}/journey`" class="view-tab view-tab-journey">
+        <span class="view-tab-icon" aria-hidden="true">▷</span><span>旅程回放</span>
+      </RouterLink>
+      <RouterLink :to="`/trips/${id}/map`" class="view-tab">
+        <span class="view-tab-icon" aria-hidden="true">⌖</span><span>地图</span>
+      </RouterLink>
+      <RouterLink :to="`/trips/${id}/recap`" class="view-tab">
+        <span class="view-tab-icon" aria-hidden="true">▤</span><span>旅行回顾</span>
+      </RouterLink>
+      <RouterLink :to="`/trips/${id}/companions`" class="view-tab">
+        <span class="view-tab-icon" aria-hidden="true">♧</span><span>同行的人</span>
+      </RouterLink>
+      <RouterLink :to="`/trips/${id}/favorites`" :class="['view-tab', { active: favoriteOnly }]">
+        <span class="view-tab-icon" aria-hidden="true">☆</span><span>收藏回看</span>
+      </RouterLink>
     </div>
 
     <div v-if="!loading && trip" class="timeline-toolbar">
@@ -295,7 +311,7 @@ onMounted(loadPage)
       </div>
       <div class="actions">
         <RouterLink :to="`/trips/${id}/memories/new`">
-          <button class="secondary">新增记忆</button>
+          <button>新增记忆</button>
         </RouterLink>
         <RouterLink :to="`/trips/${id}/edit`">
           <button class="ghost">编辑旅行</button>
@@ -317,8 +333,8 @@ onMounted(loadPage)
 
     <section v-if="!loading && trip && !favoriteOnly" class="memory-search">
       <form class="search-form" @submit.prevent="doSearch">
-        <input v-model="searchKeyword" placeholder="搜索一句话或地点" />
-        <button type="submit" class="ghost" :disabled="searchLoading">搜索</button>
+        <input v-model="searchKeyword" placeholder="搜索地点、关键词或一句话" />
+        <button type="submit" :disabled="searchLoading">搜索</button>
         <button v-if="hasSearched" type="button" class="ghost" @click="clearSearch">清空</button>
       </form>
       <p v-if="searchLoading" class="muted">正在搜索记忆...</p>
@@ -388,7 +404,10 @@ onMounted(loadPage)
                   </button>
                   <span v-if="memory.photoUrl && isExplicitCover(memory)" class="favorite-badge">当前封面</span>
                   <details class="memory-more">
-                    <summary aria-label="更多操作">更多</summary>
+                    <summary aria-label="更多操作">
+                      <span class="memory-more-label">更多</span>
+                      <span class="memory-more-dots" aria-hidden="true">···</span>
+                    </summary>
                     <div class="memory-more-menu">
                       <RouterLink :to="`/trips/${id}/memories/${memory.id}/edit`">
                         <button class="ghost">编辑</button>

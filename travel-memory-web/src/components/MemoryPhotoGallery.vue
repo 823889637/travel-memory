@@ -94,6 +94,7 @@ function detectPrimaryOrientation(event) {
 .gallery-layout-recap .gallery-main img { width: 100%; height: 100%; min-height: 0; max-height: none; object-fit: cover; }
 .gallery-layout-recap .gallery-thumbs { display: none; }
 .gallery-layout-timeline .gallery-thumbs button { flex-basis: 42px; height: 42px; background: #f4f0e8; }
+.gallery-layout-timeline .gallery-thumbs { display: none; }
 .gallery-count { position: absolute; right: 8px; bottom: 8px; padding: 4px 7px; border-radius: 4px; background: rgba(30, 26, 22, .7); color: #fff; font-size: 12px; }
 .gallery-thumbs { display: flex; gap: 6px; overflow: hidden; }
 .gallery-thumbs button, .gallery-dialog-thumbs button { flex: 0 0 52px; height: 52px; padding: 0; overflow: hidden; background: #eee3d6; }
@@ -105,8 +106,8 @@ function detectPrimaryOrientation(event) {
 .gallery-dialog-thumbs { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; }
 .gallery-dialog-thumbs button.active { outline: 2px solid #fff; }
 @media (max-width: 640px) {
-  .gallery-layout-timeline .gallery-main { height: min(52vw, 190px); }
-  .gallery-layout-timeline.gallery-orientation-portrait .gallery-main { height: min(44vw, 168px); }
+  .gallery-layout-timeline .gallery-main { height: 118px; }
+  .gallery-layout-timeline.gallery-orientation-portrait .gallery-main { height: 118px; }
   .gallery-layout-journey.gallery-orientation-landscape .gallery-image-contain { max-height: min(58vh, 340px); }
   .gallery-layout-journey.gallery-orientation-portrait .gallery-image-contain { width: min(360px, 100%); max-height: 68vh; }
   .gallery-layout-journey.gallery-orientation-square .gallery-image-contain { width: 78%; max-height: min(58vh, 360px); }

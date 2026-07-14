@@ -1,4 +1,4 @@
-import { getTripDayNumber, getTripDurationDays } from './tripDay'
+import { getChronologicalTripDayNumber, getTripDurationDays } from './tripDay'
 
 function timeValue(value) {
   if (!value) return Number.MAX_SAFE_INTEGER
@@ -42,11 +42,14 @@ export function buildTripRecap(trip, sourceMemories = []) {
     }
   })
 
+  let previousDayNumber = 0
   const days = Array.from(groups.entries()).map(([date, dayMemories], index) => {
     const locations = [...new Set(dayMemories.map(item => String(item.locationName || '').trim()).filter(Boolean))]
+    const dayNumber = getChronologicalTripDayNumber(trip?.startDate, date, index + 1, previousDayNumber)
+    previousDayNumber = dayNumber
     return {
       date,
-      dayNumber: getTripDayNumber(trip?.startDate, date, index + 1),
+      dayNumber,
       memories: dayMemories,
       memoryCount: dayMemories.length,
       photoCount: dayMemories.reduce((total, memory) => total + photoCount(memory), 0),

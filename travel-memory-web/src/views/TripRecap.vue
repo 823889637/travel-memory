@@ -27,9 +27,15 @@ function formatTime(value) {
 
 function formatDate(value) {
   if (!value || value === '未知日期') return value
-  const date = new Date(`${value}T00:00:00`)
-  const weekday = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('zh-CN', { weekday: 'short' })
-  return `${Number(value.slice(5, 7))}月${Number(value.slice(8, 10))}日 ${weekday}`
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return value
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const weekday = date.toLocaleDateString('zh-CN', { weekday: 'short', timeZone: 'UTC' })
+  return `${month}月${day}日 ${weekday}`
 }
 
 async function loadPage() {
@@ -186,8 +192,8 @@ watch(() => props.id, loadPage, { immediate: true })
 .recap-section { display: grid; gap: 14px; }
 .recap-section-head h2, .recap-section-head p { margin: 0; }
 .recap-section-head p { margin-top: 5px; color: var(--tm-text-muted); font-size: 14px; }
-.recap-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(235px, 1fr); gap: 12px; overflow-x: auto; padding: 2px 1px 8px; }
-.recap-day-card { display: grid; grid-template-rows: auto auto auto minmax(48px, auto) auto; gap: 10px; min-width: 0; border: 1px solid var(--tm-border); border-radius: var(--tm-radius-md); background: var(--tm-surface); padding: 13px; }
+.recap-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(235px, 1fr); gap: 12px; overflow-x: auto; padding: 2px 1px 8px; scroll-padding-inline: 1px; scroll-snap-type: x proximity; }
+.recap-day-card { display: grid; grid-template-rows: auto auto auto minmax(48px, auto) auto; gap: 10px; min-width: 0; border: 1px solid var(--tm-border); border-radius: var(--tm-radius-md); background: var(--tm-surface); padding: 13px; scroll-snap-align: start; }
 .recap-day-heading { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .recap-day-heading span, .recap-day-place, .recap-day-foot { color: var(--tm-text-muted); font-size: 12px; }
 .recap-day-place, .recap-day-quote { margin: 0; }
@@ -206,5 +212,15 @@ watch(() => props.id, loadPage, { immediate: true })
 .recap-empty { display: grid; justify-items: start; gap: 12px; padding: 34px; border: 1px solid var(--tm-border); background: var(--tm-surface); }
 .recap-empty h2, .recap-empty p { margin: 0; }
 @media (max-width: 900px) { .recap-hero { grid-template-columns: 1fr 1fr; } .recap-summary { grid-column: 1 / -1; } }
-@media (max-width: 680px) { .recap-hero, .recap-lower-grid { grid-template-columns: 1fr; } .recap-cover, .recap-cover img { min-height: 210px; } .recap-title-line h1 { font-size: 28px; } .recap-favorite-grid { grid-template-columns: 1fr; } .recap-summary-grid { grid-template-columns: repeat(2, 1fr); } .recap-summary-grid div, .recap-summary-grid div:nth-child(3n) { border-right: 1px solid var(--tm-border); border-bottom: 1px solid var(--tm-border); } .recap-summary-grid div:nth-child(2n) { border-right: 0; } .recap-summary-grid div:nth-child(n+5) { border-bottom: 0; } }
+@media (max-width: 680px) {
+  .recap-hero, .recap-lower-grid { grid-template-columns: 1fr; }
+  .recap-cover, .recap-cover img { min-height: 210px; }
+  .recap-title-line h1 { font-size: 28px; }
+  .recap-favorite-grid { grid-template-columns: 1fr; }
+  .recap-summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .recap-page .recap-summary-grid > div { border-right: 1px solid var(--tm-border); border-bottom: 1px solid var(--tm-border); }
+  .recap-page .recap-summary-grid > div:nth-child(2n) { border-right: 0; }
+  .recap-page .recap-summary-grid > div:nth-last-child(-n + 2) { border-bottom: 0; }
+  .recap-days { grid-auto-columns: min(82vw, 300px); scroll-snap-type: x mandatory; }
+}
 </style>
