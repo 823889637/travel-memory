@@ -52,7 +52,9 @@ Travel Memory 更重要的是帮助用户多年以后重新体验一次真实发
 cp .env.example .env
 ```
 
-在 `.env` 中设置强且唯一的数据库密码；不要提交该文件。主要环境变量包括：
+仓库中的 `.env.example` 是当前可运行的临时测试配置：复制后可用于本机和全新的 ECS Docker Compose 部署。`.env` 仍被 Git 忽略；线上已有 `.env` 不会被 `git pull` 覆盖。公开部署前必须替换数据库密码、注册邀请码和高德凭据，并在首次管理员注册后关闭注册。
+
+主要环境变量包括：
 
 ```text
 SPRING_DATASOURCE_USERNAME
@@ -66,7 +68,13 @@ AMAP_WEB_SERVICE_KEY
 AMAP_REVERSE_GEOCODE_ENABLED
 ```
 
-前端真实地图需要在 `travel-memory-web/.env.local` 配置单独申请的高德 Web 端（JS API）Key：
+直接运行 Vite 时，复制前端临时模板：
+
+```bash
+cp travel-memory-web/.env.local.example travel-memory-web/.env.local
+```
+
+前端真实地图使用单独申请的高德 Web 端（JS API）Key：
 
 ```text
 VITE_AMAP_JS_API_KEY=
@@ -74,7 +82,7 @@ VITE_AMAP_SECURITY_JS_CODE=
 VITE_AMAP_SERVICE_HOST=
 ```
 
-`AMAP_WEB_SERVICE_KEY` 仅在后端使用，用于逆地理编码和地点 POI 搜索；`VITE_AMAP_JS_API_KEY` 不能复用它。Vite 的 `VITE_` 变量会在构建时注入浏览器产物；生产环境应优先配置安全代理地址 `VITE_AMAP_SERVICE_HOST`，`VITE_AMAP_SECURITY_JS_CODE` 仅适合本地开发或临时测试。Docker Compose 会在构建 frontend 镜像时从根目录 `.env` 注入这些前端变量；变更后必须使用 `--build` 重建 frontend，且不得把真实 Key 或安全密钥提交到仓库。
+`AMAP_WEB_SERVICE_KEY` 仅在后端使用，用于逆地理编码和地点 POI 搜索；`VITE_AMAP_JS_API_KEY` 不能复用它。Vite 的 `VITE_` 变量会在构建时注入浏览器产物；生产环境应优先配置安全代理地址 `VITE_AMAP_SERVICE_HOST`，`VITE_AMAP_SECURITY_JS_CODE` 仅适合本地开发或临时测试。Docker Compose 会在构建 frontend 镜像时从根目录 `.env` 注入这些前端变量；变更后必须使用 `--build` 重建 frontend。仓库模板中的凭据仅限临时测试，生产凭据和证书不得提交到仓库。
 
 ```bash
 cd travel-memory-server

@@ -82,7 +82,7 @@ git rev-parse HEAD
 
 ## 4. 生产环境变量
 
-首次部署时创建服务器专用 `.env`。它只保留在 ECS，权限设为 `600`，绝不能提交或复制到聊天、工单和截图中。
+首次部署时从仓库中的临时测试模板创建服务器专用 `.env`。它只保留在 ECS，权限设为 `600`，绝不能提交或复制到聊天、工单和截图中。临时测试部署可直接使用模板值；公开生产环境必须替换数据库密码、邀请码和高德凭据为独立值。
 
 ```bash
 cp .env.example .env
@@ -105,9 +105,10 @@ UPLOADS_DIR=/opt/travel-memory/uploads
 # HTTP 阶段必须为 false；HTTPS 生效后改为 true 并重建 backend。
 APP_SESSION_COOKIE_SECURE=false
 
-# 注册默认关闭。只有受控初始化或邀请时才临时打开。
-APP_REGISTRATION_ENABLED=false
-APP_REGISTRATION_INVITE_CODE=
+# 临时测试模板默认允许用以下邀请码注册第一个管理员。
+# 完成首次注册后立即改为 false 并清空邀请码，再重建 backend。
+APP_REGISTRATION_ENABLED=true
+APP_REGISTRATION_INVITE_CODE=travel-memory-test-invite-2026
 
 # 后端 Web Service Key，只由 backend 使用。
 AMAP_WEB_SERVICE_KEY=
@@ -173,9 +174,9 @@ docker compose -f docker-compose.yml -f docker-compose.secure.yml ps
 
 ### 5.3 首次管理员初始化
 
-默认注册关闭。二选一完成首次管理员初始化：
+临时测试模板已开启受控邀请码注册。完成首次管理员初始化后应立即将 `.env` 的 `APP_REGISTRATION_ENABLED=false`、`APP_REGISTRATION_INVITE_CODE=`，然后只重建 backend。也可以使用交互式脚本完成初始化：
 
-1. 受控邀请码注册：临时将 `.env` 的 `APP_REGISTRATION_ENABLED=true`，设置强随机 `APP_REGISTRATION_INVITE_CODE`，然后只重建 backend；在受保护的 `/register` 完成第一个账号注册后，立刻改回 `false`、清空邀请码并再次重建 backend。
+1. 受控邀请码注册：在受保护的 `/register` 使用模板邀请码完成第一个账号注册。第一位成功注册的账号会成为管理员。
 2. 交互式脚本：执行 `./scripts/activate-initial-admin.sh`。该脚本要求 backend 已启动，会隐藏输入密码，不提供公网初始化接口。
 
 邀请码方式的 backend 重建命令：
