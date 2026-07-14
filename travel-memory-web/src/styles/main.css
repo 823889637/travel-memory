@@ -1142,73 +1142,6 @@ textarea {
   padding: 5px 10px;
 }
 
-.view-tabs {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.view-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.view-tab {
-  flex: 0 0 auto;
-  border: 1px solid var(--tm-border);
-  border-radius: 999px;
-  background: rgba(251, 249, 244, 0.62);
-  color: var(--tm-text-muted);
-  font-size: 14px;
-  font-weight: 700;
-  padding: 9px 14px;
-}
-
-.view-tab.active {
-  border-color: var(--tm-accent);
-  background: var(--tm-accent-soft);
-  color: var(--tm-accent);
-}
-
-.view-tab-journey {
-  color: var(--tm-accent);
-}
-
-.timeline-page > .view-tabs {
-  gap: 0;
-  overflow: visible;
-  border: 1px solid var(--tm-border);
-  border-radius: var(--tm-radius-lg);
-  background: rgba(251, 249, 244, 0.72);
-  padding: 5px;
-  box-shadow: 0 8px 22px rgba(68, 52, 39, 0.04);
-}
-
-.timeline-page > .view-tabs .view-tab {
-  display: inline-flex;
-  flex: 1 1 0;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  border: 0;
-  border-radius: var(--tm-radius-md);
-  background: transparent;
-  padding: 10px 8px;
-  white-space: nowrap;
-}
-
-.timeline-page > .view-tabs .view-tab.active {
-  background: var(--tm-accent-soft);
-}
-
-.view-tab-icon {
-  color: currentColor;
-  font-size: 18px;
-  font-weight: 400;
-  line-height: 1;
-}
-
 .timeline-toolbar {
   display: flex;
   align-items: flex-end;
@@ -1672,25 +1605,6 @@ textarea {
   gap: 0;
   width: min(1040px, 100%);
   margin: 0 auto;
-}
-
-.journey-quiet-nav {
-  display: flex;
-  justify-content: flex-end;
-  gap: 18px;
-  width: 100%;
-  margin: 0;
-  padding: 10px 0 2px;
-}
-
-.journey-quiet-nav a {
-  color: var(--j-ink-soft);
-  font-size: 14px;
-  transition: color 0.15s ease;
-}
-
-.journey-quiet-nav a:hover {
-  color: var(--j-accent);
 }
 
 .day-switcher {
@@ -2202,27 +2116,6 @@ textarea {
   color: var(--tm-text);
 }
 
-.trip-map-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.trip-map-actions a {
-  border: 1px solid var(--tm-border);
-  border-radius: 999px;
-  background: rgba(251, 249, 244, 0.64);
-  color: var(--tm-text-muted);
-  font-size: 14px;
-  font-weight: 700;
-  padding: 9px 14px;
-}
-
-.trip-map-actions a:hover {
-  background: var(--tm-accent-soft);
-  color: var(--tm-accent);
-}
-
 .trip-map-status {
   margin: 0;
   color: var(--tm-text-muted);
@@ -2473,15 +2366,6 @@ textarea {
     padding-top: 18px;
   }
 
-  .trip-map-actions {
-    width: 100%;
-  }
-
-  .trip-map-actions a {
-    flex: 1 1 auto;
-    text-align: center;
-  }
-
   .memory-map-shell,
   .memory-map-canvas {
     min-height: 380px;
@@ -2609,29 +2493,6 @@ textarea {
 
   .trip-memory-stats span:last-child {
     border-right: 0;
-  }
-
-  .timeline-page > .view-tabs {
-    gap: 0;
-    overflow-x: auto;
-    border-radius: 14px;
-    padding: 3px;
-    scroll-snap-type: x proximity;
-  }
-
-  .timeline-page > .view-tabs .view-tab {
-    display: grid;
-    flex: 0 0 66px;
-    justify-items: center;
-    gap: 4px;
-    padding: 8px 4px 7px;
-    border-radius: 10px;
-    font-size: 11px;
-    scroll-snap-align: start;
-  }
-
-  .timeline-page > .view-tabs .view-tab-icon {
-    font-size: 19px;
   }
 
   .timeline-toolbar {

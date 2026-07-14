@@ -1,11 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { resolveTripCoverUrl } from '../utils/tripCover'
 import { getChronologicalTripDayNumber } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
+import TripViewNav from '../components/TripViewNav.vue'
 
 const props = defineProps({
   id: {
@@ -200,6 +200,8 @@ onMounted(loadPage)
       </div>
     </div>
 
+    <TripViewNav v-if="!loading && trip" :trip-id="id" active="journey" />
+
     <p v-if="loading">加载中...</p>
     <p v-if="error" class="error">{{ error }}</p>
 
@@ -210,12 +212,6 @@ onMounted(loadPage)
 
     <template v-if="!loading && activeDay">
       <div class="journey-top-controls">
-        <div class="journey-quiet-nav">
-          <RouterLink :to="`/trips/${id}`">返回时间线</RouterLink>
-          <RouterLink :to="`/trips/${id}/map`">查看地图</RouterLink>
-          <RouterLink :to="`/trips/${id}/recap`">旅行回顾</RouterLink>
-          <RouterLink :to="`/trips/${id}/companions`">同行的人</RouterLink>
-        </div>
         <div class="day-switcher">
           <button
             v-for="(group, index) in dayGroups"

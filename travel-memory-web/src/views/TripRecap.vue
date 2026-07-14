@@ -6,6 +6,7 @@ import { getTrip } from '../api/trip'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { buildTripRecap } from '../utils/tripRecap'
 import { resolveTripCoverUrl } from '../utils/tripCover'
+import TripViewNav from '../components/TripViewNav.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const trip = ref(null)
@@ -58,14 +59,6 @@ watch(() => props.id, loadPage, { immediate: true })
 
 <template>
   <section class="recap-page">
-    <div class="view-tabs recap-tabs">
-      <RouterLink :to="`/trips/${id}`" class="view-tab">时间线</RouterLink>
-      <RouterLink :to="`/trips/${id}/journey`" class="view-tab">旅程回放</RouterLink>
-      <RouterLink :to="`/trips/${id}/map`" class="view-tab">地图</RouterLink>
-      <RouterLink :to="`/trips/${id}/recap`" class="view-tab active">旅行回顾</RouterLink>
-      <RouterLink :to="`/trips/${id}/companions`" class="view-tab">同行的人</RouterLink>
-    </div>
-
     <p v-if="loading" class="recap-status">正在把这趟旅行慢慢整理回来...</p>
     <p v-if="error" class="error recap-status">{{ error }}</p>
 
@@ -98,6 +91,8 @@ watch(() => props.id, loadPage, { immediate: true })
           </div>
         </section>
       </header>
+
+      <TripViewNav :trip-id="id" active="recap" />
 
       <section v-if="recap.days.length" class="recap-section">
         <div class="recap-section-head">
@@ -167,7 +162,6 @@ watch(() => props.id, loadPage, { immediate: true })
 
 <style scoped>
 .recap-page { display: grid; gap: 22px; }
-.recap-tabs { order: -1; }
 .recap-status { margin: 0; color: var(--tm-text-muted); }
 .recap-hero { display: grid; grid-template-columns: minmax(260px, .9fr) minmax(280px, 1.05fr) minmax(300px, 1fr); gap: 22px; align-items: stretch; }
 .recap-cover { min-height: 235px; overflow: hidden; border-radius: var(--tm-radius-md); background: var(--tm-accent-soft); }

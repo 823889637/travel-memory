@@ -6,6 +6,7 @@ import { deleteMemory, favoriteMemory, getTimeline, searchMemories } from '../ap
 import { hasExplicitTripCover, normalizePhotoUrl, resolveTripCoverUrl } from '../utils/tripCover'
 import { getChronologicalTripDayNumber } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
+import TripViewNav from '../components/TripViewNav.vue'
 
 const props = defineProps({
   id: {
@@ -283,26 +284,7 @@ onMounted(loadPage)
       </div>
     </header>
 
-    <div v-if="!loading && trip" class="view-tabs">
-      <RouterLink :to="`/trips/${id}`" :class="['view-tab', { active: !favoriteOnly }]">
-        <span class="view-tab-icon" aria-hidden="true">◷</span><span>时间线</span>
-      </RouterLink>
-      <RouterLink :to="`/trips/${id}/journey`" class="view-tab view-tab-journey">
-        <span class="view-tab-icon" aria-hidden="true">▷</span><span>旅程回放</span>
-      </RouterLink>
-      <RouterLink :to="`/trips/${id}/map`" class="view-tab">
-        <span class="view-tab-icon" aria-hidden="true">⌖</span><span>地图</span>
-      </RouterLink>
-      <RouterLink :to="`/trips/${id}/recap`" class="view-tab">
-        <span class="view-tab-icon" aria-hidden="true">▤</span><span>旅行回顾</span>
-      </RouterLink>
-      <RouterLink :to="`/trips/${id}/companions`" class="view-tab">
-        <span class="view-tab-icon" aria-hidden="true">♧</span><span>同行的人</span>
-      </RouterLink>
-      <RouterLink :to="`/trips/${id}/favorites`" :class="['view-tab', { active: favoriteOnly }]">
-        <span class="view-tab-icon" aria-hidden="true">☆</span><span>收藏回看</span>
-      </RouterLink>
-    </div>
+    <TripViewNav v-if="!loading && trip" :trip-id="id" :active="favoriteOnly ? 'favorites' : 'timeline'" />
 
     <div v-if="!loading && trip" class="timeline-toolbar">
       <div>

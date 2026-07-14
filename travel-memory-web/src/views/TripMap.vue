@@ -6,6 +6,7 @@ import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { isValidWgs84Coordinate } from '../utils/coordinates'
+import TripViewNav from '../components/TripViewNav.vue'
 
 const props = defineProps({
   id: {
@@ -99,13 +100,9 @@ watch(() => props.id, loadPage, { immediate: true })
         </div>
       </div>
 
-      <div class="trip-map-actions">
-        <RouterLink :to="`/trips/${id}`">返回时间线</RouterLink>
-        <RouterLink :to="`/trips/${id}/journey`">进入旅程回放</RouterLink>
-        <RouterLink :to="`/trips/${id}/recap`">旅行回顾</RouterLink>
-        <RouterLink :to="`/trips/${id}/companions`">同行的人</RouterLink>
-      </div>
     </header>
+
+    <TripViewNav v-if="!loading && trip" :trip-id="id" active="map" />
 
     <p v-if="loading" class="trip-map-status">正在整理这些记忆的位置...</p>
     <p v-if="error" class="error trip-map-status">{{ error }}</p>

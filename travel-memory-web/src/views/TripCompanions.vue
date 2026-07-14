@@ -6,6 +6,7 @@ import { getTimeline } from '../api/memory'
 import { getTrip } from '../api/trip'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTripDayNumber } from '../utils/tripDay'
+import TripViewNav from '../components/TripViewNav.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const trip = ref(null)
@@ -121,14 +122,6 @@ watch(() => props.id, loadPage, { immediate: true })
 
 <template>
   <section class="companions-page">
-    <div class="view-tabs">
-      <RouterLink :to="`/trips/${id}`" class="view-tab">时间线</RouterLink>
-      <RouterLink :to="`/trips/${id}/journey`" class="view-tab">旅程回放</RouterLink>
-      <RouterLink :to="`/trips/${id}/map`" class="view-tab">地图</RouterLink>
-      <RouterLink :to="`/trips/${id}/recap`" class="view-tab">旅行回顾</RouterLink>
-      <RouterLink :to="`/trips/${id}/companions`" class="view-tab active">同行的人</RouterLink>
-    </div>
-
     <header v-if="!loading && trip" class="companions-head">
       <div>
         <p class="trip-list-kicker">同行的人</p>
@@ -137,6 +130,8 @@ watch(() => props.id, loadPage, { immediate: true })
       </div>
       <RouterLink :to="`/trips/${id}/memories/new`"><button class="secondary">新增记忆</button></RouterLink>
     </header>
+
+    <TripViewNav v-if="!loading && trip" :trip-id="id" active="companions" />
 
     <p v-if="loading" class="muted">正在整理同行的记忆...</p>
     <p v-if="error" class="error">{{ error }}</p>
