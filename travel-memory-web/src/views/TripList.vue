@@ -60,7 +60,7 @@ onMounted(loadTrips)
         <p class="muted">把每一次旅行，留给未来重新经过。</p>
       </div>
       <RouterLink v-if="trips.length > 0" to="/trips/new">
-        <button class="trip-create-button">新建旅行</button>
+        <button class="trip-create-button"><span aria-hidden="true">+</span> 新建旅行</button>
       </RouterLink>
     </div>
 
@@ -93,14 +93,6 @@ onMounted(loadTrips)
         <div class="trip-card-body">
           <div class="trip-card-title-row">
             <h2>{{ trip.title }}</h2>
-            <details class="trip-card-more">
-              <summary aria-label="管理旅行">更多</summary>
-              <div class="trip-card-more-menu">
-                <RouterLink :to="`/trips/${trip.id}/memories/new`">新增记忆</RouterLink>
-                <RouterLink :to="`/trips/${trip.id}/edit`">编辑旅行</RouterLink>
-                <button class="danger-text" @click="removeTrip(trip.id)">删除旅行</button>
-              </div>
-            </details>
           </div>
           <div class="trip-meta">
             <p class="trip-destination">{{ trip.destination || '目的地还没有补充' }}</p>
@@ -108,7 +100,11 @@ onMounted(loadTrips)
           </div>
           <div class="trip-card-summary">
             <p v-if="trip.description" class="trip-description">{{ trip.description }}</p>
-            <p class="trip-memory-count">{{ trip.memoryCount || 0 }} 段记忆</p>
+            <div class="trip-stats" aria-label="旅行统计">
+              <span>{{ trip.memoryCount || 0 }} 段记忆</span>
+              <span>{{ trip.photoCount || 0 }} 张照片</span>
+              <span>{{ trip.locationCount || 0 }} 个地点</span>
+            </div>
           </div>
 
           <div class="trip-main-actions">
@@ -118,6 +114,14 @@ onMounted(loadTrips)
             <RouterLink :to="`/trips/${trip.id}/journey`">
               <button class="ghost">旅程回放</button>
             </RouterLink>
+            <details class="trip-card-more">
+              <summary aria-label="更多旅行操作" title="更多旅行操作">更多</summary>
+              <div class="trip-card-more-menu">
+                <RouterLink :to="`/trips/${trip.id}/memories/new`">新增记忆</RouterLink>
+                <RouterLink :to="`/trips/${trip.id}/edit`">编辑旅行</RouterLink>
+                <button class="danger-text" @click="removeTrip(trip.id)">删除旅行</button>
+              </div>
+            </details>
           </div>
         </div>
       </article>

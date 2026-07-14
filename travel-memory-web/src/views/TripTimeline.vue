@@ -4,7 +4,7 @@ import { RouterLink } from 'vue-router'
 import { clearTripCover, getTrip, setTripCover } from '../api/trip'
 import { deleteMemory, favoriteMemory, getTimeline, searchMemories } from '../api/memory'
 import { hasExplicitTripCover, normalizePhotoUrl, resolveTripCoverUrl } from '../utils/tripCover'
-import { formatTripDayLabel } from '../utils/tripDay'
+import { getChronologicalTripDayNumber } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 
 const props = defineProps({
@@ -58,11 +58,14 @@ const dayGroups = computed(() => {
   sortedMemories.forEach((memory) => {
     const dateKey = getDateKey(memory.recordTime)
     if (!groupMap.has(dateKey)) {
+      const previousDayNumber = groups.at(-1)?.dayNumber || 0
+      const fallbackDayNumber = groups.length + 1
       const group = {
         date: dateKey,
-        dayLabel: formatTripDayLabel(trip.value?.startDate, dateKey, groups.length + 1),
+        dayNumber: getChronologicalTripDayNumber(trip.value?.startDate, dateKey, fallbackDayNumber, previousDayNumber),
         memories: [],
       }
+      group.dayLabel = `第 ${group.dayNumber} 天`
       groupMap.set(dateKey, group)
       groups.push(group)
     }

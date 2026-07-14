@@ -18,8 +18,10 @@ import com.travelmemory.service.TravelTripService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.vo.TravelTripListVO;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,17 +63,57 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
                 .in(TravelMemory::getTripId, tripIds)
                 .orderByAsc(TravelMemory::getRecordTime)
                 .orderByAsc(TravelMemory::getCreateTime));
+        List<Long> memoryIds = memories.stream().map(TravelMemory::getId).toList();
+        List<MemoryPhoto> photos = memoryIds.isEmpty()
+                ? List.of()
+                : memoryPhotoMapper.selectList(new LambdaQueryWrapper<MemoryPhoto>()
+                        .in(MemoryPhoto::getMemoryId, memoryIds)
+                        .orderByAsc(MemoryPhoto::getMemoryId)
+                        .orderByAsc(MemoryPhoto::getSortOrder)
+                        .orderByAsc(MemoryPhoto::getId));
+
+        Map<Long, Long> photoCountByMemory = new HashMap<>();
+        Map<Long, String> firstPhotoByMemory = new HashMap<>();
+        photos.forEach(photo -> {
+            String photoUrl = normalizePhotoUrl(photo.getPhotoUrl());
+            if (photoUrl != null) {
+                photoCountByMemory.merge(photo.getMemoryId(), 1L, Long::sum);
+                firstPhotoByMemory.putIfAbsent(photo.getMemoryId(), photoUrl);
+            }
+        });
+
         Map<Long, String> firstPhotoByTrip = new HashMap<>();
         Map<Long, Long> memoryCountByTrip = new HashMap<>();
+        Map<Long, Long> photoCountByTrip = new HashMap<>();
+        Map<Long, Set<String>> locationsByTrip = new HashMap<>();
         memories.forEach(memory -> {
             memoryCountByTrip.merge(memory.getTripId(), 1L, Long::sum);
             String photoUrl = normalizePhotoUrl(memory.getPhotoUrl());
+            if (photoUrl == null) {
+                photoUrl = firstPhotoByMemory.get(memory.getId());
+            }
             if (photoUrl != null) {
                 firstPhotoByTrip.putIfAbsent(memory.getTripId(), photoUrl);
             }
+
+            long memoryPhotoCount = photoCountByMemory.getOrDefault(memory.getId(), 0L);
+            if (memoryPhotoCount == 0 && photoUrl != null) {
+                memoryPhotoCount = 1L;
+            }
+            photoCountByTrip.merge(memory.getTripId(), memoryPhotoCount, Long::sum);
+
+            String locationName = normalizeLocationName(memory.getLocationName());
+            if (locationName != null) {
+                locationsByTrip.computeIfAbsent(memory.getTripId(), ignored -> new HashSet<>()).add(locationName);
+            }
         });
         return trips.stream()
-                .map(trip -> toListVO(trip, firstPhotoByTrip.get(trip.getId()), memoryCountByTrip.get(trip.getId())))
+                .map(trip -> toListVO(
+                        trip,
+                        firstPhotoByTrip.get(trip.getId()),
+                        memoryCountByTrip.get(trip.getId()),
+                        photoCountByTrip.get(trip.getId()),
+                        locationsByTrip.get(trip.getId())))
                 .toList();
     }
 
@@ -233,13 +275,22 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         return normalized.isEmpty() ? null : normalized;
     }
 
+    private String normalizeLocationName(String locationName) {
+        if (locationName == null) {
+            return null;
+        }
+        String normalized = locationName.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
     private boolean samePhotoUrl(String first, String second) {
         String normalizedFirst = normalizePhotoUrl(first);
         String normalizedSecond = normalizePhotoUrl(second);
         return normalizedFirst != null && normalizedFirst.equals(normalizedSecond);
     }
 
-    private TravelTripListVO toListVO(TravelTrip trip, String defaultCoverPhotoUrl, Long memoryCount) {
+    private TravelTripListVO toListVO(TravelTrip trip, String defaultCoverPhotoUrl, Long memoryCount,
+            Long photoCount, Set<String> locations) {
         TravelTripListVO vo = new TravelTripListVO();
         vo.setId(trip.getId());
         vo.setTitle(trip.getTitle());
@@ -251,6 +302,8 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         vo.setCoverPhotoUrl(explicitCoverPhotoUrl);
         vo.setEffectiveCoverPhotoUrl(explicitCoverPhotoUrl != null ? explicitCoverPhotoUrl : defaultCoverPhotoUrl);
         vo.setMemoryCount(memoryCount == null ? 0L : memoryCount);
+        vo.setPhotoCount(photoCount == null ? 0L : photoCount);
+        vo.setLocationCount(locations == null ? 0L : (long) locations.size());
         return vo;
     }
 }

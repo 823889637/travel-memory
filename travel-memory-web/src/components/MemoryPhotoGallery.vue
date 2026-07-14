@@ -106,6 +106,7 @@ function detectPrimaryOrientation(event) {
 .gallery-dialog-thumbs button.active { outline: 2px solid #fff; }
 @media (max-width: 640px) {
   .gallery-layout-timeline .gallery-main { height: min(52vw, 190px); }
+  .gallery-layout-timeline.gallery-orientation-portrait .gallery-main { height: min(44vw, 168px); }
   .gallery-layout-journey.gallery-orientation-landscape .gallery-image-contain { max-height: min(58vh, 340px); }
   .gallery-layout-journey.gallery-orientation-portrait .gallery-image-contain { width: min(360px, 100%); max-height: 68vh; }
   .gallery-layout-journey.gallery-orientation-square .gallery-image-contain { width: 78%; max-height: min(58vh, 360px); }

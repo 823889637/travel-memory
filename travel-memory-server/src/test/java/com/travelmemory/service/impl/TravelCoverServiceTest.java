@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.travelmemory.common.StoredFile;
+import com.travelmemory.entity.MemoryPhoto;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.exception.BusinessException;
@@ -156,6 +157,41 @@ class TravelCoverServiceTest {
         assertNull(result.get(0).getCoverPhotoUrl());
         assertEquals("/uploads/first.jpg", result.get(0).getEffectiveCoverPhotoUrl());
         assertEquals(1L, result.get(0).getMemoryCount());
+        assertEquals(1L, result.get(0).getPhotoCount());
+        assertEquals(0L, result.get(0).getLocationCount());
+    }
+
+    @Test
+    void listAggregatesPhotoAndDistinctLocationCountsInBatches() {
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        TravelMemoryMapper memoryMapper = mock(TravelMemoryMapper.class);
+        MemoryPhotoMapper photoMapper = mock(MemoryPhotoMapper.class);
+        TravelTrip trip = trip(1L, null);
+        TravelMemory first = memory(10L, 1L, "/uploads/first.jpg");
+        first.setLocationName("海河边");
+        TravelMemory second = memory(11L, 1L, "/uploads/second.jpg");
+        second.setLocationName(" 海河边 ");
+        TravelMemory legacy = memory(12L, 1L, "/uploads/legacy.jpg");
+        legacy.setLocationName("狮子林桥");
+
+        when(tripMapper.selectList(any())).thenReturn(List.of(trip));
+        when(memoryMapper.selectList(any())).thenReturn(List.of(first, second, legacy));
+        when(photoMapper.selectList(any())).thenReturn(List.of(
+                photo(1L, 10L, "/uploads/first.jpg", 0),
+                photo(2L, 10L, "/uploads/first-extra.jpg", 1),
+                photo(3L, 11L, "/uploads/second.jpg", 0)));
+
+        TravelTripServiceImpl service = new TravelTripServiceImpl(
+                tripMapper, memoryMapper, photoMapper,
+                mock(com.travelmemory.mapper.TripCompanionMapper.class),
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser());
+
+        var result = service.listForHome();
+
+        assertEquals(3L, result.get(0).getMemoryCount());
+        assertEquals(4L, result.get(0).getPhotoCount());
+        assertEquals(2L, result.get(0).getLocationCount());
+        verify(photoMapper).selectList(any());
     }
 
     @Test
@@ -238,5 +274,14 @@ class TravelCoverServiceTest {
         memory.setTripId(tripId);
         memory.setPhotoUrl(photoUrl);
         return memory;
+    }
+
+    private MemoryPhoto photo(Long id, Long memoryId, String photoUrl, int sortOrder) {
+        MemoryPhoto photo = new MemoryPhoto();
+        photo.setId(id);
+        photo.setMemoryId(memoryId);
+        photo.setPhotoUrl(photoUrl);
+        photo.setSortOrder(sortOrder);
+        return photo;
     }
 }

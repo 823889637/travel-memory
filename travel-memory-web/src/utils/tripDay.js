@@ -38,6 +38,11 @@ export function getTripDurationDays(startDate, endDate) {
   return Number.isInteger(duration) && duration > 0 ? duration : null
 }
 
-export function formatTripDayLabel(startDate, recordDate, fallback = 1) {
-  return `第 ${getTripDayNumber(startDate, recordDate, fallback)} 天`
+export function getChronologicalTripDayNumber(startDate, recordDate, fallback = 1, previousDayNumber = 0) {
+  const calculated = getTripDayNumber(startDate, recordDate, fallback)
+  const nextChronologicalDay = Number.isInteger(previousDayNumber) && previousDayNumber > 0
+    ? previousDayNumber + 1
+    : 1
+
+  return Math.max(calculated, nextChronologicalDay)
 }

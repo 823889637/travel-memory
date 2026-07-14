@@ -13,6 +13,8 @@ public class TravelTripListVO {
     private String coverPhotoUrl;
     private String effectiveCoverPhotoUrl;
     private Long memoryCount;
+    private Long photoCount;
+    private Long locationCount;
 
     public Long getId() {
         return id;
@@ -84,5 +86,21 @@ public class TravelTripListVO {
 
     public void setMemoryCount(Long memoryCount) {
         this.memoryCount = memoryCount;
+    }
+
+    public Long getPhotoCount() {
+        return photoCount;
+    }
+
+    public void setPhotoCount(Long photoCount) {
+        this.photoCount = photoCount;
+    }
+
+    public Long getLocationCount() {
+        return locationCount;
+    }
+
+    public void setLocationCount(Long locationCount) {
+        this.locationCount = locationCount;
     }
 }
