@@ -42,11 +42,15 @@ fi
 
 umask 077
 mkdir -p "$auth_dir"
+chmod 700 "$auth_dir"
 password_hash="$(printf '%s\n' "$password" | openssl passwd -apr1 -stdin)"
 temp_file="$(mktemp "$auth_dir/.htpasswd.XXXXXX")"
 trap 'rm -f "$temp_file"; unset password password_confirmation password_hash' EXIT
 printf '%s:%s\n' "$username" "$password_hash" > "$temp_file"
 chmod 600 "$temp_file"
 mv -f "$temp_file" "$auth_file"
+# Nginx workers run as an unprivileged user and must read the bind-mounted hash.
+# The parent directory remains owner-only, so other host users cannot traverse it.
+chmod 644 "$auth_file"
 
-echo "Created $auth_file with permissions 600. Keep this file out of Git."
+echo "Created $auth_file (directory 700, file 644). Keep it out of Git."

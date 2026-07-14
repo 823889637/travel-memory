@@ -13,6 +13,8 @@ chmod +x scripts/create-basic-auth.sh scripts/backup-production.sh
 
 脚本只支持单用户，并会在覆盖 `deploy/secrets/.htpasswd` 前要求确认。用户名和密码仅在 ECS 上交互输入；密码不会写入脚本、Compose、命令历史或 Git。`deploy/secrets/` 已被忽略，`.htpasswd` 不得提交。
 
+脚本会将 `deploy/secrets/` 设为 `700`，将 `.htpasswd` 哈希文件设为 `644`。后者不是明文密码，但必须允许 frontend 容器内的非 root Nginx worker 读取；外层目录仍限制为宿主机所有者可进入。
+
 由于脚本用临时文件替换 `.htpasswd`，修改密码后必须强制重新创建 frontend，使 bind mount 使用新文件：
 
 ```bash

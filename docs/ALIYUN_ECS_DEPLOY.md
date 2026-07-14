@@ -155,6 +155,8 @@ chmod +x scripts/create-basic-auth.sh scripts/backup-production.sh
 
 `create-basic-auth.sh` 交互创建唯一的 Basic Auth 用户，并在覆盖已有 `.htpasswd` 前确认。密码修改后必须强制重建 frontend：
 
+脚本会保留 `deploy/secrets/` 为 `700`，并将 `.htpasswd` 设为 `644`，使容器内的 Nginx worker 可以读取认证哈希。不要手动将该文件恢复为 `600`，否则 Nginx 会返回 `500`。
+
 ```bash
 docker compose \
   -f docker-compose.yml \
