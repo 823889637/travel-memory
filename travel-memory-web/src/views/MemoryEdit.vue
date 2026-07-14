@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { onBeforeRouteLeave, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, RouterLink, useRouter } from 'vue-router'
 import { getMemory, reverseGeocode, updateMemory, uploadPhoto } from '../api/memory'
 import LocationPicker from '../components/LocationPicker.vue'
 import CompanionSelector from '../components/CompanionSelector.vue'
@@ -323,7 +323,9 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="memory-edit-page">
+    <RouterLink class="memory-edit-back" :to="`/trips/${tripId}/memories/${memoryId}`">← 返回记忆</RouterLink>
     <header class="memory-edit-head">
+      <span>EDIT MEMORY</span>
       <h1>修正这段记忆</h1>
       <p>可以调整照片、时间、地点和当时留下的话。</p>
     </header>
@@ -360,6 +362,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div class="memory-edit-fields">
       <div class="field memory-edit-sentence">
         <label for="edit-content">这一刻想记住什么？</label>
         <textarea id="edit-content" v-model="form.content" rows="3" maxlength="300" placeholder="例如：这个船好漂亮啊"></textarea>
@@ -417,6 +420,7 @@ onBeforeUnmount(() => {
       <div class="memory-edit-actions">
         <button type="submit" class="save-btn" :disabled="!canSubmit">{{ saving ? '保存中...' : '保存修改' }}</button>
         <button type="button" class="memory-edit-cancel" :disabled="saving" @click="cancel">取消</button>
+      </div>
       </div>
     </form>
 

@@ -50,45 +50,58 @@ async function submit() {
 </script>
 
 <template>
-  <section>
-    <div class="page-header">
+  <section class="trip-form-page">
+    <RouterLink class="trip-form-back" to="/trips">← 返回旅行列表</RouterLink>
+    <div class="page-header trip-form-header">
       <div>
+        <p class="trip-form-kicker">新的旅程</p>
         <h1>创建旅行</h1>
-        <p class="muted">先记录一次旅行的基本信息。</p>
+        <p class="muted">先留下旅行的基本轮廓，照片和 Memory 可以慢慢补充。</p>
       </div>
     </div>
 
-    <form class="form card" @submit.prevent="submit">
+    <form class="form card trip-form-card" @submit.prevent="submit">
+      <div class="trip-form-section-head">
+        <span>01</span>
+        <div><strong>基本信息</strong><p>标题会成为这次旅行最主要的名字。</p></div>
+      </div>
       <div class="field">
-        <label>旅行标题</label>
-        <input v-model="form.title" required maxlength="100" placeholder="例如：京都春日散步" />
+        <label for="create-trip-title">旅行标题</label>
+        <input id="create-trip-title" v-model="form.title" required maxlength="100" placeholder="例如：京都春日散步" />
       </div>
 
       <div class="field">
-        <label>目的地</label>
-        <input v-model="form.destination" maxlength="100" placeholder="例如：京都" />
+        <label for="create-trip-destination">目的地</label>
+        <input id="create-trip-destination" v-model="form.destination" maxlength="100" placeholder="例如：京都" />
+      </div>
+
+      <div class="trip-form-date-grid">
+      <div class="field">
+        <label for="create-trip-start-date">开始日期</label>
+        <input id="create-trip-start-date" v-model="form.startDate" type="date" :max="form.endDate || undefined" />
       </div>
 
       <div class="field">
-        <label>开始日期</label>
-        <input v-model="form.startDate" type="date" :max="form.endDate || undefined" />
-      </div>
-
-      <div class="field">
-        <label>结束日期</label>
-        <input v-model="form.endDate" type="date" :min="form.startDate || undefined" />
+        <label for="create-trip-end-date">结束日期</label>
+        <input id="create-trip-end-date" v-model="form.endDate" type="date" :min="form.startDate || undefined" />
         <p v-if="dateError" class="error">{{ dateError }}</p>
       </div>
+      </div>
 
       <div class="field">
-        <label>旅行描述</label>
-        <textarea v-model="form.description" maxlength="500" placeholder="简单写一点这趟旅行的背景"></textarea>
+        <label for="create-trip-description">旅行描述</label>
+        <textarea id="create-trip-description" v-model="form.description" maxlength="500" placeholder="例如：第一次和小雨一起去京都，想慢慢看看春天。"></textarea>
+      </div>
+
+      <div class="trip-cover-guidance">
+        <span aria-hidden="true">▧</span>
+        <p><strong>旅行封面稍后设置</strong><small>新增 Memory 后，可以从时间线中选择一张照片作为封面。</small></p>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
 
-      <div class="actions">
-        <button :disabled="!canSubmit">{{ saving ? '保存中...' : '创建' }}</button>
+      <div class="actions trip-form-actions">
+        <button :disabled="!canSubmit">{{ saving ? '保存中...' : '创建旅行' }}</button>
         <button type="button" class="ghost" :disabled="saving" @click="router.push('/trips')">
           取消
         </button>

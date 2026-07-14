@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 const props = defineProps({
   photos: { type: Array, default: () => [] },
@@ -19,11 +19,36 @@ const open = ref(false)
 const selectedIndex = ref(0)
 const primaryOrientation = ref('landscape')
 const primaryRatio = ref(1)
+const failedPhotoUrls = ref(new Set())
 const items = computed(() => {
-  const valid = props.photos.filter(photo => photo?.photoUrl)
-  return valid.length ? valid : (props.fallbackUrl ? [{ photoUrl: props.fallbackUrl }] : [])
+  const normalizeItems = (source) => {
+    const seenUrls = new Set()
+    return source
+      .map((photo, index) => ({ ...photo, _sourceIndex: index }))
+      .filter((photo) => {
+        const url = String(photo?.photoUrl || '').trim()
+        if (!url || seenUrls.has(url)) return false
+        seenUrls.add(url)
+        photo.photoUrl = url
+        return true
+      })
+      .sort((left, right) => {
+        const leftOrder = left.sortOrder == null ? Number.NaN : Number(left.sortOrder)
+        const rightOrder = right.sortOrder == null ? Number.NaN : Number(right.sortOrder)
+        const normalizedLeft = Number.isFinite(leftOrder) ? leftOrder : 1_000_000 + left._sourceIndex
+        const normalizedRight = Number.isFinite(rightOrder) ? rightOrder : 1_000_000 + right._sourceIndex
+        return normalizedLeft - normalizedRight || left._sourceIndex - right._sourceIndex
+      })
+      .slice(0, 6)
+  }
+  const normalizedPhotos = normalizeItems(props.photos)
+  return normalizedPhotos.length
+    ? normalizedPhotos
+    : normalizeItems(props.fallbackUrl ? [{ photoUrl: props.fallbackUrl }] : [])
 })
 const selected = computed(() => items.value[selectedIndex.value] || items.value[0])
+const previewItems = computed(() => items.value.slice(0, 4))
+const hiddenPhotoCount = computed(() => Math.max(0, items.value.length - previewItems.value.length))
 const useBackdrop = computed(() => (
   props.backdrop && (
     props.backdropPortraitOnly
@@ -33,10 +58,33 @@ const useBackdrop = computed(() => (
 ))
 watch(items, () => {
   if (selectedIndex.value >= items.value.length) selectedIndex.value = 0
+  if (!items.value.length) open.value = false
+  failedPhotoUrls.value = new Set()
   primaryOrientation.value = 'landscape'
   primaryRatio.value = 1
 })
 function show(index = 0) { selectedIndex.value = index; open.value = true }
+function closeGallery() { open.value = false }
+function showPrevious() {
+  selectedIndex.value = (selectedIndex.value - 1 + items.value.length) % items.value.length
+}
+function showNext() {
+  selectedIndex.value = (selectedIndex.value + 1) % items.value.length
+}
+function handleGalleryKeydown(event) {
+  if (!open.value) return
+  if (event.key === 'Escape') closeGallery()
+  if (event.key === 'ArrowLeft' && items.value.length > 1) showPrevious()
+  if (event.key === 'ArrowRight' && items.value.length > 1) showNext()
+}
+function markPhotoFailed(photo) {
+  const nextFailedUrls = new Set(failedPhotoUrls.value)
+  nextFailedUrls.add(photo.photoUrl)
+  failedPhotoUrls.value = nextFailedUrls
+}
+function hasPhotoFailed(photo) {
+  return failedPhotoUrls.value.has(photo?.photoUrl)
+}
 function detectPrimaryOrientation(event) {
   const { naturalWidth: width, naturalHeight: height } = event.target
   if (!width || !height) return
@@ -44,26 +92,74 @@ function detectPrimaryOrientation(event) {
   primaryRatio.value = ratio
   primaryOrientation.value = ratio > 1.2 ? 'landscape' : (ratio < 0.8 ? 'portrait' : 'square')
 }
+
+watch(open, (isOpen) => {
+  document.body.style.overflow = isOpen ? 'hidden' : ''
+  if (isOpen) window.addEventListener('keydown', handleGalleryKeydown)
+  else window.removeEventListener('keydown', handleGalleryKeydown)
+})
+
+onBeforeUnmount(() => {
+  open.value = false
+  selectedIndex.value = 0
+  failedPhotoUrls.value = new Set()
+  document.body.style.overflow = ''
+  window.removeEventListener('keydown', handleGalleryKeydown)
+})
 </script>
 
 <template>
   <div v-if="items.length" :class="['gallery', `gallery-orientation-${primaryOrientation}`, { [`gallery-layout-${layout}`]: layout }]" :style="maxHeight ? { '--gallery-main-max-height': maxHeight } : null" @click.stop>
-    <button type="button" :class="['gallery-main', { 'gallery-main-with-backdrop': useBackdrop, 'gallery-main-dim-backdrop': useBackdrop && backdropDim }]" @click="show()">
-      <span v-if="useBackdrop" class="gallery-backdrop" :style="{ backgroundImage: `url(${items[0].photoUrl})` }"></span>
-      <img :class="`gallery-image-${fit}`" :src="items[0].photoUrl" :alt="alt" @load="detectPrimaryOrientation" />
-      <span v-if="items.length > 1" class="gallery-count">{{ items.length }} {{ countLabel }}</span>
-    </button>
-    <div v-if="items.length > 1" class="gallery-thumbs">
-      <button v-for="(photo, index) in items.slice(1, 4)" :key="photo.id || photo.photoUrl" type="button" @click="show(index + 1)">
-        <img :class="`gallery-thumb-image-${fit}`" :src="photo.photoUrl" :alt="`${alt} ${index + 2}`" />
+    <div v-if="layout === 'timeline'" :class="['gallery-timeline-preview', `gallery-timeline-count-${previewItems.length}`]">
+      <button
+        v-for="(photo, index) in previewItems"
+        :key="photo.id || photo.photoUrl"
+        type="button"
+        :class="['gallery-preview-tile', `gallery-preview-tile-${index + 1}`]"
+        :aria-label="`查看第 ${index + 1} 张照片`"
+        @click="show(index)"
+      >
+        <span v-if="hasPhotoFailed(photo)" class="gallery-photo-error">照片暂时无法显示</span>
+        <img v-else :src="photo.photoUrl" :alt="`${alt} ${index + 1}`" @error="markPhotoFailed(photo)" />
+        <span v-if="index === previewItems.length - 1 && hiddenPhotoCount" class="gallery-more-overlay">+{{ hiddenPhotoCount }}</span>
       </button>
+      <span v-if="items.length > 1 && !hiddenPhotoCount" class="gallery-total-count">{{ items.length }} 张</span>
     </div>
-    <div v-if="open" class="gallery-dialog" role="dialog" aria-modal="true" @click.self="open = false">
-      <button type="button" class="gallery-close" aria-label="Close photos" @click="open = false">x</button>
-      <img :src="selected.photoUrl" :alt="alt" class="gallery-full" />
+
+    <button v-else-if="layout === 'favorite'" type="button" class="gallery-favorite-preview" @click="show(0)">
+      <span v-if="hasPhotoFailed(items[0])" class="gallery-photo-error">照片暂时无法显示</span>
+      <img v-else :src="items[0].photoUrl" :alt="alt" @load="detectPrimaryOrientation" @error="markPhotoFailed(items[0])" />
+      <span v-if="items.length > 1" class="gallery-total-count">共 {{ items.length }} 张</span>
+    </button>
+
+    <template v-else>
+      <button type="button" :class="['gallery-main', { 'gallery-main-with-backdrop': useBackdrop, 'gallery-main-dim-backdrop': useBackdrop && backdropDim }]" @click="show()">
+        <span v-if="useBackdrop" class="gallery-backdrop" :style="{ backgroundImage: `url(${items[0].photoUrl})` }"></span>
+        <span v-if="hasPhotoFailed(items[0])" class="gallery-photo-error">照片暂时无法显示</span>
+        <img v-else :class="`gallery-image-${fit}`" :src="items[0].photoUrl" :alt="alt" @load="detectPrimaryOrientation" @error="markPhotoFailed(items[0])" />
+        <span v-if="items.length > 1" class="gallery-count">{{ items.length }} {{ countLabel }}</span>
+      </button>
+      <div v-if="items.length > 1" class="gallery-thumbs">
+        <button v-for="(photo, index) in items.slice(1, 4)" :key="photo.id || photo.photoUrl" type="button" @click="show(index + 1)">
+          <span v-if="hasPhotoFailed(photo)" class="gallery-photo-error">无法显示</span>
+          <img v-else :class="`gallery-thumb-image-${fit}`" :src="photo.photoUrl" :alt="`${alt} ${index + 2}`" @error="markPhotoFailed(photo)" />
+        </button>
+      </div>
+    </template>
+
+    <div v-if="open" class="gallery-dialog" role="dialog" aria-modal="true" aria-label="照片浏览" @click.self="closeGallery">
+      <div class="gallery-dialog-bar">
+        <span>{{ selectedIndex + 1 }} / {{ items.length }}</span>
+        <button type="button" class="gallery-close" aria-label="关闭照片浏览" @click="closeGallery">×</button>
+      </div>
+      <button v-if="items.length > 1" type="button" class="gallery-arrow gallery-arrow-previous" aria-label="上一张照片" @click="showPrevious">‹</button>
+      <span v-if="hasPhotoFailed(selected)" class="gallery-full-error">这张照片暂时无法显示</span>
+      <img v-else :src="selected.photoUrl" :alt="`${alt} ${selectedIndex + 1}`" class="gallery-full" @error="markPhotoFailed(selected)" />
+      <button v-if="items.length > 1" type="button" class="gallery-arrow gallery-arrow-next" aria-label="下一张照片" @click="showNext">›</button>
       <div v-if="items.length > 1" class="gallery-dialog-thumbs">
         <button v-for="(photo, index) in items" :key="photo.id || photo.photoUrl" type="button" :class="{ active: index === selectedIndex }" @click="selectedIndex = index">
-          <img :src="photo.photoUrl" :alt="`${alt} ${index + 1}`" />
+          <span v-if="hasPhotoFailed(photo)" class="gallery-photo-error">无法显示</span>
+          <img v-else :src="photo.photoUrl" :alt="`${alt} ${index + 1}`" @error="markPhotoFailed(photo)" />
         </button>
       </div>
     </div>
@@ -85,32 +181,54 @@ function detectPrimaryOrientation(event) {
 .gallery-layout-journey.gallery-orientation-portrait .gallery-image-contain { width: min(420px, 100%); height: auto; max-height: 68vh; border-radius: 12px; box-shadow: 0 10px 22px rgba(43, 38, 34, 0.1); }
 .gallery-layout-journey.gallery-orientation-square .gallery-main { display: flex; justify-content: center; }
 .gallery-layout-journey.gallery-orientation-square .gallery-image-contain { width: 76%; height: auto; max-height: min(62vh, 480px); border-radius: 12px; box-shadow: 0 10px 22px rgba(43, 38, 34, 0.08); }
-.gallery-layout-timeline .gallery-main { display: grid; place-items: center; height: 190px; border-radius: 10px; background: #f4f0e8; box-shadow: none; }
-.gallery-layout-timeline .gallery-image-contain { position: relative; z-index: 1; min-height: 0; max-height: none; object-fit: contain; }
-.gallery-layout-timeline.gallery-orientation-landscape .gallery-image-contain { width: 100%; height: 100%; }
-.gallery-layout-timeline.gallery-orientation-portrait .gallery-image-contain { width: auto; max-width: 100%; height: 100%; }
-.gallery-layout-timeline.gallery-orientation-square .gallery-image-contain { width: 85%; height: 85%; }
+.gallery-layout-timeline { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.gallery-timeline-preview { position: relative; display: grid; width: 100%; height: 100%; gap: 3px; overflow: hidden; border-radius: 0 8px 8px 0; background: #eee7de; }
+.gallery-timeline-count-1 { grid-template-columns: 1fr; }
+.gallery-timeline-count-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gallery-timeline-count-3 { grid-template-columns: 2fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.gallery-timeline-count-3 .gallery-preview-tile-1 { grid-row: 1 / span 2; }
+.gallery-timeline-count-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.gallery-preview-tile { position: relative; display: block; min-width: 0; min-height: 0; overflow: hidden; padding: 0; border: 0; border-radius: 0; background: #eee7de; }
+.gallery-preview-tile img, .gallery-favorite-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.gallery-more-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(25, 22, 19, .54); color: #fff; font-size: 25px; font-weight: 800; }
+.gallery-total-count { position: absolute; right: 8px; bottom: 8px; z-index: 2; padding: 4px 7px; border-radius: 4px; background: rgba(30, 26, 22, .72); color: #fff; font-size: 12px; line-height: 1; }
+.gallery-layout-favorite { display: block; width: 100%; }
+.gallery-favorite-preview { position: relative; display: block; overflow: hidden; width: 100%; height: 124px; padding: 0; border: 0; border-radius: 0 8px 8px 0; background: #eee7de; }
+.gallery-layout-favorite.map-memory-photo .gallery-favorite-preview { height: 100%; }
+.gallery-photo-error { display: grid; width: 100%; height: 100%; min-height: 52px; place-items: center; padding: 8px; background: #eee7de; color: #887b70; font-size: 11px; line-height: 1.4; text-align: center; }
 .gallery-layout-recap .gallery-main { height: 145px; border-radius: 7px; background: #f1ebe2; }
 .gallery-layout-recap .gallery-main img { width: 100%; height: 100%; min-height: 0; max-height: none; object-fit: cover; }
 .gallery-layout-recap .gallery-thumbs { display: none; }
-.gallery-layout-timeline .gallery-thumbs button { flex-basis: 42px; height: 42px; background: #f4f0e8; }
-.gallery-layout-timeline .gallery-thumbs { display: none; }
+.gallery-layout-detail .gallery-main { display: grid; place-items: center; min-height: 360px; border-radius: 8px; background: #eee8df; }
+.gallery-layout-detail .gallery-main img.gallery-image-contain { width: 100%; height: auto; min-height: 0; max-height: var(--gallery-main-max-height, min(66vh, 620px)); object-fit: contain; }
+.gallery-layout-detail.gallery-orientation-portrait .gallery-main img.gallery-image-contain { width: auto; max-width: 100%; }
 .gallery-count { position: absolute; right: 8px; bottom: 8px; padding: 4px 7px; border-radius: 4px; background: rgba(30, 26, 22, .7); color: #fff; font-size: 12px; }
 .gallery-thumbs { display: flex; gap: 6px; overflow: hidden; }
 .gallery-thumbs button, .gallery-dialog-thumbs button { flex: 0 0 52px; height: 52px; padding: 0; overflow: hidden; background: #eee3d6; }
 .gallery-thumbs img, .gallery-dialog-thumbs img { width: 100%; height: 100%; object-fit: cover; }
 .gallery-thumbs img.gallery-thumb-image-contain { object-fit: contain; }
-.gallery-dialog { position: fixed; z-index: 1000; inset: 0; display: grid; align-content: center; justify-items: center; gap: 14px; padding: 24px; background: rgba(20, 18, 16, .9); }
-.gallery-full { max-width: min(92vw, 960px); max-height: 76vh; object-fit: contain; }
-.gallery-close { position: fixed; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; background: #fff; color: #222; font-size: 22px; }
-.gallery-dialog-thumbs { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; }
-.gallery-dialog-thumbs button.active { outline: 2px solid #fff; }
+.gallery-dialog { position: fixed; z-index: 1000; inset: 0; display: grid; grid-template-columns: minmax(48px, 1fr) minmax(0, 1080px) minmax(48px, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 14px 18px; padding: 20px 24px 18px; background: rgba(19, 17, 15, .96); color: #fff; }
+.gallery-dialog-bar { grid-column: 1 / -1; display: flex; min-height: 42px; align-items: center; justify-content: space-between; color: rgba(255,255,255,.76); font-size: 13px; }
+.gallery-full { grid-column: 2; grid-row: 2; align-self: center; justify-self: center; max-width: 100%; max-height: 76vh; object-fit: contain; }
+.gallery-full-error { grid-column: 2; grid-row: 2; align-self: center; justify-self: center; padding: 22px; color: rgba(255,255,255,.74); text-align: center; }
+.gallery-close { display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.28); border-radius: 50%; background: rgba(255,255,255,.08); color: #fff; font-size: 25px; line-height: 1; }
+.gallery-arrow { align-self: center; display: grid; width: 44px; height: 56px; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.2); border-radius: 50%; background: rgba(255,255,255,.07); color: #fff; font-size: 38px; line-height: 1; }
+.gallery-arrow-previous { grid-column: 1; grid-row: 2; justify-self: end; }
+.gallery-arrow-next { grid-column: 3; grid-row: 2; justify-self: start; }
+.gallery-dialog-thumbs { grid-column: 1 / -1; grid-row: 3; display: flex; gap: 8px; max-width: min(100%, 760px); justify-self: center; overflow-x: auto; padding: 3px; }
+.gallery-dialog-thumbs button { border-radius: 5px; opacity: .56; }
+.gallery-dialog-thumbs button.active { outline: 2px solid #fff; opacity: 1; }
 @media (max-width: 640px) {
-  .gallery-layout-timeline .gallery-main { height: 118px; }
-  .gallery-layout-timeline.gallery-orientation-portrait .gallery-main { height: 118px; }
+  .gallery-timeline-preview { border-radius: 0 7px 7px 0; }
+  .gallery-favorite-preview { height: 118px; }
   .gallery-layout-journey.gallery-orientation-landscape .gallery-image-contain { max-height: min(58vh, 340px); }
   .gallery-layout-journey.gallery-orientation-portrait .gallery-image-contain { width: min(360px, 100%); max-height: 68vh; }
   .gallery-layout-journey.gallery-orientation-square .gallery-image-contain { width: 78%; max-height: min(58vh, 360px); }
   .gallery-layout-recap .gallery-main { height: min(52vw, 210px); }
+  .gallery-layout-detail .gallery-main { min-height: 0; border-radius: 0; }
+  .gallery-dialog { grid-template-columns: 42px minmax(0, 1fr) 42px; gap: 10px 4px; padding: 12px 8px max(10px, env(safe-area-inset-bottom)); }
+  .gallery-full { max-height: 72vh; }
+  .gallery-arrow { width: 38px; height: 48px; border: 0; background: rgba(0,0,0,.22); font-size: 32px; }
+  .gallery-dialog-thumbs button { flex-basis: 46px; height: 46px; }
 }
 </style>

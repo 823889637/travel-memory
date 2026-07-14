@@ -38,7 +38,14 @@ async function submit () {
 
 <template>
   <section class="auth-page">
+    <div class="auth-brand-panel" aria-hidden="true">
+      <span class="auth-brand-mark">◇</span>
+      <p>Travel Memory</p>
+      <strong>把旅行留给未来的自己</strong>
+      <span>照片、原话、时间和地点，共同保存一段真实发生过的旅行。</span>
+    </div>
     <form class="form card auth-card" @submit.prevent="submit">
+      <p class="auth-kicker">欢迎回来</p>
       <h1>登录 Travel Memory</h1>
       <p class="muted">进入属于你的旅行回忆。</p>
       <div class="field">

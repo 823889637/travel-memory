@@ -170,12 +170,12 @@ watch(() => props.id, loadPage, { immediate: true })
 .recap-intro { display: grid; align-content: center; gap: 11px; }
 .recap-kicker { margin: 0; color: var(--tm-accent); font-size: 13px; font-weight: 800; }
 .recap-title-line { display: flex; align-items: baseline; gap: 14px; }
-.recap-title-line h1 { margin: 0; font-size: 34px; }
+.recap-title-line h1 { margin: 0; font-family: Georgia, "Microsoft YaHei", serif; font-size: 34px; }
 .recap-title-line a { color: var(--tm-accent); font-size: 13px; }
 .recap-meta, .recap-description { margin: 0; line-height: 1.65; }
 .recap-meta { color: var(--tm-text-muted); }
 .recap-description { margin-top: 7px; }
-.recap-summary, .recap-place-panel, .recap-favorites { border: 1px solid var(--tm-border); border-radius: var(--tm-radius-md); background: rgba(251, 249, 244, .8); padding: 20px; }
+.recap-summary, .recap-place-panel, .recap-favorites { border: 1px solid var(--tm-border); border-radius: var(--tm-radius-md); background: rgba(255, 253, 249, .84); padding: 20px; }
 .recap-summary h2, .recap-place-panel h2, .recap-favorites h2 { margin: 0 0 16px; font-size: 17px; }
 .recap-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
 .recap-summary-grid div { display: grid; gap: 7px; padding: 14px 10px; text-align: center; border-right: 1px solid var(--tm-border); border-bottom: 1px solid var(--tm-border); }
@@ -187,7 +187,7 @@ watch(() => props.id, loadPage, { immediate: true })
 .recap-section-head h2, .recap-section-head p { margin: 0; }
 .recap-section-head p { margin-top: 5px; color: var(--tm-text-muted); font-size: 14px; }
 .recap-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(235px, 1fr); gap: 12px; overflow-x: auto; padding: 2px 1px 8px; scroll-padding-inline: 1px; scroll-snap-type: x proximity; }
-.recap-day-card { display: grid; grid-template-rows: auto auto auto minmax(48px, auto) auto; gap: 10px; min-width: 0; border: 1px solid var(--tm-border); border-radius: var(--tm-radius-md); background: var(--tm-surface); padding: 13px; scroll-snap-align: start; }
+.recap-day-card { display: grid; grid-template-rows: auto auto auto minmax(48px, auto) auto; gap: 10px; min-width: 0; border: 1px solid var(--tm-border); border-radius: var(--tm-radius-md); background: var(--tm-surface); padding: 13px; box-shadow: 0 8px 20px rgba(63, 49, 38, .045); scroll-snap-align: start; }
 .recap-day-heading { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .recap-day-heading span, .recap-day-place, .recap-day-foot { color: var(--tm-text-muted); font-size: 12px; }
 .recap-day-place, .recap-day-quote { margin: 0; }

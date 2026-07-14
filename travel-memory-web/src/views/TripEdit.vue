@@ -225,9 +225,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section>
-    <div class="page-header">
+  <section class="trip-form-page">
+    <RouterLink class="trip-form-back" :to="`/trips/${route.params.id}`">← 返回时间线</RouterLink>
+    <div class="page-header trip-form-header">
       <div>
+        <p class="trip-form-kicker">旅行设置</p>
         <h1>编辑旅行</h1>
         <p class="muted">修正这次旅行的基本信息，原有封面会保留。</p>
       </div>
@@ -236,9 +238,12 @@ onBeforeUnmount(() => {
     <p v-if="loading" class="muted">正在加载这次旅行...</p>
     <p v-else-if="error && !originalTrip" class="error">{{ error }}</p>
 
-    <form v-else-if="originalTrip" class="form card" @submit.prevent="submit">
-      <div class="field">
-        <label>旅行封面</label>
+    <form v-else-if="originalTrip" class="form card trip-form-card" @submit.prevent="submit">
+      <div class="trip-form-section-head">
+        <span>01</span>
+        <div><strong>旅行封面</strong><p>封面来自这次旅行已经保存的照片。</p></div>
+      </div>
+      <div class="field trip-cover-editor">
         <img
           v-if="coverPhotoUrl"
           class="trip-edit-cover-preview"
@@ -254,6 +259,11 @@ onBeforeUnmount(() => {
         <p v-if="coverError" class="error">{{ coverError }}</p>
       </div>
 
+      <div class="trip-form-section-head">
+        <span>02</span>
+        <div><strong>基本信息</strong><p>修改后不会影响已经保存的 Memory。</p></div>
+      </div>
+
       <div class="field">
         <label for="trip-title">旅行标题</label>
         <input id="trip-title" v-model="form.title" required maxlength="100" placeholder="例如：京都春日散步" />
@@ -264,6 +274,7 @@ onBeforeUnmount(() => {
         <input id="trip-destination" v-model="form.destination" maxlength="100" placeholder="例如：京都" />
       </div>
 
+      <div class="trip-form-date-grid">
       <div class="field">
         <label for="trip-start-date">开始日期</label>
         <input
@@ -284,6 +295,7 @@ onBeforeUnmount(() => {
         />
         <p v-if="dateError" class="error">{{ dateError }}</p>
       </div>
+      </div>
 
       <div class="field">
         <label for="trip-description">旅行描述</label>
@@ -298,7 +310,7 @@ onBeforeUnmount(() => {
       <p v-if="error" class="error">{{ error }}</p>
       <p v-if="successMessage" class="muted">{{ successMessage }}</p>
 
-      <div class="actions">
+      <div class="actions trip-form-actions">
         <button :disabled="!canSubmit">{{ saving ? '保存中…' : '保存修改' }}</button>
         <button type="button" class="ghost" :disabled="saving || redirecting" @click="cancel">取消</button>
         <RouterLink :to="`/trips/${route.params.id}/companions`" class="trip-companion-manage-link">管理同行的人</RouterLink>

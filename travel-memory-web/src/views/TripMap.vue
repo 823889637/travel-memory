@@ -20,7 +20,6 @@ const memories = ref([])
 const loading = ref(false)
 const error = ref('')
 const selectedMemoryId = ref(null)
-const failedPhotoId = ref(null)
 const memoryMap = ref(null)
 
 const points = computed(() => memories.value.filter((item) => hasValidCoordinates(item)))
@@ -54,6 +53,10 @@ function photoSrc(url) {
   return url || ''
 }
 
+function hasMemoryPhoto(memory) {
+  return Boolean(memory?.photoUrl || memory?.photos?.some(photo => photo?.photoUrl))
+}
+
 function formatDateTime(value) {
   if (!value) {
     return '未知时间'
@@ -76,7 +79,6 @@ async function loadPage() {
     trip.value = tripData
     memories.value = Array.isArray(memoryData) ? memoryData : []
     selectedMemoryId.value = memories.value.find((item) => hasValidCoordinates(item))?.id || null
-    failedPhotoId.value = null
   } catch (err) {
     error.value = err.message || '地图暂时没有加载成功，请稍后再试。'
   } finally {
@@ -125,19 +127,21 @@ watch(() => props.id, loadPage, { immediate: true })
         </span>
       </div>
 
-      <MemoryMap
-        ref="memoryMap"
-        :points="points"
-        :selected-id="selectedMemory?.id"
-        @select="selectMemory"
-      />
+      <div class="trip-map-workspace">
+        <MemoryMap
+          ref="memoryMap"
+          :points="points"
+          :selected-id="selectedMemory?.id"
+          @select="selectMemory"
+        />
 
-      <article v-if="selectedMemory" class="map-memory-card">
+        <article v-if="selectedMemory" class="map-memory-card">
         <MemoryPhotoGallery
-          v-if="selectedMemory.photoUrl && failedPhotoId !== selectedMemory.id"
+          v-if="hasMemoryPhoto(selectedMemory)"
           class="map-memory-photo"
           :photos="selectedMemory.photos"
           :fallback-url="photoSrc(selectedMemory.photoUrl)"
+          layout="favorite"
           alt="地图记忆照片"
         />
         <div v-else class="map-memory-photo empty">没有照片</div>
@@ -155,7 +159,8 @@ watch(() => props.id, loadPage, { immediate: true })
             在地图上定位
           </button>
         </div>
-      </article>
+        </article>
+      </div>
     </template>
   </section>
 </template>

@@ -65,7 +65,7 @@ onMounted(load)
 </script>
 
 <template>
-  <section>
+  <section class="admin-users-page">
     <div class="page-header">
       <div>
         <h1>账号管理</h1>
@@ -73,25 +73,34 @@ onMounted(load)
       </div>
     </div>
 
-    <form class="form card" @submit.prevent="create">
+    <div class="admin-users-layout">
+    <form class="form card admin-create-card" @submit.prevent="create">
       <h2>创建用户</h2>
+      <p class="muted">新用户首次登录后需要修改临时密码。</p>
       <div class="field">
-        <label>用户名</label>
-        <input v-model="form.username" autocomplete="off" required />
+        <label for="admin-create-username">用户名</label>
+        <input id="admin-create-username" v-model="form.username" autocomplete="off" required />
       </div>
       <div class="field">
-        <label>显示名称</label>
-        <input v-model="form.displayName" required />
+        <label for="admin-create-display-name">显示名称</label>
+        <input id="admin-create-display-name" v-model="form.displayName" required />
       </div>
       <div class="field">
-        <label>临时密码</label>
-        <input v-model="form.temporaryPassword" type="password" minlength="12" required />
+        <label for="admin-create-password">临时密码</label>
+        <input id="admin-create-password" v-model="form.temporaryPassword" type="password" minlength="12" required />
       </div>
       <button :disabled="creating">{{ creating ? '创建中…' : '创建账号' }}</button>
     </form>
 
     <p v-if="error" class="error">{{ error }}</p>
 
+    <div class="admin-user-list-panel">
+      <div class="admin-user-list-head">
+        <div>
+          <h2>用户列表</h2>
+          <p class="muted">共 {{ users.length }} 个账号</p>
+        </div>
+      </div>
     <div class="user-list">
       <article v-for="user in users" :key="user.id" class="card user-row">
         <div>
@@ -113,6 +122,8 @@ onMounted(load)
           <button class="ghost" type="button" @click="resetUserId = null">取消</button>
         </form>
       </article>
+    </div>
+    </div>
     </div>
   </section>
 </template>

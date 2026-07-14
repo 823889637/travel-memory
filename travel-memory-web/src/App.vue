@@ -1,12 +1,16 @@
 <template>
   <div class="app-shell">
     <header class="topbar">
-      <RouterLink class="brand" to="/">Travel Memory</RouterLink>
-      <nav v-if="currentUser" class="topbar-nav" aria-label="主导航">
-        <RouterLink to="/">旅行列表</RouterLink>
-        <RouterLink to="/trips/new">创建旅行</RouterLink>
-      </nav>
-      <div v-if="currentUser" ref="userMenuRef" class="user-menu">
+      <div class="topbar-inner">
+        <RouterLink class="brand" to="/">
+          <span class="brand-mark" aria-hidden="true">◇</span>
+          <span>Travel Memory</span>
+        </RouterLink>
+        <nav v-if="currentUser" class="topbar-nav" aria-label="主导航">
+          <RouterLink to="/trips">我的旅行</RouterLink>
+          <RouterLink to="/trips/new">创建旅行</RouterLink>
+        </nav>
+        <div v-if="currentUser" ref="userMenuRef" class="user-menu">
         <button
           class="user-trigger"
           type="button"
@@ -18,14 +22,18 @@
           <span class="user-trigger-name">{{ currentUser.displayName || currentUser.username }}</span>
           <span class="user-trigger-caret" aria-hidden="true">⌄</span>
         </button>
-        <div v-if="userMenuOpen" class="user-popover" role="menu">
-          <div class="user-popover-identity">
-            <strong>{{ currentUser.displayName || currentUser.username }}</strong>
-            <span v-if="currentUser.username">{{ currentUser.username }}</span>
+          <div v-if="userMenuOpen" class="user-popover" role="menu">
+            <div class="user-popover-identity">
+              <span class="user-popover-avatar" aria-hidden="true">{{ userInitial }}</span>
+              <span>
+                <strong>{{ currentUser.displayName || currentUser.username }}</strong>
+                <small v-if="currentUser.username">{{ currentUser.username }}</small>
+              </span>
+            </div>
+            <RouterLink v-if="currentUser.role === 'ADMIN'" to="/admin/users" @click="closeUserMenu">账号管理</RouterLink>
+            <RouterLink to="/change-password" @click="closeUserMenu">修改密码</RouterLink>
+            <button class="user-logout" type="button" @click="logout">退出登录</button>
           </div>
-          <RouterLink v-if="currentUser.role === 'ADMIN'" to="/admin/users" @click="closeUserMenu">账号管理</RouterLink>
-          <RouterLink to="/change-password" @click="closeUserMenu">修改密码</RouterLink>
-          <button class="user-logout" type="button" @click="logout">退出登录</button>
         </div>
       </div>
     </header>

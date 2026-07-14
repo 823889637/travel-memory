@@ -31,6 +31,10 @@ function coordinateOptions() {
   return hasCoordinates.value ? { latitude: draft.latitude, longitude: draft.longitude } : {}
 }
 
+function isSelectedResult(result) {
+  return Number(result?.latitude) === Number(draft.latitude) && Number(result?.longitude) === Number(draft.longitude)
+}
+
 async function search() {
   const keyword = draft.keyword.trim()
   if (!keyword) {
@@ -159,7 +163,8 @@ function confirm() {
             v-for="result in draft.results"
             :key="result.id || `${result.latitude}:${result.longitude}`"
             type="button"
-            class="location-picker-result"
+            :class="['location-picker-result', { selected: isSelectedResult(result) }]"
+            :aria-pressed="isSelectedResult(result)"
             @click="selectSearchResult(result)"
           >
             <strong>{{ result.name }}</strong>
@@ -202,25 +207,26 @@ function confirm() {
 <style scoped>
 .location-picker-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(49 40 34 / 36%); }
 .location-picker { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; width: min(1060px, 100%); max-height: min(820px, calc(100vh - 48px)); overflow: hidden; border: 1px solid #e4d8ca; border-radius: 10px; background: #fffdf9; box-shadow: 0 24px 65px rgb(55 42 32 / 22%); color: #342b25; }
-.location-picker-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 12px; }
-.location-picker-header h2 { margin: 0; font-size: 19px; }
+.location-picker-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 22px 14px; border-bottom: 1px solid #eee3d8; }
+.location-picker-header h2 { margin: 0; font-family: Georgia, "Microsoft YaHei", serif; font-size: 21px; }
 .location-picker-close, .location-picker-search button, .location-picker-actions button, .location-picker-candidates button { border: 1px solid #dfd1c1; border-radius: 6px; background: #fffdfa; color: #76543e; cursor: pointer; }
 .location-picker-close { padding: 6px 10px; font-size: 13px; }
-.location-picker-search { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; padding: 0 20px 14px; }
+.location-picker-search { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; padding: 14px 20px; background: #fffdfa; }
 .location-picker-search input, .location-picker-selection input { min-width: 0; border: 1px solid #dfd4c8; border-radius: 6px; background: #fff; color: #342b25; font: inherit; }
 .location-picker-search input { height: 40px; padding: 0 11px; }
 .location-picker-search button { padding: 0 14px; }
 .location-picker-search button:disabled { cursor: wait; opacity: .6; }
 .location-picker-locate { color: #6f6258 !important; }
 .location-picker-error { margin: -4px 20px 10px; color: #b05034; font-size: 13px; }
-.location-picker-body { display: grid; grid-template-columns: minmax(230px, 32%) minmax(0, 1fr); min-height: 360px; border-top: 1px solid #eee3d8; border-bottom: 1px solid #eee3d8; }
+.location-picker-body { display: grid; grid-template-columns: minmax(250px, 32%) minmax(0, 1fr); min-height: 390px; border-top: 1px solid #eee3d8; border-bottom: 1px solid #eee3d8; }
 .location-picker-results { overflow: auto; padding: 10px; background: #fcf8f2; }
 .location-picker-empty { margin: 10px; color: #85796e; font-size: 14px; line-height: 1.6; }
 .location-picker-result { display: grid; gap: 4px; width: 100%; padding: 11px; border: 0; border-bottom: 1px solid #eee4da; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .location-picker-result:hover { background: #f3eadf; }
+.location-picker-result.selected { border-left: 3px solid #b45732; background: #f7eee4; }
 .location-picker-result strong { font-size: 14px; }
 .location-picker-result span, .location-picker-result small { color: #81756b; font-size: 12px; line-height: 1.4; }
-.location-picker-footer { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 15px 20px 18px; }
+.location-picker-footer { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 17px 20px 20px; background: #fffdfa; }
 .location-picker-selection { display: grid; gap: 5px; min-width: 0; }
 .location-picker-selection > span, .location-picker-selection p, .location-picker-candidates > span { margin: 0; color: #897c70; font-size: 12px; }
 .location-picker-selection strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
@@ -230,18 +236,18 @@ function confirm() {
 .location-picker-candidates button { padding: 3px 7px; font-size: 12px; }
 .location-picker-actions { display: flex; gap: 8px; flex: none; }
 .location-picker-actions button { padding: 9px 13px; }
-.location-picker-confirm { border-color: #9c7256 !important; background: #8c7768 !important; color: #fff !important; }
+.location-picker-confirm { border-color: #b45732 !important; background: #b45732 !important; color: #fff !important; }
 @media (max-width: 700px) {
   .location-picker-backdrop { padding: 0; align-items: end; }
   .location-picker { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
-  .location-picker-header { padding: 13px 16px 9px; }
-  .location-picker-search { grid-template-columns: minmax(0, 1fr) auto; padding: 0 16px 10px; }
+  .location-picker-header { padding: 13px 16px; }
+  .location-picker-search { grid-template-columns: minmax(0, 1fr) auto; padding: 10px 16px; }
   .location-picker-locate { grid-column: 1 / -1; height: 34px; }
   .location-picker-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(220px, 1fr); min-height: 0; }
   .location-picker-results { display: flex; min-height: 74px; max-height: 126px; overflow-x: auto; gap: 8px; padding: 8px 16px; }
   .location-picker-result { flex: 0 0 184px; min-height: 82px; padding: 9px; border: 1px solid #eee4da; border-radius: 6px; }
   .location-picker-empty { min-width: min(310px, calc(100vw - 32px)); margin: 4px 0; }
-  .location-picker-footer { display: grid; gap: 10px; padding: 11px 16px max(12px, env(safe-area-inset-bottom)); }
+  .location-picker-footer { position: sticky; bottom: 0; display: grid; gap: 10px; padding: 11px 16px max(12px, env(safe-area-inset-bottom)); box-shadow: 0 -10px 24px rgba(55,42,32,.08); }
   .location-picker-selection label { grid-template-columns: 1fr; }
   .location-picker-selection p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .location-picker-actions { display: grid; grid-template-columns: 1fr 1fr; }

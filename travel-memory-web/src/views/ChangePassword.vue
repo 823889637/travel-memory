@@ -33,20 +33,26 @@ async function submit () {
 
 <template>
   <section class="auth-page">
+    <div class="auth-brand-panel" aria-hidden="true">
+      <span class="auth-brand-mark">◇</span>
+      <p>Travel Memory</p>
+      <strong>保护只属于你的旅行记忆</strong>
+      <span>使用足够长且未在其他网站使用过的密码。</span>
+    </div>
     <form class="form card auth-card" @submit.prevent="submit">
       <h1>修改密码</h1>
       <p class="muted">为了保护旅行回忆，请先设置一个新密码。</p>
       <div class="field">
-        <label>当前密码</label>
-        <input v-model="currentPassword" type="password" required />
+        <label for="change-current-password">当前密码</label>
+        <input id="change-current-password" v-model="currentPassword" type="password" autocomplete="current-password" required />
       </div>
       <div class="field">
-        <label>新密码</label>
-        <input v-model="newPassword" type="password" minlength="12" required />
+        <label for="change-new-password">新密码</label>
+        <input id="change-new-password" v-model="newPassword" type="password" autocomplete="new-password" minlength="12" required />
       </div>
       <div class="field">
-        <label>确认新密码</label>
-        <input v-model="confirmPassword" type="password" minlength="12" required />
+        <label for="change-confirm-password">确认新密码</label>
+        <input id="change-confirm-password" v-model="confirmPassword" type="password" autocomplete="new-password" minlength="12" required />
       </div>
       <p v-if="error" class="error">{{ error }}</p>
       <button :disabled="saving">{{ saving ? '保存中…' : '保存新密码' }}</button>

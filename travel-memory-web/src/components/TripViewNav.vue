@@ -1,5 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import { BookOpen, CirclePlay, Clock3, Map, Star, Users } from '@lucide/vue'
 
 defineProps({
   tripId: {
@@ -13,12 +14,12 @@ defineProps({
 })
 
 const items = [
-  { key: 'timeline', label: '时间线', icon: '◷', suffix: '' },
-  { key: 'journey', label: '旅程回放', icon: '▷', suffix: '/journey' },
-  { key: 'map', label: '地图', icon: '⌖', suffix: '/map' },
-  { key: 'recap', label: '旅行回顾', icon: '▤', suffix: '/recap' },
-  { key: 'companions', label: '同行的人', icon: '♧', suffix: '/companions' },
-  { key: 'favorites', label: '收藏回看', icon: '☆', suffix: '/favorites' },
+  { key: 'timeline', label: '时间线', icon: Clock3, suffix: '' },
+  { key: 'journey', label: '旅程回放', icon: CirclePlay, suffix: '/journey' },
+  { key: 'map', label: '地图', icon: Map, suffix: '/map' },
+  { key: 'recap', label: '旅行回顾', icon: BookOpen, suffix: '/recap' },
+  { key: 'companions', label: '同行的人', icon: Users, suffix: '/companions' },
+  { key: 'favorites', label: '收藏回看', icon: Star, suffix: '/favorites' },
 ]
 </script>
 
@@ -31,7 +32,9 @@ const items = [
       :class="['trip-view-nav-link', { active: active === item.key }]"
       :aria-current="active === item.key ? 'page' : undefined"
     >
-      <span class="trip-view-nav-icon" aria-hidden="true">{{ item.icon }}</span>
+      <span class="trip-view-nav-icon" aria-hidden="true">
+        <component :is="item.icon" :size="18" :stroke-width="1.8" />
+      </span>
       <span>{{ item.label }}</span>
     </RouterLink>
   </nav>
@@ -43,10 +46,10 @@ const items = [
   gap: 0;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: var(--tm-radius-lg);
-  background: rgba(251, 249, 244, 0.72);
-  padding: 5px;
-  box-shadow: 0 8px 22px rgba(68, 52, 39, 0.04);
+  border-radius: var(--tm-radius-md);
+  background: rgba(255, 253, 249, 0.82);
+  padding: 3px;
+  box-shadow: 0 6px 18px rgba(68, 52, 39, 0.035);
 }
 
 .trip-view-nav-link {
@@ -56,26 +59,35 @@ const items = [
   justify-content: center;
   gap: 6px;
   min-width: 0;
-  border-radius: var(--tm-radius-md);
+  border-radius: 5px;
   color: var(--tm-text-muted);
   font-size: 14px;
   font-weight: 700;
-  padding: 10px 8px;
+  padding: 11px 8px;
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .trip-view-nav-link:hover,
 .trip-view-nav-link.active {
-  background: var(--tm-accent-soft);
+  background: #f7efe7;
   color: var(--tm-accent);
 }
 
 .trip-view-nav-icon {
+  display: inline-grid;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  place-items: center;
   color: currentColor;
-  font-size: 18px;
-  font-weight: 400;
-  line-height: 1;
+  line-height: 18px;
+}
+
+.trip-view-nav-icon :deep(svg) {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 @media (max-width: 640px) {
@@ -102,8 +114,5 @@ const items = [
     scroll-snap-align: start;
   }
 
-  .trip-view-nav-icon {
-    font-size: 19px;
-  }
 }
 </style>

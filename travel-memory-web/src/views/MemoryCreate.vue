@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { createMemory, reverseGeocode, uploadPhoto } from '../api/memory'
 import LocationPicker from '../components/LocationPicker.vue'
 import CompanionSelector from '../components/CompanionSelector.vue'
@@ -364,7 +364,9 @@ onBeforeUnmount(releaseAllPhotoPreviews)
 
 <template>
   <section class="moment">
+    <RouterLink class="moment-back" :to="`/trips/${id}`">← 返回时间线</RouterLink>
     <header class="moment-head">
+      <span>NEW MEMORY</span>
       <h1>留下这一刻</h1>
       <p>上传旅行照片，写一句当时想记住的话。</p>
     </header>
@@ -428,12 +430,14 @@ onBeforeUnmount(releaseAllPhotoPreviews)
         </div>
       </div>
 
+      <div class="moment-fields">
       <div class="field">
         <label for="moment-content">这一刻想记住什么？</label>
         <textarea
           id="moment-content"
           v-model="form.content"
           rows="3"
+          maxlength="300"
           placeholder="例如：这个船好漂亮啊"
         ></textarea>
         <p class="hint">短短一句就够了，保留当时真实的感觉。</p>
@@ -548,6 +552,7 @@ onBeforeUnmount(releaseAllPhotoPreviews)
           {{ saving ? '保存中...' : '保存这段记忆' }}
         </button>
       </div>
+      </div>
     </form>
 
     <LocationPicker
@@ -570,19 +575,36 @@ onBeforeUnmount(releaseAllPhotoPreviews)
   --line: #ece3d8;
   --accent: #c8734a;
   --accent-soft: #f6e7dd;
-  width: min(520px, 100%);
+  width: min(1080px, 100%);
   margin: 0 auto;
   padding: 4px 2px 32px;
   color: var(--ink);
 }
 
+.moment-back {
+  justify-self: start;
+  margin: 2px 4px 12px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
 .moment-head {
-  padding: 8px 4px 20px;
+  padding: 4px 4px 24px;
+}
+
+.moment-head > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
 }
 
 .moment-head h1 {
   margin: 0;
-  font-size: 26px;
+  font-family: Georgia, "Microsoft YaHei", serif;
+  font-size: 31px;
   font-weight: 800;
   letter-spacing: 0.5px;
 }
@@ -596,12 +618,26 @@ onBeforeUnmount(releaseAllPhotoPreviews)
 
 .moment-form {
   display: grid;
-  gap: 22px;
+  grid-template-columns: minmax(300px, .82fr) minmax(360px, 1.18fr);
+  gap: 38px;
+  align-items: start;
 }
 
 .photo-block {
+  position: sticky;
+  top: 88px;
   display: grid;
   gap: 12px;
+}
+
+.moment-fields {
+  display: grid;
+  gap: 22px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .7);
+  box-shadow: 0 14px 34px rgba(44, 37, 33, .06);
 }
 
 .photo-drop {
@@ -609,10 +645,10 @@ onBeforeUnmount(releaseAllPhotoPreviews)
   justify-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 240px;
+  min-height: 360px;
   padding: 32px 24px;
   border: 1.5px dashed #dcccbb;
-  border-radius: 20px;
+  border-radius: 8px;
   background: var(--accent-soft);
   color: var(--ink);
   text-align: center;
@@ -644,7 +680,7 @@ onBeforeUnmount(releaseAllPhotoPreviews)
 .photo-preview {
   position: relative;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 8px;
   background: #efe7dc;
   box-shadow: 0 18px 40px rgba(44, 37, 33, 0.12);
 }
@@ -652,7 +688,7 @@ onBeforeUnmount(releaseAllPhotoPreviews)
 .photo-preview img {
   display: block;
   width: 100%;
-  max-height: 60vh;
+  max-height: min(66vh, 620px);
   object-fit: contain;
   background: #efe7dc;
 }
@@ -900,8 +936,7 @@ onBeforeUnmount(releaseAllPhotoPreviews)
 }
 
 .submit-bar {
-  position: sticky;
-  bottom: 0;
+  position: static;
   padding: 12px 0 4px;
   background: linear-gradient(180deg, rgba(246, 247, 249, 0), #f6f7f9 46%);
 }
@@ -946,7 +981,39 @@ onBeforeUnmount(releaseAllPhotoPreviews)
   border: 0;
 }
 
+@media (max-width: 860px) {
+  .moment-form {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .photo-block {
+    position: static;
+  }
+}
+
 @media (max-width: 640px) {
+  .moment {
+    padding-bottom: 18px;
+  }
+
+  .moment-head {
+    padding-bottom: 18px;
+  }
+
+  .moment-head h1 {
+    font-size: 27px;
+  }
+
+  .photo-drop {
+    min-height: 230px;
+  }
+
+  .moment-fields {
+    gap: 18px;
+    padding: 18px 15px;
+  }
+
   .coord-grid {
     grid-template-columns: 1fr;
   }

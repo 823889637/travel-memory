@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { clearTripCover, getTrip, setTripCover } from '../api/trip'
 import { deleteMemory, favoriteMemory, getTimeline, searchMemories } from '../api/memory'
 import { hasExplicitTripCover, normalizePhotoUrl, resolveTripCoverUrl } from '../utils/tripCover'
@@ -18,6 +18,8 @@ const props = defineProps({
     default: false,
   },
 })
+
+const router = useRouter()
 
 const trip = ref(null)
 const memories = ref([])
@@ -40,7 +42,7 @@ const baseMemories = computed(() => (
 ))
 
 const displayedMemories = computed(() => (
-  hasSearched.value && !props.favoriteOnly ? searchResults.value : baseMemories.value
+  hasSearched.value ? searchResults.value : baseMemories.value
 ))
 
 const dayGroups = computed(() => {
@@ -109,6 +111,10 @@ function photoSrc(url) {
   return url || ''
 }
 
+function hasMemoryPhoto(memory) {
+  return Boolean(memory?.photoUrl || memory?.photos?.some(photo => photo?.photoUrl))
+}
+
 function getDateKey(value) {
   if (!value) {
     return '未知日期'
@@ -133,6 +139,10 @@ function formatTime(value) {
     minute: '2-digit',
     hour12: false,
   })
+}
+
+function openMemory(memory) {
+  router.push(`/trips/${props.id}/memories/${memory.id}`)
 }
 
 async function loadPage() {
@@ -212,7 +222,13 @@ async function doSearch() {
   searchResults.value = []
   try {
     const results = await searchMemories(props.id, keyword)
-    searchResults.value = Array.isArray(results) ? results : []
+    const normalizedResults = Array.isArray(results) ? results : []
+    if (props.favoriteOnly) {
+      const favoriteIds = new Set(baseMemories.value.map(memory => String(memory.id)))
+      searchResults.value = normalizedResults.filter(memory => favoriteIds.has(String(memory.id)))
+    } else {
+      searchResults.value = normalizedResults
+    }
   } catch (err) {
     hasSearched.value = false
     searchError.value = err.message || '搜索暂时没有成功，请稍后再试。'
@@ -258,8 +274,8 @@ onMounted(loadPage)
 </script>
 
 <template>
-  <section class="timeline-page">
-    <header v-if="!loading && trip" class="trip-memory-hero">
+  <section :class="['timeline-page', { 'favorite-timeline-page': favoriteOnly }]">
+    <header v-if="!loading && trip" :class="['trip-memory-hero', { 'has-cover': coverPhotoUrl }]">
       <img
         v-if="coverPhotoUrl"
         class="trip-memory-cover"
@@ -269,10 +285,9 @@ onMounted(loadPage)
       />
       <div class="trip-memory-hero-content">
         <p class="journey-kicker">{{ favoriteOnly ? '收藏回看' : '时间线' }}</p>
-        <h1>{{ favoriteOnly ? '想再回看的片段' : '这次旅行的记忆' }}</h1>
-        <p class="trip-memory-subtitle">{{ favoriteOnly ? '那些被你认真标记过的瞬间，慢慢再看一遍。' : '按记录时间整理，保留当时留下的照片和一句话。' }}</p>
+        <h1>{{ trip?.title || (favoriteOnly ? '想再回看的片段' : '这次旅行的记忆') }}</h1>
+        <p class="trip-memory-subtitle">{{ trip?.description || (favoriteOnly ? '那些被你认真标记过的瞬间，慢慢再看一遍。' : '按记录时间整理，保留当时留下的照片和一句话。') }}</p>
         <div class="trip-memory-info">
-          <strong>{{ trip?.title || '这次旅行' }}</strong>
           <span>{{ trip?.destination || '未填写目的地' }}</span>
           <span>{{ tripDateRange }}</span>
         </div>
@@ -313,9 +328,9 @@ onMounted(loadPage)
     <p v-if="loading" class="timeline-status">正在整理这次旅行的记忆...</p>
     <p v-if="error" class="error timeline-status">{{ error }}</p>
 
-    <section v-if="!loading && trip && !favoriteOnly" class="memory-search">
+    <section v-if="!loading && trip" class="memory-search">
       <form class="search-form" @submit.prevent="doSearch">
-        <input v-model="searchKeyword" placeholder="搜索地点、关键词或一句话" />
+        <input v-model="searchKeyword" :placeholder="favoriteOnly ? '搜索收藏的地点、关键词或一句话' : '搜索地点、关键词或一句话'" />
         <button type="submit" :disabled="searchLoading">搜索</button>
         <button v-if="hasSearched" type="button" class="ghost" @click="clearSearch">清空</button>
       </form>
@@ -327,9 +342,9 @@ onMounted(loadPage)
     </section>
 
     <div v-if="!loading && !searchLoading && trip && displayedMemories.length === 0" class="timeline-empty">
-      <template v-if="hasSearched && !favoriteOnly">
+      <template v-if="hasSearched">
         <h2>没有找到相关记忆。</h2>
-        <p>换一句原话或地点试试，也可以清空搜索回到完整时间线。</p>
+        <p>换一句原话或地点试试，也可以清空搜索回到{{ favoriteOnly ? '全部收藏' : '完整时间线' }}。</p>
       </template>
       <template v-else>
         <h2>{{ favoriteOnly ? '还没有特别标记的片段。' : '这次旅行还没有留下记忆。' }}</h2>
@@ -355,10 +370,25 @@ onMounted(loadPage)
             <div class="timeline-marker" aria-hidden="true">
               <span></span>
             </div>
-            <div class="memory-card" :class="{ 'has-photo': Boolean(memory.photoUrl) }">
+            <div
+              class="memory-card"
+              :class="{ 'has-photo': hasMemoryPhoto(memory), 'favorite-preview-card': favoriteOnly }"
+              role="link"
+              tabindex="0"
+              :aria-label="`查看记忆：${memory.content || memory.locationName || '这段记忆'}`"
+              @click="openMemory(memory)"
+              @keydown.enter="openMemory(memory)"
+            >
               <div class="memory-main">
-                <div v-if="memory.photoUrl" class="memory-photo-frame">
-                  <MemoryPhotoGallery :photos="memory.photos" :fallback-url="photoSrc(memory.photoUrl)" fit="contain" layout="timeline" count-label="张照片" alt="旅行记忆照片" />
+                <div v-if="hasMemoryPhoto(memory)" class="memory-photo-frame">
+                  <MemoryPhotoGallery
+                    :photos="memory.photos"
+                    :fallback-url="photoSrc(memory.photoUrl)"
+                    fit="cover"
+                    :layout="favoriteOnly ? 'favorite' : 'timeline'"
+                    count-label="张照片"
+                    alt="旅行记忆照片"
+                  />
                 </div>
                 <div v-else class="memory-photo-empty">这段记忆没有照片，文字还在。</div>
               </div>
@@ -377,12 +407,14 @@ onMounted(loadPage)
                   和 {{ memory.companions.map(item => item.name).join('、') }} 一起
                 </p>
 
-                <div class="actions memory-actions">
+                <div class="actions memory-actions" @click.stop @keydown.stop>
                   <button
                     :class="memory.isFavorite === 1 ? 'favorite active' : 'favorite'"
+                    :aria-label="memory.isFavorite === 1 ? '取消收藏' : '收藏'"
+                    :title="memory.isFavorite === 1 ? '取消收藏' : '收藏'"
                     @click="toggleFavorite(memory)"
                   >
-                    {{ memory.isFavorite === 1 ? '取消收藏' : '收藏' }}
+                    {{ memory.isFavorite === 1 ? '★' : '☆' }}
                   </button>
                   <span v-if="memory.photoUrl && isExplicitCover(memory)" class="favorite-badge">当前封面</span>
                   <details class="memory-more">
@@ -391,6 +423,9 @@ onMounted(loadPage)
                       <span class="memory-more-dots" aria-hidden="true">···</span>
                     </summary>
                     <div class="memory-more-menu">
+                      <RouterLink :to="`/trips/${id}/memories/${memory.id}`">
+                        <button class="ghost">查看详情</button>
+                      </RouterLink>
                       <RouterLink :to="`/trips/${id}/memories/${memory.id}/edit`">
                         <button class="ghost">编辑</button>
                       </RouterLink>

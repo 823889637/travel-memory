@@ -66,6 +66,12 @@ async function submit () {
 
 <template>
   <section class="auth-page">
+    <div class="auth-brand-panel" aria-hidden="true">
+      <span class="auth-brand-mark">◇</span>
+      <p>Travel Memory</p>
+      <strong>开始保存属于你的旅行记忆</strong>
+      <span>每个账号只看到自己的旅行、Memory 和照片。</span>
+    </div>
     <div v-if="statusLoaded && statusError" class="form card auth-card">
       <h1>暂时无法读取注册状态</h1>
       <p class="muted">{{ statusError }}</p>
