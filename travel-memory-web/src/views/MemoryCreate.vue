@@ -105,28 +105,28 @@ async function onPhotoChange(event) {
     }
     const item = { file: selectedFile, preview: URL.createObjectURL(selectedFile), result: null, error: '', uploading: false }
     photoItems.value.push(item)
-    if (photoItems.value.length === 1) setPhoto(selectedFile)
+    if (photoItems.value.length === 1) setPhoto(item)
     await uploadSelectedPhoto(item)
   }
   event.target.value = ''
 }
 
-function setPhoto(selectedFile) {
-  if (photoPreview.value) {
-    URL.revokeObjectURL(photoPreview.value)
-  }
-  photo.value = selectedFile
-  photoPreview.value = URL.createObjectURL(selectedFile)
+function setPhoto(item) {
+  photo.value = item?.file || null
+  photoPreview.value = item?.preview || ''
+}
+
+function releaseAllPhotoPreviews() {
+  const previews = new Set(photoItems.value.map(item => item.preview).filter(Boolean))
+  if (photoPreview.value) previews.add(photoPreview.value)
+  previews.forEach(preview => URL.revokeObjectURL(preview))
 }
 
 function clearPhoto() {
-  if (photoPreview.value) {
-    URL.revokeObjectURL(photoPreview.value)
-  }
+  releaseAllPhotoPreviews()
   photo.value = null
   photoPreview.value = ''
   photoUploadResult.value = null
-  photoItems.value.forEach(item => { if (item.preview && item.preview !== photoPreview.value) URL.revokeObjectURL(item.preview) })
   photoItems.value = []
   resetLocationSuggestion()
   if (photoInput.value) {
@@ -359,18 +359,14 @@ async function submit() {
   }
 }
 
-onBeforeUnmount(() => {
-  if (photoPreview.value) {
-    URL.revokeObjectURL(photoPreview.value)
-  }
-})
+onBeforeUnmount(releaseAllPhotoPreviews)
 </script>
 
 <template>
   <section class="moment">
     <header class="moment-head">
       <h1>留下这一刻</h1>
-      <p>上传一张照片，写一句当时想记住的话。</p>
+      <p>上传旅行照片，写一句当时想记住的话。</p>
     </header>
 
     <form class="moment-form" @submit.prevent="submit">
@@ -397,8 +393,8 @@ onBeforeUnmount(() => {
               <path d="M21 16l-4.5-4.5L7 21" />
             </svg>
           </span>
-          <span class="photo-drop-title">上传一张旅行照片</span>
-          <span class="photo-drop-hint">系统会尝试识别拍摄时间和定位，你只需要确认一下。</span>
+          <span class="photo-drop-title">上传旅行照片</span>
+          <span class="photo-drop-hint">一次最多选择 6 张，第一张将作为主图；系统会尝试识别拍摄时间和定位。</span>
         </button>
 
         <div v-else class="photo-preview">

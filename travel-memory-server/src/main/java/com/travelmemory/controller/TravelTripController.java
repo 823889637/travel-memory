@@ -2,6 +2,8 @@ package com.travelmemory.controller;
 
 import com.travelmemory.common.Result;
 import com.travelmemory.dto.TripCoverRequest;
+import com.travelmemory.dto.TripCreateRequest;
+import com.travelmemory.dto.TripUpdateRequest;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.vo.TravelTripListVO;
@@ -37,13 +39,13 @@ public class TravelTripController {
     }
 
     @PostMapping
-    public Result<TravelTrip> create(@Valid @RequestBody TravelTrip travelTrip) {
-        return Result.success(travelTripService.create(travelTrip));
+    public Result<TravelTrip> create(@Valid @RequestBody TripCreateRequest request) {
+        return Result.success(travelTripService.create(toTravelTrip(request)));
     }
 
     @PutMapping("/{id}")
-    public Result<TravelTrip> update(@PathVariable Long id, @Valid @RequestBody TravelTrip travelTrip) {
-        return Result.success(travelTripService.update(id, travelTrip));
+    public Result<TravelTrip> update(@PathVariable Long id, @Valid @RequestBody TripUpdateRequest request) {
+        return Result.success(travelTripService.update(id, toTravelTrip(request)));
     }
 
     @PutMapping("/{id}/cover")
@@ -60,5 +62,33 @@ public class TravelTripController {
     public Result<Void> delete(@PathVariable Long id) {
         travelTripService.delete(id);
         return Result.success();
+    }
+
+    private TravelTrip toTravelTrip(TripCreateRequest request) {
+        TravelTrip trip = new TravelTrip();
+        trip.setTitle(request.getTitle().trim());
+        trip.setDestination(normalizeNullable(request.getDestination()));
+        trip.setStartDate(request.getStartDate());
+        trip.setEndDate(request.getEndDate());
+        trip.setDescription(normalizeNullable(request.getDescription()));
+        return trip;
+    }
+
+    private TravelTrip toTravelTrip(TripUpdateRequest request) {
+        TravelTrip trip = new TravelTrip();
+        trip.setTitle(request.getTitle().trim());
+        trip.setDestination(normalizeNullable(request.getDestination()));
+        trip.setStartDate(request.getStartDate());
+        trip.setEndDate(request.getEndDate());
+        trip.setDescription(normalizeNullable(request.getDescription()));
+        return trip;
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

@@ -2,6 +2,7 @@ package com.travelmemory.service;
 
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.dto.UploadResult;
+import com.travelmemory.dto.MemoryUpdateRequest;
 import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,7 +26,7 @@ public interface TravelMemoryService {
 
     TravelMemory reorderPhotos(Long id, List<Long> photoIds);
 
-    TravelMemory update(Long id, TravelMemory travelMemory);
+    TravelMemory update(Long id, MemoryUpdateRequest request);
 
     TravelMemory favorite(Long id, Boolean favorite);
 

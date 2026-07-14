@@ -3,6 +3,7 @@ package com.travelmemory.controller;
 import com.travelmemory.common.Result;
 import com.travelmemory.dto.UploadResult;
 import com.travelmemory.dto.MemoryPhotoOrderRequest;
+import com.travelmemory.dto.MemoryUpdateRequest;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.service.TravelMemoryService;
 import jakarta.validation.Valid;
@@ -111,8 +112,8 @@ public class TravelMemoryController {
     }
 
     @PutMapping("/{id}")
-    public Result<TravelMemory> update(@PathVariable Long id, @Valid @RequestBody TravelMemory travelMemory) {
-        return Result.success(travelMemoryService.update(id, travelMemory));
+    public Result<TravelMemory> update(@PathVariable Long id, @Valid @RequestBody MemoryUpdateRequest request) {
+        return Result.success(travelMemoryService.update(id, request));
     }
 
     @PutMapping("/{id}/favorite")

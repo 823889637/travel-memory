@@ -13,7 +13,6 @@ const form = reactive({
   startDate: '',
   endDate: '',
   description: '',
-  coverPhotoUrl: '',
 })
 
 const dateError = computed(() => {
@@ -35,9 +34,11 @@ async function submit() {
   saving.value = true
   try {
     const trip = await createTrip({
-      ...form,
+      title: form.title.trim(),
+      destination: form.destination.trim() || null,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
+      description: form.description.trim() || null,
     })
     router.push(`/trips/${trip.id}`)
   } catch (err) {
@@ -60,12 +61,12 @@ async function submit() {
     <form class="form card" @submit.prevent="submit">
       <div class="field">
         <label>旅行标题</label>
-        <input v-model="form.title" required placeholder="例如：京都春日散步" />
+        <input v-model="form.title" required maxlength="100" placeholder="例如：京都春日散步" />
       </div>
 
       <div class="field">
         <label>目的地</label>
-        <input v-model="form.destination" placeholder="例如：京都" />
+        <input v-model="form.destination" maxlength="100" placeholder="例如：京都" />
       </div>
 
       <div class="field">
@@ -81,7 +82,7 @@ async function submit() {
 
       <div class="field">
         <label>旅行描述</label>
-        <textarea v-model="form.description" placeholder="简单写一点这趟旅行的背景"></textarea>
+        <textarea v-model="form.description" maxlength="500" placeholder="简单写一点这趟旅行的背景"></textarea>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>

@@ -11,6 +11,8 @@ import static org.mockito.Mockito.when;
 
 import com.travelmemory.entity.MemoryPhoto;
 import com.travelmemory.entity.TravelMemory;
+import com.travelmemory.dto.MemoryPhotoReferenceRequest;
+import com.travelmemory.dto.MemoryUpdateRequest;
 import com.travelmemory.exception.BusinessException;
 import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelMemoryMapper;
@@ -133,6 +135,53 @@ class TravelMemoryMultiPhotoServiceTest {
     }
 
     @Test
+    void updateAppliesPhotoDraftAtomicallyAndSynchronizesPrimary() throws Exception {
+        Fixture fixture = fixture();
+        uploadedFile("new.jpg");
+        TravelMemory memory = memory(10L, "/uploads/one.jpg");
+        when(fixture.memoryMapper.selectById(10L)).thenReturn(memory);
+        fixture.photos.addAll(List.of(photo(1L, "/uploads/one.jpg", 0), photo(2L, "/uploads/two.jpg", 1)));
+        when(fixture.photoMapper.deleteById(1L)).thenAnswer(invocation -> {
+            fixture.photos.removeIf(photo -> photo.getId().equals(1L));
+            return 1;
+        });
+
+        MemoryUpdateRequest update = updateRequest();
+        update.setPhotos(List.of(referenceId(2L), referenceUrl("/uploads/new.jpg")));
+
+        TravelMemory result = fixture.service.update(10L, update);
+
+        assertEquals(List.of("/uploads/two.jpg", "/uploads/new.jpg"),
+                result.getPhotos().stream().map(MemoryPhoto::getPhotoUrl).toList());
+        assertEquals("/uploads/two.jpg", result.getPhotoUrl());
+        verify(fixture.photoMapper).deleteById(1L);
+        verify(fixture.tripService).replaceCoverIfMatches(1L, "/uploads/one.jpg", "/uploads/two.jpg");
+    }
+
+    @Test
+    void updateRejectsPhotoReferenceOutsideTheMemory() {
+        Fixture fixture = fixture();
+        TravelMemory memory = memory(10L, "/uploads/one.jpg");
+        when(fixture.memoryMapper.selectById(10L)).thenReturn(memory);
+        fixture.photos.add(photo(1L, "/uploads/one.jpg", 0));
+        MemoryUpdateRequest update = updateRequest();
+        update.setPhotos(List.of(referenceId(99L)));
+
+        assertThrows(BusinessException.class, () -> fixture.service.update(10L, update));
+    }
+
+    @Test
+    void updateRejectsIncompleteCoordinatePair() {
+        Fixture fixture = fixture();
+        TravelMemory memory = memory(10L, "/uploads/one.jpg");
+        when(fixture.memoryMapper.selectById(10L)).thenReturn(memory);
+        MemoryUpdateRequest update = updateRequest();
+        update.setLatitude(new java.math.BigDecimal("39.1"));
+
+        assertThrows(BusinessException.class, () -> fixture.service.update(10L, update));
+    }
+
+    @Test
     void timelineLoadsAllPhotoRowsWithOneBatchQuery() {
         Fixture fixture = fixture();
         when(fixture.memoryMapper.selectList(any())).thenReturn(List.of(memory(10L, "/uploads/one.jpg"), memory(11L, "/uploads/two.jpg")));
@@ -209,6 +258,25 @@ class TravelMemoryMultiPhotoServiceTest {
         CurrentUser currentUser = mock(CurrentUser.class);
         when(currentUser.requireId()).thenReturn(1L);
         return currentUser;
+    }
+
+    private MemoryUpdateRequest updateRequest() {
+        MemoryUpdateRequest request = new MemoryUpdateRequest();
+        request.setRecordTime(LocalDateTime.of(2026, 7, 13, 10, 0));
+        request.setCompanionIds(List.of());
+        return request;
+    }
+
+    private MemoryPhotoReferenceRequest referenceId(Long id) {
+        MemoryPhotoReferenceRequest request = new MemoryPhotoReferenceRequest();
+        request.setId(id);
+        return request;
+    }
+
+    private MemoryPhotoReferenceRequest referenceUrl(String photoUrl) {
+        MemoryPhotoReferenceRequest request = new MemoryPhotoReferenceRequest();
+        request.setPhotoUrl(photoUrl);
+        return request;
     }
     private record Fixture(TravelMemoryServiceImpl service, TravelMemoryMapper memoryMapper, MemoryPhotoMapper photoMapper,
                            TravelTripService tripService, List<MemoryPhoto> photos) { }

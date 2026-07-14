@@ -243,7 +243,7 @@ class TravelCoverServiceTest {
 
         service.uploadPhoto(10L, mock(MultipartFile.class));
 
-        verify(memoryMapper).updateById(memory);
+        verify(memoryMapper).update(any(), any());
         verify(tripService).replaceCoverIfMatches(1L, "/uploads/old.jpg", "/uploads/new.jpg");
     }
 

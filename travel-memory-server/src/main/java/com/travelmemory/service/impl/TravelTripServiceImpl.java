@@ -129,6 +129,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Override
     @Transactional
     public TravelTrip create(TravelTrip travelTrip) {
+        validateTripFields(travelTrip);
         validateDateRange(travelTrip);
         travelTrip.setUserId(currentUser.requireId());
         travelTrip.setCoverPhotoUrl(null);
@@ -143,6 +144,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Transactional
     public TravelTrip update(Long id, TravelTrip travelTrip) {
         TravelTrip existing = getById(id);
+        validateTripFields(travelTrip);
         validateDateRange(travelTrip);
         travelTrip.setId(id);
         travelTrip.setUserId(existing.getUserId());
@@ -258,6 +260,21 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         }
         if (travelTrip.getEndDate().isBefore(travelTrip.getStartDate())) {
             throw new BusinessException(400, "End date cannot be earlier than start date");
+        }
+    }
+
+    private void validateTripFields(TravelTrip travelTrip) {
+        if (travelTrip.getTitle() == null || travelTrip.getTitle().trim().isEmpty()) {
+            throw new BusinessException(400, "Trip title is required");
+        }
+        if (travelTrip.getTitle().trim().length() > 100) {
+            throw new BusinessException(400, "Trip title must not exceed 100 characters");
+        }
+        if (travelTrip.getDestination() != null && travelTrip.getDestination().length() > 100) {
+            throw new BusinessException(400, "Destination must not exceed 100 characters");
+        }
+        if (travelTrip.getDescription() != null && travelTrip.getDescription().length() > 500) {
+            throw new BusinessException(400, "Description must not exceed 500 characters");
         }
     }
 

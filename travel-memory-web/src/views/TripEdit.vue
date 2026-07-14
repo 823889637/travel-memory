@@ -142,13 +142,7 @@ function validate() {
   if (!normalized.title) {
     return '请填写旅行标题。'
   }
-  if (!normalized.startDate) {
-    return '请选择开始日期。'
-  }
-  if (!normalized.endDate) {
-    return '请选择结束日期。'
-  }
-  if (normalized.endDate < normalized.startDate) {
+  if (normalized.startDate && normalized.endDate && normalized.endDate < normalized.startDate) {
     return '结束日期不能早于开始日期。'
   }
   return ''
@@ -171,6 +165,8 @@ async function submit() {
   try {
     await updateTrip(route.params.id, {
       ...normalized,
+      startDate: normalized.startDate || null,
+      endDate: normalized.endDate || null,
     })
     originalForm.value = normalized
     skipLeavePrompt.value = true
@@ -260,12 +256,12 @@ onBeforeUnmount(() => {
 
       <div class="field">
         <label for="trip-title">旅行标题</label>
-        <input id="trip-title" v-model="form.title" required placeholder="例如：京都春日散步" />
+        <input id="trip-title" v-model="form.title" required maxlength="100" placeholder="例如：京都春日散步" />
       </div>
 
       <div class="field">
         <label for="trip-destination">目的地</label>
-        <input id="trip-destination" v-model="form.destination" placeholder="例如：京都" />
+        <input id="trip-destination" v-model="form.destination" maxlength="100" placeholder="例如：京都" />
       </div>
 
       <div class="field">
@@ -274,7 +270,6 @@ onBeforeUnmount(() => {
           id="trip-start-date"
           v-model="form.startDate"
           type="date"
-          required
           :max="form.endDate || undefined"
         />
       </div>
@@ -285,7 +280,6 @@ onBeforeUnmount(() => {
           id="trip-end-date"
           v-model="form.endDate"
           type="date"
-          required
           :min="form.startDate || undefined"
         />
         <p v-if="dateError" class="error">{{ dateError }}</p>
@@ -296,6 +290,7 @@ onBeforeUnmount(() => {
         <textarea
           id="trip-description"
           v-model="form.description"
+          maxlength="500"
           placeholder="简单写一点这趟旅行的背景"
         ></textarea>
       </div>

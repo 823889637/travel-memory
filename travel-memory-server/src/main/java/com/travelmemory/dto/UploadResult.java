@@ -1,5 +1,6 @@
 package com.travelmemory.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -21,6 +22,7 @@ public class UploadResult {
         this.photoUrl = photoUrl;
     }
 
+    @JsonIgnore
     public String getPhotoPath() {
         return photoPath;
     }

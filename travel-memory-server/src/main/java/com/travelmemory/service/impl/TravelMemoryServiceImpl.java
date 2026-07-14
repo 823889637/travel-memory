@@ -1,9 +1,12 @@
 package com.travelmemory.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.travelmemory.common.StoredFile;
 import com.travelmemory.dto.UploadResult;
+import com.travelmemory.dto.MemoryPhotoReferenceRequest;
+import com.travelmemory.dto.MemoryUpdateRequest;
 import com.travelmemory.entity.MemoryPhoto;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.exception.BusinessException;
@@ -18,6 +21,7 @@ import com.travelmemory.security.UploadPathGuard;
 import com.travelmemory.util.ImageMetadataExtractor;
 import com.travelmemory.util.ImageMetadataInfo;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -122,6 +126,9 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         validatePhotoUrls(photos);
         setPrimary(memory, photos);
         if (memory.getRecordTime() == null) memory.setRecordTime(LocalDateTime.now());
+        normalizeMemoryFields(memory);
+        validateMemoryText(memory.getContent(), memory.getLocationName());
+        validateCoordinates(memory.getLatitude(), memory.getLongitude());
         memory.setPhotos(null); memory.setPhotoCount(null);
         travelMemoryMapper.insert(memory);
         persistPhotos(memory.getId(), photos);
@@ -201,14 +208,24 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
 
     @Override
     @Transactional
-    public TravelMemory update(Long id, TravelMemory memory) {
+    public TravelMemory update(Long id, MemoryUpdateRequest request) {
         TravelMemory existing = getById(id);
-        List<Long> companionIds = memory.getCompanionIds();
-        memory.setId(id); memory.setTripId(existing.getTripId()); memory.setPhotoUrl(existing.getPhotoUrl()); memory.setPhotoPath(existing.getPhotoPath());
-        memory.setIsFavorite(existing.getIsFavorite()); memory.setPhotos(null); memory.setPhotoCount(null);
-        travelMemoryMapper.updateById(memory);
-        if (companionIds != null) {
-            tripCompanionService.replaceMemoryCompanions(id, existing.getTripId(), companionIds);
+        validateCoordinates(request.getLatitude(), request.getLongitude());
+        String content = normalizeNullable(request.getContent());
+        String locationName = normalizeNullable(request.getLocationName());
+        validateMemoryText(content, locationName);
+        travelMemoryMapper.update(null, new UpdateWrapper<TravelMemory>()
+                .eq("id", id)
+                .set("content", content)
+                .set("location_name", locationName)
+                .set("record_time", request.getRecordTime())
+                .set("latitude", request.getLatitude())
+                .set("longitude", request.getLongitude()));
+        if (request.getCompanionIds() != null) {
+            tripCompanionService.replaceMemoryCompanions(id, existing.getTripId(), request.getCompanionIds());
+        }
+        if (request.getPhotos() != null) {
+            replacePhotos(existing, request.getPhotos());
         }
         return getById(id);
     }
@@ -258,7 +275,12 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         for (int i = 0; i < photos.size(); i++) { MemoryPhoto photo = photos.get(i); photo.setId(null); photo.setMemoryId(memoryId); photo.setSortOrder(i); photo.setCreateTime(null); memoryPhotoMapper.insert(photo); }
     }
     private void updatePrimary(TravelMemory memory, List<MemoryPhoto> photos) {
-        String previous = memory.getPhotoUrl(); setPrimary(memory, photos); travelMemoryMapper.updateById(memory);
+        String previous = memory.getPhotoUrl();
+        setPrimary(memory, photos);
+        travelMemoryMapper.update(null, new UpdateWrapper<TravelMemory>()
+                .eq("id", memory.getId())
+                .set("photo_url", memory.getPhotoUrl())
+                .set("photo_path", null));
         if (hasUrl(previous) && !sameUrl(previous, memory.getPhotoUrl())) {
             if (hasUrl(memory.getPhotoUrl())) travelTripService.replaceCoverIfMatches(memory.getTripId(), previous, memory.getPhotoUrl());
             else travelTripService.clearCoverIfMatches(memory.getTripId(), previous);
@@ -267,6 +289,69 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     private void setPrimary(TravelMemory memory, List<MemoryPhoto> photos) {
         if (photos.isEmpty()) { memory.setPhotoUrl(null); memory.setPhotoPath(null); return; }
         memory.setPhotoUrl(photos.get(0).getPhotoUrl()); memory.setPhotoPath(null);
+    }
+    private void replacePhotos(TravelMemory memory, List<MemoryPhotoReferenceRequest> references) {
+        validatePhotoCount(references.size());
+        List<MemoryPhoto> current = loadPhotos(memory.getId());
+        Map<Long, MemoryPhoto> currentById = new HashMap<>();
+        current.forEach(photo -> currentById.put(photo.getId(), photo));
+        Set<Long> retainedIds = new HashSet<>();
+        Set<String> urls = new HashSet<>();
+        List<MemoryPhoto> finalPhotos = new ArrayList<>();
+
+        for (MemoryPhotoReferenceRequest reference : references) {
+            if (reference.getId() != null) {
+                MemoryPhoto existing = currentById.get(reference.getId());
+                if (existing == null) throw new BusinessException(404, "Photo not found");
+                if (!retainedIds.add(existing.getId())) throw new BusinessException(400, "Duplicate photo references are not allowed");
+                if (!urls.add(existing.getPhotoUrl())) throw new BusinessException(400, "Duplicate photo URLs are not allowed");
+                finalPhotos.add(existing);
+                continue;
+            }
+            String photoUrl = normalizeAndVerifyUploadUrl(reference.getPhotoUrl());
+            if (!urls.add(photoUrl)) throw new BusinessException(400, "Duplicate photo URLs are not allowed");
+            MemoryPhoto photo = new MemoryPhoto();
+            photo.setMemoryId(memory.getId());
+            photo.setPhotoUrl(photoUrl);
+            finalPhotos.add(photo);
+        }
+
+        for (MemoryPhoto photo : current) {
+            if (!retainedIds.contains(photo.getId())) memoryPhotoMapper.deleteById(photo.getId());
+        }
+        for (int index = 0; index < finalPhotos.size(); index++) {
+            MemoryPhoto photo = finalPhotos.get(index);
+            photo.setSortOrder(index);
+            if (photo.getId() == null) {
+                photo.setCreateTime(null);
+                memoryPhotoMapper.insert(photo);
+            } else {
+                memoryPhotoMapper.updateById(photo);
+            }
+        }
+        updatePrimary(memory, finalPhotos);
+    }
+    private void normalizeMemoryFields(TravelMemory memory) {
+        memory.setContent(normalizeNullable(memory.getContent()));
+        memory.setLocationName(normalizeNullable(memory.getLocationName()));
+    }
+    private String normalizeNullable(String value) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+    private void validateCoordinates(BigDecimal latitude, BigDecimal longitude) {
+        if ((latitude == null) != (longitude == null)) throw new BusinessException(400, "Latitude and longitude must be provided together");
+        if (latitude != null && (latitude.compareTo(BigDecimal.valueOf(-90)) < 0 || latitude.compareTo(BigDecimal.valueOf(90)) > 0)) {
+            throw new BusinessException(400, "Latitude must be between -90 and 90");
+        }
+        if (longitude != null && (longitude.compareTo(BigDecimal.valueOf(-180)) < 0 || longitude.compareTo(BigDecimal.valueOf(180)) > 0)) {
+            throw new BusinessException(400, "Longitude must be between -180 and 180");
+        }
+    }
+    private void validateMemoryText(String content, String locationName) {
+        if (content != null && content.length() > 300) throw new BusinessException(400, "Content must not exceed 300 characters");
+        if (locationName != null && locationName.length() > 255) throw new BusinessException(400, "Location name must not exceed 255 characters");
     }
     private void applyPhotoMetadata(TravelMemory memory, UploadResult result) {
         if (memory.getRecordTime() == null && result.getPhotoTakenTime() != null) memory.setRecordTime(result.getPhotoTakenTime());

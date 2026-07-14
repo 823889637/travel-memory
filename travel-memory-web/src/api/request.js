@@ -1,5 +1,17 @@
 import axios from 'axios'
 
+let unauthorizedHandler = null
+
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = handler
+}
+
+function notifyUnauthorized(config) {
+  const url = config?.url || ''
+  if (url.startsWith('/api/auth/')) return
+  unauthorizedHandler?.()
+}
+
 const request = axios.create({
   baseURL: '',
   timeout: 60000,
@@ -15,12 +27,14 @@ request.interceptors.response.use(
       if (body.code === 200) {
         return body.data
       }
+      if (body.code === 401) notifyUnauthorized(response.config)
       return Promise.reject(new Error(body.message || '请求失败'))
     }
     return body
   },
   (error) => {
     const body = error.response?.data
+    if (error.response?.status === 401) notifyUnauthorized(error.config)
     if (body && typeof body === 'object' && body.message) {
       return Promise.reject(new Error(body.message))
     }

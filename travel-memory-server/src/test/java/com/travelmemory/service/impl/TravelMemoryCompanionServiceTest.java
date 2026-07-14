@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.travelmemory.dto.CompanionSummary;
+import com.travelmemory.dto.MemoryUpdateRequest;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelMemoryMapper;
@@ -53,7 +54,8 @@ class TravelMemoryCompanionServiceTest {
         TravelMemory existing = memory(10L, 1L);
         when(fixture.memoryMapper.selectById(10L)).thenReturn(existing);
         when(fixture.companions.findByMemoryIds(Set.of(10L))).thenReturn(Map.of());
-        TravelMemory update = memory(null, null);
+        MemoryUpdateRequest update = new MemoryUpdateRequest();
+        update.setRecordTime(LocalDateTime.of(2026, 7, 3, 10, 0));
         update.setCompanionIds(null);
 
         fixture.service.update(10L, update);
