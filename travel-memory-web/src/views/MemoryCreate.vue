@@ -65,6 +65,10 @@ const hasLocationSuggestion = computed(() => (
   locationSuggestionStatus.value === 'success' && locationSuggestion.value?.locationName
 ))
 
+function isPrimaryPhoto(item) {
+  return Boolean(item?.preview) && photoItems.value[0]?.preview === item.preview
+}
+
 function formatCoordinate(value) {
   const numberValue = Number(value)
   return Number.isFinite(numberValue) ? numberValue.toFixed(7) : String(value)
@@ -140,7 +144,7 @@ async function uploadSelectedPhoto(item) {
   try {
     const result = await uploadPhoto(data)
     item.result = result
-    if (photoItems.value[0] === item) {
+    if (isPrimaryPhoto(item)) {
       photoUploadResult.value = result
       applyPhotoMetadata(result)
     }
