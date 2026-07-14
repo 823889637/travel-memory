@@ -56,11 +56,11 @@ onMounted(loadTrips)
     <div class="trip-list-hero">
       <div>
         <p class="trip-list-kicker">Travel Memory</p>
-        <h1>我的旅行记忆</h1>
+        <h1>我的旅行</h1>
         <p class="muted">把每一次旅行，留给未来重新经过。</p>
       </div>
       <RouterLink v-if="trips.length > 0" to="/trips/new">
-        <button>新建一次旅行</button>
+        <button class="trip-create-button">新建旅行</button>
       </RouterLink>
     </div>
 
@@ -71,7 +71,7 @@ onMounted(loadTrips)
       <h2>还没有旅行记忆。</h2>
       <p>新建一次旅行，把第一段路留下来。</p>
       <RouterLink to="/trips/new">
-        <button>新建一次旅行</button>
+        <button>新建旅行</button>
       </RouterLink>
     </div>
 
@@ -97,30 +97,28 @@ onMounted(loadTrips)
               <summary aria-label="管理旅行">更多</summary>
               <div class="trip-card-more-menu">
                 <RouterLink :to="`/trips/${trip.id}/memories/new`">新增记忆</RouterLink>
-                <RouterLink :to="`/trips/${trip.id}/companions`">同行的人</RouterLink>
                 <RouterLink :to="`/trips/${trip.id}/edit`">编辑旅行</RouterLink>
                 <button class="danger-text" @click="removeTrip(trip.id)">删除旅行</button>
               </div>
             </details>
           </div>
-          <p class="trip-destination">{{ trip.destination || '目的地还没有补充' }}</p>
-          <p class="trip-date">{{ formatDateRange(trip) }}</p>
-          <p v-if="trip.description" class="trip-description">{{ trip.description }}</p>
-
-          <div class="trip-main-actions">
-            <RouterLink :to="`/trips/${trip.id}/journey`">
-              <button>进入旅程回放</button>
-            </RouterLink>
-            <RouterLink :to="`/trips/${trip.id}`">
-              <button class="ghost">查看时间线</button>
-            </RouterLink>
+          <div class="trip-meta">
+            <p class="trip-destination">{{ trip.destination || '目的地还没有补充' }}</p>
+            <p class="trip-date">{{ formatDateRange(trip) }}</p>
+          </div>
+          <div class="trip-card-summary">
+            <p v-if="trip.description" class="trip-description">{{ trip.description }}</p>
+            <p class="trip-memory-count">{{ trip.memoryCount || 0 }} 段记忆</p>
           </div>
 
-          <nav class="trip-soft-actions" aria-label="旅行浏览入口">
-            <RouterLink :to="`/trips/${trip.id}/map`">地图</RouterLink>
-            <RouterLink :to="`/trips/${trip.id}/recap`">旅行回顾</RouterLink>
-            <RouterLink :to="`/trips/${trip.id}/favorites`">收藏回看</RouterLink>
-          </nav>
+          <div class="trip-main-actions">
+            <RouterLink :to="`/trips/${trip.id}`">
+              <button>进入旅行</button>
+            </RouterLink>
+            <RouterLink :to="`/trips/${trip.id}/journey`">
+              <button class="ghost">旅程回放</button>
+            </RouterLink>
+          </div>
         </div>
       </article>
     </div>
