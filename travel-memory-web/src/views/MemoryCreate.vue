@@ -1,28 +1,38 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { createMemory, reverseGeocode, uploadPhoto } from '../api/memory'
-import LocationPicker from '../components/LocationPicker.vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
+import { ArrowLeft, CalendarDays } from '@lucide/vue'
+import {
+  createMemory,
+  deleteMemoryDraft,
+  getMemoryDraft,
+  reverseGeocode,
+  saveMemoryDraft,
+  uploadPhoto,
+} from '../api/memory'
 import CompanionSelector from '../components/CompanionSelector.vue'
+import LocationPicker from '../components/LocationPicker.vue'
+import MemoryPhotoEditor from '../components/MemoryPhotoEditor.vue'
 import { formatDisplayDateTime, formatLocalDateTime, toDateTimeLocalValue } from '../utils/dateTime'
 
-const props = defineProps({
-  id: {
-    type: String,
-    required: true,
-  },
-})
-
+const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
+
+const MAX_PHOTOS = 6
+const MAX_PHOTO_SIZE = 50 * 1024 * 1024
+const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
+
 const saving = ref(false)
+const draftSaving = ref(false)
 const locating = ref(false)
 const uploading = ref(false)
 const error = ref('')
-const photo = ref(null)
-const photoPreview = ref('')
+const photoError = ref('')
+const draftMessage = ref('')
 const photoInput = ref(null)
-const photoUploadResult = ref(null)
 const photoItems = ref([])
+const selectedPhotoIndex = ref(0)
+const photoUploadResult = ref(null)
 const showMoreLocation = ref(false)
 const recordTimeTouched = ref(false)
 const latitudeTouched = ref(false)
@@ -32,41 +42,35 @@ const locationSuggestion = ref(null)
 const locationSuggestionStatus = ref('idle')
 const showLocationPicker = ref(false)
 const selectedCompanionIds = ref([])
+const savedSnapshot = ref('')
+const skipLeavePrompt = ref(false)
 
-const MAX_PHOTO_SIZE = 50 * 1024 * 1024
-const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
-
-const form = reactive({
-  content: '',
-  latitude: '',
-  longitude: '',
-  locationName: '',
-  recordTime: '',
-})
-
+const form = reactive({ content: '', latitude: '', longitude: '', locationName: '', recordTime: '' })
 const latitudeError = computed(() => validateCoordinate(form.latitude, -90, 90, '纬度'))
 const longitudeError = computed(() => validateCoordinate(form.longitude, -180, 180, '经度'))
 const coordinateError = computed(() => latitudeError.value || longitudeError.value)
-const hasCoordinates = computed(() => Boolean(form.latitude && form.longitude))
+const hasCoordinates = computed(() => form.latitude !== '' && form.longitude !== '')
 const canSubmit = computed(() => !saving.value && !uploading.value && !coordinateError.value)
 const hasUploadResult = computed(() => Boolean(photoUploadResult.value))
 const hasExifTime = computed(() => Boolean(photoUploadResult.value?.photoTakenTime))
-const hasExifLocation = computed(() => (
-  photoUploadResult.value?.latitude != null && photoUploadResult.value?.longitude != null
-))
+const hasExifLocation = computed(() => photoUploadResult.value?.latitude != null && photoUploadResult.value?.longitude != null)
 const formattedExifTime = computed(() => formatDisplayDateTime(photoUploadResult.value?.photoTakenTime))
-const formattedExifLocation = computed(() => {
-  if (!hasExifLocation.value) {
-    return ''
-  }
-  return `${formatCoordinate(photoUploadResult.value.latitude)}, ${formatCoordinate(photoUploadResult.value.longitude)}`
-})
-const hasLocationSuggestion = computed(() => (
-  locationSuggestionStatus.value === 'success' && locationSuggestion.value?.locationName
-))
+const formattedExifLocation = computed(() => hasExifLocation.value
+  ? `${formatCoordinate(photoUploadResult.value.latitude)}, ${formatCoordinate(photoUploadResult.value.longitude)}`
+  : '')
+const hasLocationSuggestion = computed(() => locationSuggestionStatus.value === 'success' && locationSuggestion.value?.locationName)
+const isDirty = computed(() => savedSnapshot.value !== '' && currentSnapshot() !== savedSnapshot.value)
 
-function isPrimaryPhoto(item) {
-  return Boolean(item?.preview) && photoItems.value[0]?.preview === item.preview
+function currentSnapshot() {
+  return JSON.stringify({
+    content: form.content,
+    latitude: form.latitude,
+    longitude: form.longitude,
+    locationName: form.locationName,
+    recordTime: form.recordTime,
+    photos: photoItems.value.map(item => item.result?.photoUrl || item.preview),
+    companionIds: [...selectedCompanionIds.value].map(Number).sort((a, b) => a - b),
+  })
 }
 
 function formatCoordinate(value) {
@@ -75,124 +79,114 @@ function formatCoordinate(value) {
 }
 
 function validateCoordinate(value, min, max, label) {
-  if (!value) {
-    return ''
-  }
+  if (value === '' || value == null) return ''
   const numberValue = Number(value)
-  if (!Number.isFinite(numberValue)) {
-    return `${label}必须是数字`
-  }
-  if (numberValue < min || numberValue > max) {
-    return `${label}范围应为 ${min} 到 ${max}`
-  }
+  if (!Number.isFinite(numberValue)) return `${label}必须是数字`
+  if (numberValue < min || numberValue > max) return `${label}范围应为 ${min} 到 ${max}`
   return ''
 }
 
+function getFileExtension(filename) {
+  const dotIndex = filename.lastIndexOf('.')
+  return dotIndex < 0 ? '' : filename.slice(dotIndex + 1).toLowerCase()
+}
+
 function triggerPhotoPicker() {
-  photoInput.value?.click()
+  if (photoItems.value.length < MAX_PHOTOS && !saving.value) photoInput.value?.click()
 }
 
 async function onPhotoChange(event) {
-  error.value = ''
+  photoError.value = ''
   const selectedFiles = Array.from(event.target.files || [])
-  const available = 6 - photoItems.value.length
-  if (selectedFiles.length > available) error.value = '同一段记忆最多保存 6 张照片'
+  const available = MAX_PHOTOS - photoItems.value.length
+  if (selectedFiles.length > available) photoError.value = `一段记忆最多保存 ${MAX_PHOTOS} 张照片，只添加了前 ${available} 张。`
+
   for (const selectedFile of selectedFiles.slice(0, available)) {
     const extension = getFileExtension(selectedFile.name)
-    if (!ALLOWED_PHOTO_EXTENSIONS.includes(extension) || selectedFile.size > MAX_PHOTO_SIZE) {
-      error.value = '仅支持 50MB 以内的 jpg、jpeg、png、gif、webp、heic、heif 图片'
+    if (!ALLOWED_PHOTO_EXTENSIONS.includes(extension)) {
+      photoError.value = `${selectedFile.name} 不是支持的图片格式。`
       continue
     }
-    const item = { file: selectedFile, preview: URL.createObjectURL(selectedFile), result: null, error: '', uploading: false }
+    if (selectedFile.size > MAX_PHOTO_SIZE) {
+      photoError.value = `${selectedFile.name} 超过 50MB，请压缩后重试。`
+      continue
+    }
+    const item = {
+      key: `new-${crypto.randomUUID()}`,
+      file: selectedFile,
+      preview: URL.createObjectURL(selectedFile),
+      result: null,
+      error: '',
+      uploading: false,
+    }
     photoItems.value.push(item)
-    if (photoItems.value.length === 1) setPhoto(item)
     await uploadSelectedPhoto(item)
   }
   event.target.value = ''
 }
 
-function setPhoto(item) {
-  photo.value = item?.file || null
-  photoPreview.value = item?.preview || ''
-}
-
-function releaseAllPhotoPreviews() {
-  const previews = new Set(photoItems.value.map(item => item.preview).filter(Boolean))
-  if (photoPreview.value) previews.add(photoPreview.value)
-  previews.forEach(preview => URL.revokeObjectURL(preview))
-}
-
-function clearPhoto() {
-  releaseAllPhotoPreviews()
-  photo.value = null
-  photoPreview.value = ''
-  photoUploadResult.value = null
-  photoItems.value = []
-  resetLocationSuggestion()
-  if (photoInput.value) {
-    photoInput.value.value = ''
-  }
-}
-
 async function uploadSelectedPhoto(item) {
+  if (!item?.file) return
   uploading.value = true
   item.uploading = true
   item.error = ''
   const data = new FormData()
   data.append('photo', item.file)
-
   try {
-    const result = await uploadPhoto(data)
-    item.result = result
-    if (isPrimaryPhoto(item)) {
-      photoUploadResult.value = result
-      applyPhotoMetadata(result)
+    item.result = await uploadPhoto(data)
+    if (photoItems.value[0] === item) {
+      photoUploadResult.value = item.result
+      applyPhotoMetadata(item.result)
     }
   } catch (err) {
-    item.error = err.message || '图片上传失败，请稍后重试'
+    item.error = err.message || '图片上传失败，请重试'
   } finally {
     item.uploading = false
-    uploading.value = false
+    uploading.value = photoItems.value.some(photo => photo.uploading)
   }
 }
 
 function retryPhoto(item) { uploadSelectedPhoto(item) }
-function removePhoto(index) {
-  const [item] = photoItems.value.splice(index, 1)
-  if (item?.preview) URL.revokeObjectURL(item.preview)
-  const first = photoItems.value[0]
-  photo.value = first?.file || null
-  photoPreview.value = first?.preview || ''
-  photoUploadResult.value = first?.result || null
-  if (first?.result) applyPhotoMetadata(first.result)
+
+function releasePreview(item) {
+  if (item?.preview?.startsWith('blob:')) URL.revokeObjectURL(item.preview)
 }
-function movePhoto(index, direction) {
-  const next = index + direction
-  if (next < 0 || next >= photoItems.value.length) return
-  const [item] = photoItems.value.splice(index, 1); photoItems.value.splice(next, 0, item)
-  const first = photoItems.value[0]; photo.value = first.file; photoPreview.value = first.preview; photoUploadResult.value = first.result
-  if (first?.result) applyPhotoMetadata(first.result)
+
+function removePhoto(index) {
+  const [removed] = photoItems.value.splice(index, 1)
+  releasePreview(removed)
+  selectedPhotoIndex.value = Math.min(selectedPhotoIndex.value, Math.max(0, photoItems.value.length - 1))
+  syncPrimaryPhoto()
+}
+
+function reorderPhoto(fromIndex, toIndex) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= photoItems.value.length || toIndex >= photoItems.value.length) return
+  const items = [...photoItems.value]
+  const [item] = items.splice(fromIndex, 1)
+  items.splice(toIndex, 0, item)
+  photoItems.value = items
+  selectedPhotoIndex.value = toIndex
+  syncPrimaryPhoto()
+}
+
+function setPrimaryPhoto(index) {
+  if (index <= 0 || index >= photoItems.value.length) return
+  reorderPhoto(index, 0)
+  selectedPhotoIndex.value = 0
+}
+
+function syncPrimaryPhoto() {
+  photoUploadResult.value = photoItems.value[0]?.result || null
+  if (photoUploadResult.value) applyPhotoMetadata(photoUploadResult.value)
 }
 
 function applyPhotoMetadata(result) {
   if (result?.photoTakenTime && !recordTimeTouched.value && !form.recordTime) {
     form.recordTime = toDateTimeLocalValue(result.photoTakenTime)
   }
-
-  if (result?.latitude != null && !latitudeTouched.value && !form.latitude) {
-    form.latitude = String(result.latitude)
-  }
-  if (result?.longitude != null && !longitudeTouched.value && !form.longitude) {
-    form.longitude = String(result.longitude)
-  }
-
-  if (hasCoordinateValues() && !form.locationName && !locationNameTouched.value) {
-    requestLocationSuggestion()
-  }
-}
-
-function hasCoordinateValues() {
-  return Boolean(form.latitude && form.longitude)
+  if (result?.latitude != null && !latitudeTouched.value && !form.latitude) form.latitude = String(result.latitude)
+  if (result?.longitude != null && !longitudeTouched.value && !form.longitude) form.longitude = String(result.longitude)
+  if (hasCoordinates.value && !form.locationName && !locationNameTouched.value) requestLocationSuggestion()
 }
 
 function resetLocationSuggestion() {
@@ -201,57 +195,35 @@ function resetLocationSuggestion() {
 }
 
 async function requestLocationSuggestion(options = {}) {
-  const force = options.force === true
-  if (!hasCoordinateValues() || coordinateError.value) {
-    return
-  }
-  if (form.locationName?.trim()) {
-    return
-  }
-  if (!force && locationNameTouched.value) {
-    return
-  }
-
+  if (!hasCoordinates.value || coordinateError.value || (form.locationName.trim() && options.force !== true)) return
   locationSuggestionStatus.value = 'loading'
   try {
     const result = await reverseGeocode(form.latitude, form.longitude)
     if (result?.success && result.locationName) {
       locationSuggestion.value = result
       locationSuggestionStatus.value = 'success'
-      return
+    } else {
+      locationSuggestion.value = null
+      locationSuggestionStatus.value = 'empty'
     }
-    locationSuggestion.value = null
-    locationSuggestionStatus.value = 'empty'
-  } catch (err) {
+  } catch {
     locationSuggestion.value = null
     locationSuggestionStatus.value = 'empty'
   }
 }
 
 function useLocationSuggestion() {
-  if (!locationSuggestion.value?.locationName) {
-    return
-  }
+  if (!locationSuggestion.value?.locationName) return
   form.locationName = locationSuggestion.value.locationName
   locationNameTouched.value = true
 }
 
-function getFileExtension(filename) {
-  const dotIndex = filename.lastIndexOf('.')
-  if (dotIndex < 0) {
-    return ''
-  }
-  return filename.slice(dotIndex + 1).toLowerCase()
-}
-
 function getLocation() {
   if (!navigator.geolocation) {
-    error.value = '当前浏览器不支持定位，请手动填写经纬度'
+    error.value = '当前浏览器不支持定位，请手动填写经纬度。'
     return
   }
-
   locating.value = true
-  error.value = ''
   navigator.geolocation.getCurrentPosition(
     (position) => {
       form.latitude = position.coords.latitude.toFixed(7)
@@ -263,47 +235,27 @@ function getLocation() {
     },
     (positionError) => {
       const messages = {
-        1: '定位权限被拒绝，请允许位置权限或手动填写经纬度',
-        2: '暂时无法获取当前位置，请手动填写经纬度',
-        3: '定位超时，请手动填写经纬度',
+        1: '定位权限被拒绝，仍可以搜索地点或手动填写。',
+        2: '暂时无法获取当前位置，仍可以搜索地点或手动填写。',
+        3: '定位超时，仍可以搜索地点或手动填写。',
       }
-      error.value = messages[positionError.code] || '定位失败，请手动填写经纬度'
+      error.value = messages[positionError.code] || '定位失败，请手动填写地点。'
       locating.value = false
     },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 60000,
-    }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
   )
 }
 
-function onRecordTimeInput() {
-  recordTimeTouched.value = true
-}
+function onRecordTimeInput() { recordTimeTouched.value = true }
+function onLatitudeInput() { latitudeTouched.value = true; resetLocationSuggestion() }
+function onLongitudeInput() { longitudeTouched.value = true; resetLocationSuggestion() }
+function onLocationNameInput() { locationNameTouched.value = true; if (form.locationName.trim()) resetLocationSuggestion() }
 
 function usePrimaryPhotoTime() {
   const value = toDateTimeLocalValue(photoUploadResult.value?.photoTakenTime)
   if (!value) return
   form.recordTime = value
   recordTimeTouched.value = true
-}
-
-function onLatitudeInput() {
-  latitudeTouched.value = true
-  resetLocationSuggestion()
-}
-
-function onLongitudeInput() {
-  longitudeTouched.value = true
-  resetLocationSuggestion()
-}
-
-function onLocationNameInput() {
-  locationNameTouched.value = true
-  if (form.locationName.trim()) {
-    resetLocationSuggestion()
-  }
 }
 
 function applyPickedLocation(location) {
@@ -317,25 +269,84 @@ function applyPickedLocation(location) {
   showLocationPicker.value = false
 }
 
-async function submit() {
+function validateBeforePersistence() {
   error.value = ''
-  if (coordinateError.value) {
-    error.value = coordinateError.value
-    return
+  if (coordinateError.value) { error.value = coordinateError.value; return false }
+  if ((form.latitude === '') !== (form.longitude === '')) { error.value = '请同时填写纬度和经度'; return false }
+  if (photoItems.value.some(item => !item.result?.photoUrl)) {
+    error.value = '仍有照片没有上传成功，请重试或删除失败照片。'
+    return false
   }
+  return true
+}
 
+function draftPayload() {
+  return {
+    tripId: Number(props.id),
+    content: form.content || null,
+    locationName: form.locationName || null,
+    recordTime: form.recordTime || null,
+    latitude: form.latitude === '' ? null : Number(form.latitude),
+    longitude: form.longitude === '' ? null : Number(form.longitude),
+    photoUrls: photoItems.value.map(item => item.result.photoUrl),
+    companionIds: selectedCompanionIds.value,
+  }
+}
+
+async function saveDraft() {
+  draftMessage.value = ''
+  if (uploading.value || !validateBeforePersistence()) return
+  draftSaving.value = true
+  try {
+    await saveMemoryDraft(draftPayload())
+    savedSnapshot.value = currentSnapshot()
+    draftMessage.value = '草稿已保存'
+  } catch (err) {
+    error.value = err.message || '草稿暂时没有保存成功。'
+  } finally {
+    draftSaving.value = false
+  }
+}
+
+async function loadDraft() {
+  try {
+    const draft = await getMemoryDraft(props.id)
+    if (draft) {
+      form.content = draft.content || ''
+      form.locationName = draft.locationName || ''
+      form.recordTime = toDateTimeLocalValue(draft.recordTime)
+      form.latitude = draft.latitude == null ? '' : String(draft.latitude)
+      form.longitude = draft.longitude == null ? '' : String(draft.longitude)
+      selectedCompanionIds.value = draft.companionIds || []
+      photoItems.value = (draft.photoUrls || []).map((photoUrl, index) => ({
+        key: `draft-${index}-${photoUrl}`,
+        file: null,
+        preview: photoUrl,
+        result: { photoUrl },
+        error: '',
+        uploading: false,
+      }))
+      syncPrimaryPhoto()
+      recordTimeTouched.value = Boolean(form.recordTime)
+      locationNameTouched.value = Boolean(form.locationName)
+      draftMessage.value = '已恢复上次保存的草稿'
+    }
+  } catch (err) {
+    draftMessage.value = '草稿暂不可用，不影响新增记忆。'
+  } finally {
+    savedSnapshot.value = currentSnapshot()
+  }
+}
+
+async function submit() {
+  if (!validateBeforePersistence()) return
   let recordTime = form.recordTime
   if (!recordTime) {
-    const confirmed = window.confirm('未选择记录时间，将使用当前时间保存。这样可能影响旅程回放的日期和顺序，是否继续？')
-    if (!confirmed) {
-      error.value = '请选择记录时间，让这段记忆回到正确的一天。'
-      return
-    }
+    const confirmed = window.confirm('未选择记录时间，将使用当前时间保存。这样可能影响旅程回放顺序，是否继续？')
+    if (!confirmed) return
     recordTime = formatLocalDateTime(new Date())
   }
-
   saving.value = true
-
   const data = new FormData()
   data.append('tripId', props.id)
   if (form.content) data.append('content', form.content)
@@ -343,685 +354,138 @@ async function submit() {
   if (form.longitude) data.append('longitude', form.longitude)
   if (form.locationName) data.append('locationName', form.locationName)
   data.append('recordTime', recordTime)
-
-  photoItems.value.filter(item => item.result?.photoUrl).forEach((item) => {
-    data.append('photoUrl', item.result.photoUrl)
-  })
-  selectedCompanionIds.value.forEach(companionId => data.append('companionId', companionId))
-
+  photoItems.value.forEach(item => data.append('photoUrl', item.result.photoUrl))
+  selectedCompanionIds.value.forEach(id => data.append('companionId', id))
   try {
-    await createMemory(data)
-    router.push(`/trips/${props.id}`)
+    const created = await createMemory(data)
+    await deleteMemoryDraft(props.id).catch(() => {})
+    skipLeavePrompt.value = true
+    router.push(created?.id ? `/trips/${props.id}/memories/${created.id}` : `/trips/${props.id}`)
   } catch (err) {
-    error.value = err.message || '保存失败'
+    error.value = err.message || '保存失败，当前表单内容仍然保留。'
   } finally {
     saving.value = false
   }
 }
 
-onBeforeUnmount(releaseAllPhotoPreviews)
+function confirmDiscard() { return !isDirty.value || window.confirm('还有未保存的修改，确定要放弃吗？') }
+function cancel() { if (confirmDiscard()) { skipLeavePrompt.value = true; router.push(`/trips/${props.id}`) } }
+function handleBeforeUnload(event) { if (!skipLeavePrompt.value && isDirty.value) { event.preventDefault(); event.returnValue = '' } }
+
+onBeforeRouteLeave(() => (!skipLeavePrompt.value && !confirmDiscard() ? false : true))
+onMounted(() => { window.addEventListener('beforeunload', handleBeforeUnload); loadDraft() })
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+  photoItems.value.forEach(releasePreview)
+})
 </script>
 
 <template>
-  <section class="moment">
-    <RouterLink class="moment-back" :to="`/trips/${id}`">← 返回时间线</RouterLink>
-    <header class="moment-head">
-      <span>NEW MEMORY</span>
-      <h1>留下这一刻</h1>
-      <p>上传旅行照片，写一句当时想记住的话。</p>
+  <section class="memory-form-page">
+    <header class="memory-form-topbar">
+      <button type="button" class="memory-form-back" aria-label="返回时间线" @click="cancel">
+        <ArrowLeft :size="20" aria-hidden="true" /><span>返回</span>
+      </button>
+      <h1>新增记忆</h1>
+      <button type="button" class="memory-draft-button" :disabled="draftSaving || saving || uploading" @click="saveDraft">
+        {{ draftSaving ? '保存中…' : '保存草稿' }}
+      </button>
+      <p v-if="draftMessage" class="memory-draft-status" role="status">{{ draftMessage }}</p>
     </header>
 
-    <form class="moment-form" @submit.prevent="submit">
-      <div class="photo-block">
-        <input
-          ref="photoInput"
-          hidden
-          type="file"
-          accept="image/*"
-          multiple
-          @change="onPhotoChange"
+    <form class="memory-form" @submit.prevent="submit">
+      <section class="memory-form-section">
+        <h2 class="memory-form-section-title"><span class="memory-form-step">1</span>照片</h2>
+        <input ref="photoInput" hidden type="file" accept="image/*" multiple @change="onPhotoChange" />
+        <MemoryPhotoEditor
+          :photos="photoItems"
+          :selected-index="selectedPhotoIndex"
+          :max-photos="MAX_PHOTOS"
+          :disabled="saving || uploading"
+          @add="triggerPhotoPicker"
+          @select="selectedPhotoIndex = $event"
+          @remove="removePhoto"
+          @reorder="reorderPhoto"
+          @set-primary="setPrimaryPhoto"
+          @retry="retryPhoto"
         />
-
-        <button
-          v-if="!photoPreview"
-          type="button"
-          class="photo-drop"
-          @click="triggerPhotoPicker"
-        >
-          <span class="photo-drop-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="5" width="18" height="14" rx="3" />
-              <circle cx="8.5" cy="10" r="1.6" />
-              <path d="M21 16l-4.5-4.5L7 21" />
-            </svg>
-          </span>
-          <span class="photo-drop-title">上传旅行照片</span>
-          <span class="photo-drop-hint">一次最多选择 6 张，第一张将作为主图；系统会尝试识别拍摄时间和定位。</span>
-        </button>
-
-        <div v-else class="photo-preview">
-          <img :src="photoPreview" alt="照片预览" />
-          <button type="button" class="photo-change" @click="triggerPhotoPicker">更换</button>
-          <button type="button" class="photo-remove" aria-label="移除照片" @click="clearPhoto">×</button>
-        </div>
-
-        <div v-if="photoItems.length > 1" class="photo-queue">
-          <div v-for="(item, index) in photoItems" :key="item.preview" class="photo-queue-item">
-            <img :src="item.preview" :alt="`照片 ${index + 1}`" />
-            <span v-if="index === 0">主图</span>
-            <button type="button" :disabled="index === 0" @click="movePhoto(index, -1)">前移</button>
-            <button type="button" :disabled="index === photoItems.length - 1" @click="movePhoto(index, 1)">后移</button>
-            <button v-if="item.error" type="button" @click="retryPhoto(item)">重试</button>
-            <button type="button" @click="removePhoto(index)">删除</button>
-          </div>
-        </div>
-
-        <div
-          v-if="uploading || hasUploadResult"
-          class="exif-strip"
-          :class="{ 'exif-strip-success': !uploading && (hasExifTime || hasExifLocation) }"
-        >
-          <p v-if="uploading">正在识别照片信息...</p>
-          <template v-else>
-            <p v-if="hasExifTime">已识别拍摄时间：{{ formattedExifTime }}</p>
-            <p v-if="hasExifLocation">已识别照片定位</p>
-            <p v-if="!hasExifTime && !hasExifLocation">这张照片没有留下时间或定位，你可以自己补上。</p>
-          </template>
-        </div>
-      </div>
-
-      <div class="moment-fields">
-      <div class="field">
-        <label for="moment-content">这一刻想记住什么？</label>
-        <textarea
-          id="moment-content"
-          v-model="form.content"
-          rows="3"
-          maxlength="300"
-          placeholder="例如：这个船好漂亮啊"
-        ></textarea>
-        <p class="hint">短短一句就够了，保留当时真实的感觉。</p>
-      </div>
-
-      <div class="field">
-        <label for="moment-time">记录时间</label>
-        <input id="moment-time" v-model="form.recordTime" type="datetime-local" @input="onRecordTimeInput" />
-        <div v-if="hasExifTime" class="time-recognition">
-          <span>已从主图拍摄信息中识别，你可以修改。</span>
-          <button type="button" class="time-use-button" @click="usePrimaryPhotoTime">使用主图时间</button>
-        </div>
-        <p v-else-if="hasUploadResult && !uploading" class="time-warning">
-          未识别到照片拍摄时间，请选择记录时间。
+        <p v-if="photoError" class="memory-form-error" role="alert">{{ photoError }}</p>
+        <p v-if="uploading" class="memory-form-help" role="status">正在上传并识别照片信息…</p>
+        <p v-else-if="hasUploadResult && (hasExifTime || hasExifLocation)" class="memory-form-success">
+          已识别{{ hasExifTime ? `拍摄时间 ${formattedExifTime}` : '' }}{{ hasExifTime && hasExifLocation ? '，并' : '' }}{{ hasExifLocation ? '照片定位' : '' }}。
         </p>
-        <p v-else class="hint">记录时间会影响时间线和旅程回放的日期与顺序。</p>
-      </div>
+      </section>
 
-      <div class="field">
-        <label for="moment-location">地点名称</label>
-        <input
-          id="moment-location"
-          v-model="form.locationName"
-          placeholder="例如：海河边上、酒店楼下、那家很好吃的店"
-          @input="onLocationNameInput"
-        />
-        <p class="hint">可以写你自己记得住的地点名，不一定是官方地址。</p>
-        <div
-          v-if="locationSuggestionStatus !== 'idle' && !form.locationName"
-          class="location-suggestion"
-        >
-          <p v-if="locationSuggestionStatus === 'loading'">正在根据定位推荐地点...</p>
+      <section class="memory-form-section">
+        <h2 class="memory-form-section-title"><span class="memory-form-step">2</span>这一刻想记住什么？</h2>
+        <div class="memory-content-field">
+          <label class="sr-only" for="memory-create-content">这一刻想记住什么</label>
+          <textarea id="memory-create-content" v-model="form.content" maxlength="300" placeholder="记录这一刻的想法……&#10;当时的感受、遇见的风景、听到的话……"></textarea>
+          <p class="memory-character-count">{{ form.content.length }} / 300</p>
+        </div>
+      </section>
+
+      <section class="memory-form-section">
+        <h2 class="memory-form-section-title"><span class="memory-form-step">3</span>记录时间</h2>
+        <label class="memory-time-field" for="memory-create-time">
+          <CalendarDays :size="18" aria-hidden="true" />
+          <input id="memory-create-time" v-model="form.recordTime" type="datetime-local" @input="onRecordTimeInput" />
+          <span>修改</span>
+        </label>
+        <p v-if="hasExifTime" class="memory-form-success">
+          已识别拍摄时间，可确认或修改。
+          <button type="button" class="memory-inline-action" @click="usePrimaryPhotoTime">使用主图时间</button>
+        </p>
+        <p v-else-if="hasUploadResult" class="memory-form-help">未识别到照片拍摄时间，请选择记录时间。</p>
+      </section>
+
+      <section class="memory-form-section">
+        <h2 class="memory-form-section-title"><span class="memory-form-step">4</span>地点</h2>
+        <div class="memory-location-row">
+          <label class="sr-only" for="memory-create-location">地点名称</label>
+          <input id="memory-create-location" v-model="form.locationName" maxlength="255" placeholder="输入地点名称" @input="onLocationNameInput" />
+          <button type="button" class="memory-location-picker-button" @click="showLocationPicker = true">搜索／地图选点</button>
+        </div>
+        <div v-if="locationSuggestionStatus !== 'idle' && !form.locationName" class="memory-location-suggestion">
+          <p v-if="locationSuggestionStatus === 'loading'">正在识别附近地点…</p>
           <template v-else-if="hasLocationSuggestion">
-            <p>根据照片定位，可能是：{{ locationSuggestion.locationName }}</p>
-            <button type="button" @click="useLocationSuggestion">使用这个地点</button>
+            <p>推荐地点：{{ locationSuggestion.locationName }}</p>
+            <button type="button" class="memory-inline-action" @click="useLocationSuggestion">使用</button>
           </template>
-          <p v-else>暂时没有识别出地点名称，你可以手动填写。</p>
+          <p v-else>暂时无法识别这里的名称，你可以自己填写。</p>
         </div>
-        <button type="button" class="location-picker-trigger" @click="showLocationPicker = true">
-          搜索 / 地图选点
-        </button>
-      </div>
-
-      <div class="more">
-        <button
-          type="button"
-          class="more-toggle"
-          :aria-expanded="showMoreLocation"
-          @click="showMoreLocation = !showMoreLocation"
-        >
-          <span>更多位置信息</span>
-          <span class="more-status">
-            <span v-if="hasCoordinates" class="more-dot" aria-hidden="true"></span>
-            {{ showMoreLocation ? '收起' : (hasCoordinates ? '已定位' : '展开') }}
-          </span>
-        </button>
-
-        <div v-if="showMoreLocation" class="more-panel">
-          <div v-if="hasUploadResult" class="exif-detail">
-            <p v-if="hasExifTime">已识别拍摄时间：{{ formattedExifTime }}</p>
-            <p v-else>未识别到照片拍摄时间，请手动确认记录时间。</p>
-            <p v-if="hasExifLocation">已识别照片定位：{{ formattedExifLocation }}。你可以补充地点名称。</p>
-            <p v-else>未识别到照片定位，你可以手动填写地点。</p>
-          </div>
-
-          <button type="button" class="locate-btn" :disabled="locating" @click="getLocation">
-            {{ locating ? '定位中...' : '获取当前位置' }}
+        <div class="memory-more">
+          <button type="button" class="memory-more-toggle" :aria-expanded="showMoreLocation" @click="showMoreLocation = !showMoreLocation">
+            <span>更多位置信息（可选）</span><span>{{ showMoreLocation ? '收起 ↑' : '展开 ↓' }}</span>
           </button>
-          <button
-            v-if="hasCoordinates && !form.locationName"
-            type="button"
-            class="locate-btn"
-            :disabled="locationSuggestionStatus === 'loading'"
-            @click="requestLocationSuggestion({ force: true })"
-          >
-            {{ locationSuggestionStatus === 'loading' ? '推荐中...' : '推荐地点名称' }}
-          </button>
-
-          <div class="coord-grid">
-            <div class="field">
-              <label for="moment-lat">纬度 latitude</label>
-              <input
-                id="moment-lat"
-                v-model.trim="form.latitude"
-                inputmode="decimal"
-                placeholder="例如：39.1234000"
-                @input="onLatitudeInput"
-              />
-              <p v-if="latitudeError" class="error">{{ latitudeError }}</p>
+          <div v-if="showMoreLocation" class="memory-more-panel">
+            <p v-if="hasExifLocation" class="memory-form-help">照片定位：{{ formattedExifLocation }}</p>
+            <div class="memory-location-actions">
+              <button type="button" :disabled="locating" @click="getLocation">{{ locating ? '定位中…' : '使用当前位置' }}</button>
+              <button v-if="hasCoordinates" type="button" :disabled="locationSuggestionStatus === 'loading'" @click="requestLocationSuggestion({ force: true })">识别附近地点</button>
             </div>
-            <div class="field">
-              <label for="moment-lng">经度 longitude</label>
-              <input
-                id="moment-lng"
-                v-model.trim="form.longitude"
-                inputmode="decimal"
-                placeholder="例如：117.1234000"
-                @input="onLongitudeInput"
-              />
-              <p v-if="longitudeError" class="error">{{ longitudeError }}</p>
+            <div class="memory-coordinate-grid">
+              <label for="memory-create-lat">纬度<input id="memory-create-lat" v-model.trim="form.latitude" inputmode="decimal" @input="onLatitudeInput" /></label>
+              <label for="memory-create-lng">经度<input id="memory-create-lng" v-model.trim="form.longitude" inputmode="decimal" @input="onLongitudeInput" /></label>
             </div>
+            <p v-if="latitudeError || longitudeError" class="memory-form-error">{{ latitudeError || longitudeError }}</p>
           </div>
         </div>
-      </div>
+      </section>
 
-      <CompanionSelector v-model="selectedCompanionIds" :trip-id="id" />
+      <section class="memory-form-section">
+        <h2 class="memory-form-section-title"><span class="memory-form-step">5</span>同行者</h2>
+        <CompanionSelector v-model="selectedCompanionIds" :trip-id="id" :show-heading="false" />
+      </section>
 
-      <p v-if="error" class="error error-block">{{ error }}</p>
-
-      <div class="submit-bar">
-        <button type="submit" class="save-btn" :disabled="!canSubmit">
-          {{ saving ? '保存中...' : '保存这段记忆' }}
-        </button>
-      </div>
+      <p v-if="error" class="memory-form-alert" role="alert">{{ error }}</p>
+      <div class="memory-save-bar">
+        <button type="submit" class="memory-save-button" :disabled="!canSubmit">{{ saving ? '保存中…' : '保存记忆' }}</button>
       </div>
     </form>
 
-    <LocationPicker
-      v-if="showLocationPicker"
-      :location-name="form.locationName"
-      :latitude="form.latitude"
-      :longitude="form.longitude"
-      @confirm="applyPickedLocation"
-      @cancel="showLocationPicker = false"
-    />
+    <LocationPicker v-if="showLocationPicker" :location-name="form.locationName" :latitude="form.latitude" :longitude="form.longitude" @confirm="applyPickedLocation" @cancel="showLocationPicker = false" />
   </section>
 </template>
 
-<style scoped>
-.moment {
-  --paper: #fbf7f1;
-  --card: #ffffff;
-  --ink: #2c2521;
-  --ink-soft: #8a7f76;
-  --line: #ece3d8;
-  --accent: #c8734a;
-  --accent-soft: #f6e7dd;
-  width: min(1080px, 100%);
-  margin: 0 auto;
-  padding: 4px 2px 32px;
-  color: var(--ink);
-}
-
-.moment-back {
-  justify-self: start;
-  margin: 2px 4px 12px;
-  color: var(--ink-soft);
-  font-size: 13px;
-}
-
-.moment-head {
-  padding: 4px 4px 24px;
-}
-
-.moment-head > span {
-  display: block;
-  margin-bottom: 7px;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
-
-.moment-head h1 {
-  margin: 0;
-  font-family: Georgia, "Microsoft YaHei", serif;
-  font-size: 31px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-}
-
-.moment-head p {
-  margin: 8px 0 0;
-  color: var(--ink-soft);
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.moment-form {
-  display: grid;
-  grid-template-columns: minmax(300px, .82fr) minmax(360px, 1.18fr);
-  gap: 38px;
-  align-items: start;
-}
-
-.photo-block {
-  position: sticky;
-  top: 88px;
-  display: grid;
-  gap: 12px;
-}
-
-.moment-fields {
-  display: grid;
-  gap: 22px;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, .7);
-  box-shadow: 0 14px 34px rgba(44, 37, 33, .06);
-}
-
-.photo-drop {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 360px;
-  padding: 32px 24px;
-  border: 1.5px dashed #dcccbb;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--ink);
-  text-align: center;
-}
-
-.photo-drop-icon {
-  display: grid;
-  place-items: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: var(--card);
-  color: var(--accent);
-  box-shadow: 0 6px 16px rgba(200, 115, 74, 0.14);
-}
-
-.photo-drop-title {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.photo-drop-hint {
-  max-width: 280px;
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.photo-preview {
-  position: relative;
-  overflow: hidden;
-  border-radius: 8px;
-  background: #efe7dc;
-  box-shadow: 0 18px 40px rgba(44, 37, 33, 0.12);
-}
-
-.photo-preview img {
-  display: block;
-  width: 100%;
-  max-height: min(66vh, 620px);
-  object-fit: contain;
-  background: #efe7dc;
-}
-
-.photo-change {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  background: rgba(28, 22, 18, 0.6);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  backdrop-filter: blur(4px);
-}
-
-.photo-remove {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: 50%;
-  background: rgba(28, 22, 18, 0.55);
-  color: #fff;
-  font-size: 20px;
-  line-height: 1;
-  backdrop-filter: blur(4px);
-}
-
-.photo-queue { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.photo-queue-item { display: grid; gap: 4px; min-width: 0; font-size: 12px; color: var(--ink-soft); }
-.photo-queue-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
-.photo-queue-item button { padding: 4px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); font-size: 11px; }
-
-.exif-strip,
-.exif-detail {
-  display: grid;
-  gap: 6px;
-  border-radius: 14px;
-  background: #fff8ef;
-  color: #805135;
-  padding: 11px 13px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.exif-strip p,
-.exif-detail p {
-  margin: 0;
-}
-
-.exif-strip-success {
-  background: #f1f6f2;
-  color: #52665a;
-}
-
-.field {
-  display: grid;
-  gap: 8px;
-}
-
-.field label {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.field textarea,
-.field input {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--card);
-  padding: 14px 15px;
-  color: var(--ink);
-  font-size: 15px;
-}
-
-.field textarea {
-  min-height: 92px;
-  line-height: 1.6;
-  resize: vertical;
-}
-
-.field textarea::placeholder,
-.field input::placeholder {
-  color: #b8aca0;
-}
-
-.field textarea:focus,
-.field input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(200, 115, 74, 0.12);
-}
-
-.hint {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.time-recognition {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.time-use-button {
-  flex: 0 0 auto;
-  padding: 3px 0;
-  border-bottom: 1px solid currentColor;
-  color: var(--accent);
-  font-size: 13px;
-}
-
-.time-warning {
-  margin: 0;
-  border-radius: 12px;
-  background: #fff6db;
-  color: #8a5a17;
-  font-size: 13px;
-  line-height: 1.5;
-  padding: 10px 12px;
-}
-
-.location-suggestion {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-radius: 12px;
-  background: #fff8ef;
-  color: #805135;
-  padding: 10px 12px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.location-suggestion p {
-  margin: 0;
-}
-
-.location-suggestion button {
-  flex: 0 0 auto;
-  border: 1px solid rgba(200, 115, 74, 0.28);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--accent);
-  padding: 7px 12px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.more {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--card);
-  overflow: hidden;
-}
-
-.more-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 14px 15px;
-  background: transparent;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.more-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.more-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.more-panel {
-  display: grid;
-  gap: 14px;
-  padding: 4px 15px 16px;
-  border-top: 1px solid var(--line);
-}
-
-.locate-btn {
-  justify-self: start;
-  padding: 9px 16px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.coord-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.coord-grid .field label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-soft);
-}
-
-.coord-grid .field input {
-  padding: 11px 12px;
-  font-size: 14px;
-}
-
-.error {
-  margin: 0;
-  color: #c0402c;
-  font-size: 13px;
-}
-
-.error-block {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: #fbeae6;
-}
-
-.submit-bar {
-  position: static;
-  padding: 12px 0 4px;
-  background: linear-gradient(180deg, rgba(246, 247, 249, 0), #f6f7f9 46%);
-}
-
-.save-btn {
-  width: 100%;
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  box-shadow: 0 12px 26px rgba(200, 115, 74, 0.26);
-}
-
-.save-btn:disabled {
-  opacity: 0.55;
-  box-shadow: none;
-}
-
-.location-picker-trigger {
-  margin-top: 8px;
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: transparent;
-  color: #76543e;
-  font: inherit;
-  font-size: 13px;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-@media (max-width: 860px) {
-  .moment-form {
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
-
-  .photo-block {
-    position: static;
-  }
-}
-
-@media (max-width: 640px) {
-  .moment {
-    padding-bottom: 18px;
-  }
-
-  .moment-head {
-    padding-bottom: 18px;
-  }
-
-  .moment-head h1 {
-    font-size: 27px;
-  }
-
-  .photo-drop {
-    min-height: 230px;
-  }
-
-  .moment-fields {
-    gap: 18px;
-    padding: 18px 15px;
-  }
-
-  .coord-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .submit-bar {
-    position: static;
-    padding-top: 8px;
-    background: transparent;
-  }
-}
-</style>
+<style scoped src="../styles/memory-form.css"></style>

@@ -13,6 +13,7 @@ const props = defineProps({
   backdropPortraitOnly: { type: Boolean, default: false },
   backdropDim: { type: Boolean, default: false },
   alt: { type: String, default: 'Memory photo' },
+  showPreview: { type: Boolean, default: true },
 })
 
 const open = ref(false)
@@ -47,8 +48,11 @@ const items = computed(() => {
     : normalizeItems(props.fallbackUrl ? [{ photoUrl: props.fallbackUrl }] : [])
 })
 const selected = computed(() => items.value[selectedIndex.value] || items.value[0])
+const previewSelected = computed(() => props.layout === 'detail' ? selected.value : items.value[0])
 const previewItems = computed(() => items.value.slice(0, 4))
 const hiddenPhotoCount = computed(() => Math.max(0, items.value.length - previewItems.value.length))
+const journeyPreviewItems = computed(() => items.value.slice(0, 3))
+const hiddenJourneyPhotoCount = computed(() => Math.max(0, items.value.length - journeyPreviewItems.value.length))
 const useBackdrop = computed(() => (
   props.backdrop && (
     props.backdropPortraitOnly
@@ -64,6 +68,12 @@ watch(items, () => {
   primaryRatio.value = 1
 })
 function show(index = 0) { selectedIndex.value = index; open.value = true }
+function selectPreview(index) {
+  selectedIndex.value = index
+  primaryOrientation.value = 'landscape'
+  primaryRatio.value = 1
+}
+defineExpose({ open: show })
 function closeGallery() { open.value = false }
 function showPrevious() {
   selectedIndex.value = (selectedIndex.value - 1 + items.value.length) % items.value.length
@@ -110,7 +120,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="items.length" :class="['gallery', `gallery-orientation-${primaryOrientation}`, { [`gallery-layout-${layout}`]: layout }]" :style="maxHeight ? { '--gallery-main-max-height': maxHeight } : null" @click.stop>
-    <div v-if="layout === 'timeline'" :class="['gallery-timeline-preview', `gallery-timeline-count-${previewItems.length}`]">
+    <div v-if="showPreview && layout === 'timeline'" :class="['gallery-timeline-preview', `gallery-timeline-count-${previewItems.length}`]">
       <button
         v-for="(photo, index) in previewItems"
         :key="photo.id || photo.photoUrl"
@@ -120,29 +130,60 @@ onBeforeUnmount(() => {
         @click="show(index)"
       >
         <span v-if="hasPhotoFailed(photo)" class="gallery-photo-error">照片暂时无法显示</span>
-        <img v-else :src="photo.photoUrl" :alt="`${alt} ${index + 1}`" @error="markPhotoFailed(photo)" />
+        <img v-else :src="photo.photoUrl" :alt="`${alt} ${index + 1}`" loading="lazy" @error="markPhotoFailed(photo)" />
         <span v-if="index === previewItems.length - 1 && hiddenPhotoCount" class="gallery-more-overlay">+{{ hiddenPhotoCount }}</span>
       </button>
       <span v-if="items.length > 1 && !hiddenPhotoCount" class="gallery-total-count">{{ items.length }} 张</span>
     </div>
 
-    <button v-else-if="layout === 'favorite'" type="button" class="gallery-favorite-preview" @click="show(0)">
+    <div v-else-if="showPreview && layout === 'journey'" :class="['gallery-journey-preview', `gallery-journey-count-${journeyPreviewItems.length}`]">
+      <button
+        v-for="(photo, index) in journeyPreviewItems"
+        :key="photo.id || photo.photoUrl"
+        type="button"
+        :class="['gallery-journey-tile', `gallery-journey-tile-${index + 1}`]"
+        :aria-label="`查看第 ${index + 1} 张照片`"
+        @click="show(index)"
+      >
+        <span v-if="hasPhotoFailed(photo)" class="gallery-photo-error">照片暂时无法显示</span>
+        <img
+          v-else
+          :src="photo.photoUrl"
+          :alt="`${alt} ${index + 1}`"
+          loading="lazy"
+          @load="index === 0 && detectPrimaryOrientation($event)"
+          @error="markPhotoFailed(photo)"
+        />
+        <span v-if="index === journeyPreviewItems.length - 1 && hiddenJourneyPhotoCount" class="gallery-more-overlay">+{{ hiddenJourneyPhotoCount }}</span>
+      </button>
+      <span v-if="items.length > 1 && !hiddenJourneyPhotoCount" class="gallery-total-count">{{ items.length }} 张</span>
+    </div>
+
+    <button v-else-if="showPreview && layout === 'favorite'" type="button" class="gallery-favorite-preview" @click="show(0)">
       <span v-if="hasPhotoFailed(items[0])" class="gallery-photo-error">照片暂时无法显示</span>
-      <img v-else :src="items[0].photoUrl" :alt="alt" @load="detectPrimaryOrientation" @error="markPhotoFailed(items[0])" />
+      <img v-else :src="items[0].photoUrl" :alt="alt" loading="lazy" @load="detectPrimaryOrientation" @error="markPhotoFailed(items[0])" />
       <span v-if="items.length > 1" class="gallery-total-count">共 {{ items.length }} 张</span>
     </button>
 
-    <template v-else>
-      <button type="button" :class="['gallery-main', { 'gallery-main-with-backdrop': useBackdrop, 'gallery-main-dim-backdrop': useBackdrop && backdropDim }]" @click="show()">
-        <span v-if="useBackdrop" class="gallery-backdrop" :style="{ backgroundImage: `url(${items[0].photoUrl})` }"></span>
-        <span v-if="hasPhotoFailed(items[0])" class="gallery-photo-error">照片暂时无法显示</span>
-        <img v-else :class="`gallery-image-${fit}`" :src="items[0].photoUrl" :alt="alt" @load="detectPrimaryOrientation" @error="markPhotoFailed(items[0])" />
-        <span v-if="items.length > 1" class="gallery-count">{{ items.length }} {{ countLabel }}</span>
+    <template v-else-if="showPreview">
+      <button type="button" :class="['gallery-main', { 'gallery-main-with-backdrop': useBackdrop, 'gallery-main-dim-backdrop': useBackdrop && backdropDim }]" @click="show(selectedIndex)">
+        <span v-if="useBackdrop" class="gallery-backdrop" :style="{ backgroundImage: `url(${previewSelected.photoUrl})` }"></span>
+        <span v-if="hasPhotoFailed(previewSelected)" class="gallery-photo-error">照片暂时无法显示</span>
+        <img v-else :class="`gallery-image-${fit}`" :src="previewSelected.photoUrl" :alt="alt" loading="lazy" @load="detectPrimaryOrientation" @error="markPhotoFailed(previewSelected)" />
+        <span v-if="items.length > 1" class="gallery-count">{{ layout === 'detail' ? `${selectedIndex + 1} / ${items.length}` : `${items.length} ${countLabel}` }}</span>
       </button>
       <div v-if="items.length > 1" class="gallery-thumbs">
-        <button v-for="(photo, index) in items.slice(1, 4)" :key="photo.id || photo.photoUrl" type="button" @click="show(index + 1)">
+        <button
+          v-for="(photo, index) in (layout === 'detail' ? items : items.slice(1, 4))"
+          :key="photo.id || photo.photoUrl"
+          type="button"
+          :class="{ active: layout === 'detail' && index === selectedIndex }"
+          :aria-current="layout === 'detail' && index === selectedIndex ? 'true' : undefined"
+          :aria-label="`查看第 ${layout === 'detail' ? index + 1 : index + 2} 张照片`"
+          @click="layout === 'detail' ? selectPreview(index) : show(index + 1)"
+        >
           <span v-if="hasPhotoFailed(photo)" class="gallery-photo-error">无法显示</span>
-          <img v-else :class="`gallery-thumb-image-${fit}`" :src="photo.photoUrl" :alt="`${alt} ${index + 2}`" @error="markPhotoFailed(photo)" />
+          <img v-else :class="`gallery-thumb-image-${fit}`" :src="photo.photoUrl" :alt="`${alt} ${layout === 'detail' ? index + 1 : index + 2}`" loading="lazy" @error="markPhotoFailed(photo)" />
         </button>
       </div>
     </template>
@@ -181,6 +222,17 @@ onBeforeUnmount(() => {
 .gallery-layout-journey.gallery-orientation-portrait .gallery-image-contain { width: min(420px, 100%); height: auto; max-height: 68vh; border-radius: 12px; box-shadow: 0 10px 22px rgba(43, 38, 34, 0.1); }
 .gallery-layout-journey.gallery-orientation-square .gallery-main { display: flex; justify-content: center; }
 .gallery-layout-journey.gallery-orientation-square .gallery-image-contain { width: 76%; height: auto; max-height: min(62vh, 480px); border-radius: 12px; box-shadow: 0 10px 22px rgba(43, 38, 34, 0.08); }
+.gallery-layout-journey { display: block; width: 100%; }
+.gallery-journey-preview { position: relative; display: grid; width: 100%; gap: 10px; overflow: hidden; border-radius: 8px; }
+.gallery-journey-count-1 { display: block; }
+.gallery-journey-count-2 { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); height: min(42vw, 500px); }
+.gallery-journey-count-3 { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); height: min(44vw, 520px); }
+.gallery-journey-count-3 .gallery-journey-tile-1 { grid-row: 1 / span 2; }
+.gallery-journey-tile { position: relative; display: block; min-width: 0; min-height: 0; overflow: hidden; padding: 0; border: 0; border-radius: 8px; background: #eee7de; }
+.gallery-journey-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.gallery-journey-count-1 .gallery-journey-tile { display: grid; max-height: 580px; place-items: center; background: transparent; }
+.gallery-journey-count-1 .gallery-journey-tile img { width: auto; max-width: 100%; height: auto; max-height: 580px; object-fit: contain; }
+.gallery-layout-journey.gallery-orientation-landscape .gallery-journey-count-1 .gallery-journey-tile img { width: 100%; }
 .gallery-layout-timeline { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
 .gallery-timeline-preview { position: relative; display: grid; width: 100%; height: 100%; gap: 3px; overflow: hidden; border-radius: 0 8px 8px 0; background: #eee7de; }
 .gallery-timeline-count-1 { grid-template-columns: 1fr; }
@@ -202,6 +254,9 @@ onBeforeUnmount(() => {
 .gallery-layout-detail .gallery-main { display: grid; place-items: center; min-height: 360px; border-radius: 8px; background: #eee8df; }
 .gallery-layout-detail .gallery-main img.gallery-image-contain { width: 100%; height: auto; min-height: 0; max-height: var(--gallery-main-max-height, min(66vh, 620px)); object-fit: contain; }
 .gallery-layout-detail.gallery-orientation-portrait .gallery-main img.gallery-image-contain { width: auto; max-width: 100%; }
+.gallery-layout-detail .gallery-thumbs { overflow-x: auto; padding: 3px 2px; scrollbar-width: thin; }
+.gallery-layout-detail .gallery-thumbs button { flex-basis: 62px; height: 62px; border: 2px solid transparent; opacity: .72; }
+.gallery-layout-detail .gallery-thumbs button.active { border-color: var(--tm-accent); opacity: 1; }
 .gallery-count { position: absolute; right: 8px; bottom: 8px; padding: 4px 7px; border-radius: 4px; background: rgba(30, 26, 22, .7); color: #fff; font-size: 12px; }
 .gallery-thumbs { display: flex; gap: 6px; overflow: hidden; }
 .gallery-thumbs button, .gallery-dialog-thumbs button { flex: 0 0 52px; height: 52px; padding: 0; overflow: hidden; background: #eee3d6; }
@@ -224,8 +279,12 @@ onBeforeUnmount(() => {
   .gallery-layout-journey.gallery-orientation-landscape .gallery-image-contain { max-height: min(58vh, 340px); }
   .gallery-layout-journey.gallery-orientation-portrait .gallery-image-contain { width: min(360px, 100%); max-height: 68vh; }
   .gallery-layout-journey.gallery-orientation-square .gallery-image-contain { width: 78%; max-height: min(58vh, 360px); }
+  .gallery-journey-preview { gap: 5px; }
+  .gallery-journey-count-2, .gallery-journey-count-3 { height: min(78vw, 360px); }
+  .gallery-journey-count-1 .gallery-journey-tile, .gallery-journey-count-1 .gallery-journey-tile img { max-height: min(68vh, 520px); }
   .gallery-layout-recap .gallery-main { height: min(52vw, 210px); }
   .gallery-layout-detail .gallery-main { min-height: 0; border-radius: 0; }
+  .gallery-layout-detail .gallery-thumbs button { flex-basis: 58px; height: 58px; }
   .gallery-dialog { grid-template-columns: 42px minmax(0, 1fr) 42px; gap: 10px 4px; padding: 12px 8px max(10px, env(safe-area-inset-bottom)); }
   .gallery-full { max-height: 72vh; }
   .gallery-arrow { width: 38px; height: 48px; border: 0; background: rgba(0,0,0,.22); font-size: 32px; }

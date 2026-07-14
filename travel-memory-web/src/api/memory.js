@@ -66,3 +66,15 @@ export function reorderMemoryPhotos(id, photoIds) {
 export function deleteMemory(id) {
   return request.delete(`/api/memories/${id}`)
 }
+
+export function getMemoryDraft(tripId, memoryId = null) {
+  return request.get('/api/memory-drafts', { params: { tripId, memoryId: memoryId ?? undefined } })
+}
+
+export function saveMemoryDraft(data) {
+  return request.put('/api/memory-drafts', data)
+}
+
+export function deleteMemoryDraft(tripId, memoryId = null) {
+  return request.delete('/api/memory-drafts', { params: { tripId, memoryId: memoryId ?? undefined } })
+}

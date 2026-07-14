@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.travelmemory.config.SecurityConfig;
 import com.travelmemory.entity.AppUser;
 import com.travelmemory.mapper.AppUserMapper;
+import com.travelmemory.mapper.MemoryDraftMapper;
 import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.MemoryCompanionMapper;
 import com.travelmemory.mapper.TripCompanionMapper;
@@ -55,6 +56,9 @@ class AdminUserSecurityMvcTest {
 
     @MockBean
     private MemoryPhotoMapper memoryPhotoMapper;
+
+    @MockBean
+    private MemoryDraftMapper memoryDraftMapper;
 
     @MockBean
     private MemoryCompanionMapper memoryCompanionMapper;

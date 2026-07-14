@@ -8,6 +8,7 @@ import com.travelmemory.entity.MemoryPhoto;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.MemoryPhotoMapper;
+import com.travelmemory.mapper.MemoryDraftMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.OrphanUploadCleanupService;
 import java.io.IOException;
@@ -40,6 +41,7 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
     private final TravelMemoryMapper travelMemoryMapper;
     private final TravelTripMapper travelTripMapper;
     private final MemoryPhotoMapper memoryPhotoMapper;
+    private final MemoryDraftMapper memoryDraftMapper;
     private final UploadCleanupProperties cleanupProperties;
 
     @Value("${app.upload.dir:../uploads}")
@@ -50,11 +52,13 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
             TravelMemoryMapper travelMemoryMapper,
             TravelTripMapper travelTripMapper,
             MemoryPhotoMapper memoryPhotoMapper,
+            MemoryDraftMapper memoryDraftMapper,
             UploadCleanupProperties cleanupProperties
     ) {
         this.travelMemoryMapper = travelMemoryMapper;
         this.travelTripMapper = travelTripMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
+        this.memoryDraftMapper = memoryDraftMapper;
         this.cleanupProperties = cleanupProperties;
     }
 
@@ -112,7 +116,21 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
                         .isNotNull("cover_photo_url")));
         addReferencedUrls(referencedPaths, uploadRoot, memoryPhotoMapper.selectObjs(
                 new QueryWrapper<MemoryPhoto>().select("photo_url").isNotNull("photo_url")));
+        addReferencedDraftUrls(referencedPaths, uploadRoot, memoryDraftMapper.selectObjs(
+                new QueryWrapper<com.travelmemory.entity.MemoryDraft>()
+                        .select("photo_urls")
+                        .isNotNull("photo_urls")));
         return referencedPaths;
+    }
+
+    private void addReferencedDraftUrls(Set<Path> referencedPaths, Path uploadRoot, List<Object> values) {
+        for (Object value : values) {
+            if (value == null) continue;
+            for (String url : value.toString().split("\\R")) {
+                Path relativePath = normalizeReferencedUrl(url, uploadRoot);
+                if (relativePath != null) referencedPaths.add(relativePath);
+            }
+        }
     }
 
     private void addReferencedUrls(Set<Path> referencedPaths, Path uploadRoot, List<Object> urls) {
