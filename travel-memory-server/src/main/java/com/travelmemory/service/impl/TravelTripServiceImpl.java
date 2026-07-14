@@ -5,10 +5,14 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.entity.MemoryPhoto;
+import com.travelmemory.entity.MemoryCompanion;
+import com.travelmemory.entity.TripCompanion;
 import com.travelmemory.entity.TravelTrip;
 import com.travelmemory.exception.BusinessException;
 import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.MemoryPhotoMapper;
+import com.travelmemory.mapper.MemoryCompanionMapper;
+import com.travelmemory.mapper.TripCompanionMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.security.CurrentUser;
@@ -26,14 +30,19 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     private final TravelTripMapper travelTripMapper;
     private final TravelMemoryMapper travelMemoryMapper;
     private final MemoryPhotoMapper memoryPhotoMapper;
+    private final TripCompanionMapper tripCompanionMapper;
+    private final MemoryCompanionMapper memoryCompanionMapper;
     private final CurrentUser currentUser;
 
     @Autowired
     public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper,
-            MemoryPhotoMapper memoryPhotoMapper, CurrentUser currentUser) {
+            MemoryPhotoMapper memoryPhotoMapper, TripCompanionMapper tripCompanionMapper,
+            MemoryCompanionMapper memoryCompanionMapper, CurrentUser currentUser) {
         this.travelTripMapper = travelTripMapper;
         this.travelMemoryMapper = travelMemoryMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
+        this.tripCompanionMapper = tripCompanionMapper;
+        this.memoryCompanionMapper = memoryCompanionMapper;
         this.currentUser = currentUser;
     }
 
@@ -184,8 +193,19 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
                 .eq(TravelMemory::getTripId, id));
         if (!memories.isEmpty()) {
             List<Long> memoryIds = memories.stream().map(TravelMemory::getId).toList();
+            memoryCompanionMapper.delete(new LambdaQueryWrapper<MemoryCompanion>()
+                    .in(MemoryCompanion::getMemoryId, memoryIds));
             memoryPhotoMapper.delete(new LambdaQueryWrapper<MemoryPhoto>().in(MemoryPhoto::getMemoryId, memoryIds));
             travelMemoryMapper.delete(new LambdaQueryWrapper<TravelMemory>().in(TravelMemory::getId, memoryIds));
+        }
+        List<TripCompanion> companions = tripCompanionMapper.selectList(new LambdaQueryWrapper<TripCompanion>()
+                .eq(TripCompanion::getTripId, id));
+        if (!companions.isEmpty()) {
+            List<Long> companionIds = companions.stream().map(TripCompanion::getId).toList();
+            memoryCompanionMapper.delete(new LambdaQueryWrapper<MemoryCompanion>()
+                    .in(MemoryCompanion::getCompanionId, companionIds));
+            tripCompanionMapper.delete(new LambdaQueryWrapper<TripCompanion>()
+                    .in(TripCompanion::getId, companionIds));
         }
         travelTripMapper.deleteById(id);
     }

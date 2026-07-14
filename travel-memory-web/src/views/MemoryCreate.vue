@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createMemory, reverseGeocode, uploadPhoto } from '../api/memory'
 import LocationPicker from '../components/LocationPicker.vue'
+import CompanionSelector from '../components/CompanionSelector.vue'
+import { formatDisplayDateTime, formatLocalDateTime, toDateTimeLocalValue } from '../utils/dateTime'
 
 const props = defineProps({
   id: {
@@ -29,6 +31,7 @@ const locationNameTouched = ref(false)
 const locationSuggestion = ref(null)
 const locationSuggestionStatus = ref('idle')
 const showLocationPicker = ref(false)
+const selectedCompanionIds = ref([])
 
 const MAX_PHOTO_SIZE = 50 * 1024 * 1024
 const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
@@ -61,29 +64,6 @@ const formattedExifLocation = computed(() => {
 const hasLocationSuggestion = computed(() => (
   locationSuggestionStatus.value === 'success' && locationSuggestion.value?.locationName
 ))
-
-function formatLocalDateTime(date) {
-  const offset = date.getTimezoneOffset()
-  const localDate = new Date(date.getTime() - offset * 60 * 1000)
-  return localDate.toISOString().slice(0, 16)
-}
-
-function toDateTimeLocalValue(value) {
-  if (!value) {
-    return ''
-  }
-  const normalizedValue = String(value)
-  if (normalizedValue.length >= 16) {
-    return normalizedValue.slice(0, 16)
-  }
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '' : formatLocalDateTime(date)
-}
-
-function formatDisplayDateTime(value) {
-  const dateTimeValue = toDateTimeLocalValue(value)
-  return dateTimeValue ? dateTimeValue.replace('T', ' ') : ''
-}
 
 function formatCoordinate(value) {
   const numberValue = Number(value)
@@ -180,12 +160,14 @@ function removePhoto(index) {
   photo.value = first?.file || null
   photoPreview.value = first?.preview || ''
   photoUploadResult.value = first?.result || null
+  if (first?.result) applyPhotoMetadata(first.result)
 }
 function movePhoto(index, direction) {
   const next = index + direction
   if (next < 0 || next >= photoItems.value.length) return
   const [item] = photoItems.value.splice(index, 1); photoItems.value.splice(next, 0, item)
   const first = photoItems.value[0]; photo.value = first.file; photoPreview.value = first.preview; photoUploadResult.value = first.result
+  if (first?.result) applyPhotoMetadata(first.result)
 }
 
 function applyPhotoMetadata(result) {
@@ -296,6 +278,13 @@ function onRecordTimeInput() {
   recordTimeTouched.value = true
 }
 
+function usePrimaryPhotoTime() {
+  const value = toDateTimeLocalValue(photoUploadResult.value?.photoTakenTime)
+  if (!value) return
+  form.recordTime = value
+  recordTimeTouched.value = true
+}
+
 function onLatitudeInput() {
   latitudeTouched.value = true
   resetLocationSuggestion()
@@ -333,7 +322,7 @@ async function submit() {
 
   let recordTime = form.recordTime
   if (!recordTime) {
-    const confirmed = window.confirm('未选择记录时间，将使用当前时间保存。这样可能影响 Journey 的日期和顺序，是否继续？')
+    const confirmed = window.confirm('未选择记录时间，将使用当前时间保存。这样可能影响旅程回放的日期和顺序，是否继续？')
     if (!confirmed) {
       error.value = '请选择记录时间，让这段记忆回到正确的一天。'
       return
@@ -354,6 +343,7 @@ async function submit() {
   photoItems.value.filter(item => item.result?.photoUrl).forEach((item) => {
     data.append('photoUrl', item.result.photoUrl)
   })
+  selectedCompanionIds.value.forEach(companionId => data.append('companionId', companionId))
 
   try {
     await createMemory(data)
@@ -383,7 +373,7 @@ onBeforeUnmount(() => {
       <div class="photo-block">
         <input
           ref="photoInput"
-          class="sr-only"
+          hidden
           type="file"
           accept="image/*"
           multiple
@@ -424,7 +414,11 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="uploading || hasUploadResult" class="exif-strip">
+        <div
+          v-if="uploading || hasUploadResult"
+          class="exif-strip"
+          :class="{ 'exif-strip-success': !uploading && (hasExifTime || hasExifLocation) }"
+        >
           <p v-if="uploading">正在识别照片信息...</p>
           <template v-else>
             <p v-if="hasExifTime">已识别拍摄时间：{{ formattedExifTime }}</p>
@@ -448,12 +442,14 @@ onBeforeUnmount(() => {
       <div class="field">
         <label for="moment-time">记录时间</label>
         <input id="moment-time" v-model="form.recordTime" type="datetime-local" @input="onRecordTimeInput" />
-        <p v-if="hasExifTime" class="hint">
-          已识别照片拍摄时间：{{ formattedExifTime }}。你可以确认或修改。
+        <div v-if="hasExifTime" class="time-recognition">
+          <span>已从主图拍摄信息中识别，你可以修改。</span>
+          <button type="button" class="time-use-button" @click="usePrimaryPhotoTime">使用主图时间</button>
+        </div>
+        <p v-else-if="hasUploadResult && !uploading" class="time-warning">
+          未识别到照片拍摄时间，请选择记录时间。
         </p>
-        <p v-else class="time-warning">
-          未识别到照片拍摄时间，请选择记录时间。这个时间会影响 Journey 的日期和顺序。
-        </p>
+        <p v-else class="hint">记录时间会影响时间线和旅程回放的日期与顺序。</p>
       </div>
 
       <div class="field">
@@ -542,6 +538,8 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+
+      <CompanionSelector v-model="selectedCompanionIds" :trip-id="id" />
 
       <p v-if="error" class="error error-block">{{ error }}</p>
 
@@ -711,6 +709,11 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
+.exif-strip-success {
+  background: #f1f6f2;
+  color: #52665a;
+}
+
 .field {
   display: grid;
   gap: 8px;
@@ -755,6 +758,25 @@ onBeforeUnmount(() => {
   color: var(--ink-soft);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.time-recognition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.time-use-button {
+  flex: 0 0 auto;
+  padding: 3px 0;
+  border-bottom: 1px solid currentColor;
+  color: var(--accent);
+  font-size: 13px;
 }
 
 .time-warning {
@@ -927,6 +949,12 @@ onBeforeUnmount(() => {
 @media (max-width: 640px) {
   .coord-grid {
     grid-template-columns: 1fr;
+  }
+
+  .submit-bar {
+    position: static;
+    padding-top: 8px;
+    background: transparent;
   }
 }
 </style>

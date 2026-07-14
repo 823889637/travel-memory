@@ -33,7 +33,7 @@ public class AppUserServiceImpl implements AppUserService {
   if(user==null||!Boolean.TRUE.equals(user.getEnabled())||isLocked(user)||!encoder.matches(password,user.getPasswordHash())){if(user!=null)recordFailure(user);throw new BusinessException(401,"用户名或密码错误");}
   user.setFailedLoginCount(0);user.setLockedUntil(null);user.setLastLoginTime(LocalDateTime.now());mapper.updateById(user);return new UserPrincipal(user);
  }
- @Override public RegistrationStatusResponse registrationStatus(){AppUser initial=mapper.selectById(1L);return new RegistrationStatusResponse(isRegistrationAvailable(),isReservedInitialAdmin(initial));}
+ @Override public RegistrationStatusResponse registrationStatus(){if(!isRegistrationAvailable())return new RegistrationStatusResponse(false,false);AppUser initial=mapper.selectById(1L);return new RegistrationStatusResponse(true,isReservedInitialAdmin(initial));}
  @Override @Transactional public UserPrincipal register(RegisterRequest request){
   if(!isRegistrationAvailable())throw new BusinessException(403,"注册暂未开放");validateInvitationCode(request.getInvitationCode());
   String username=normalizeUsername(request.getUsername());String displayName=normalizeDisplayName(request.getDisplayName());validatePassword(request.getPassword());

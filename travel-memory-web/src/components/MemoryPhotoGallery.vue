@@ -90,6 +90,9 @@ function detectPrimaryOrientation(event) {
 .gallery-layout-timeline.gallery-orientation-landscape .gallery-image-contain { width: 100%; height: 100%; }
 .gallery-layout-timeline.gallery-orientation-portrait .gallery-image-contain { width: auto; max-width: 100%; height: 100%; }
 .gallery-layout-timeline.gallery-orientation-square .gallery-image-contain { width: 85%; height: 85%; }
+.gallery-layout-recap .gallery-main { height: 145px; border-radius: 7px; background: #f1ebe2; }
+.gallery-layout-recap .gallery-main img { width: 100%; height: 100%; min-height: 0; max-height: none; object-fit: cover; }
+.gallery-layout-recap .gallery-thumbs { display: none; }
 .gallery-layout-timeline .gallery-thumbs button { flex-basis: 42px; height: 42px; background: #f4f0e8; }
 .gallery-count { position: absolute; right: 8px; bottom: 8px; padding: 4px 7px; border-radius: 4px; background: rgba(30, 26, 22, .7); color: #fff; font-size: 12px; }
 .gallery-thumbs { display: flex; gap: 6px; overflow: hidden; }
@@ -106,5 +109,6 @@ function detectPrimaryOrientation(event) {
   .gallery-layout-journey.gallery-orientation-landscape .gallery-image-contain { max-height: min(58vh, 340px); }
   .gallery-layout-journey.gallery-orientation-portrait .gallery-image-contain { width: min(360px, 100%); max-height: 68vh; }
   .gallery-layout-journey.gallery-orientation-square .gallery-image-contain { width: 78%; max-height: min(58vh, 360px); }
+  .gallery-layout-recap .gallery-main { height: min(52vw, 210px); }
 }
 </style>

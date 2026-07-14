@@ -53,6 +53,7 @@ public class TravelMemoryController {
             @RequestParam(required = false) BigDecimal longitude,
             @RequestParam(required = false) String locationName,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime recordTime,
+            @RequestParam(name = "companionId", required = false) List<Long> companionIds,
             @RequestParam(name = "photoUrl", required = false) List<String> photoUrls,
             @RequestParam(name = "photo", required = false) List<MultipartFile> photos
     ) {
@@ -72,6 +73,7 @@ public class TravelMemoryController {
         travelMemory.setLongitude(longitude);
         travelMemory.setLocationName(locationName);
         travelMemory.setRecordTime(recordTime);
+        travelMemory.setCompanionIds(companionIds);
         return Result.success(travelMemoryService.create(travelMemory, photos));
     }
 

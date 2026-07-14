@@ -28,7 +28,8 @@ class UserOwnershipServiceTest {
         TravelTrip otherUsersTrip = trip(20L, 2L);
         when(tripMapper.selectById(20L)).thenReturn(otherUsersTrip);
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class),
-                mock(MemoryPhotoMapper.class), currentUser(1L));
+                mock(MemoryPhotoMapper.class), mock(com.travelmemory.mapper.TripCompanionMapper.class),
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(1L));
 
         assertNotFound(() -> service.getById(20L));
         assertNotFound(() -> service.update(20L, trip(null, null)));
@@ -45,7 +46,8 @@ class UserOwnershipServiceTest {
         when(memoryMapper.selectById(30L)).thenReturn(otherUsersMemory);
         when(trips.getById(20L)).thenThrow(new BusinessException(404, "Trip not found"));
         TravelMemoryServiceImpl service = new TravelMemoryServiceImpl(memoryMapper, mock(MemoryPhotoMapper.class), trips,
-                mock(FileStorageService.class), mock(ImageMetadataExtractor.class), currentUser(1L));
+                mock(FileStorageService.class), mock(ImageMetadataExtractor.class), currentUser(1L),
+                mock(com.travelmemory.service.TripCompanionService.class));
 
         assertNotFound(() -> service.getById(30L));
         assertNotFound(() -> service.favorite(30L, true));
@@ -62,7 +64,8 @@ class UserOwnershipServiceTest {
         when(tripMapper.selectById(20L)).thenReturn(trip(20L, 2L));
         when(memoryMapper.selectById(30L)).thenReturn(memory(30L, 20L));
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper,
-                mock(MemoryPhotoMapper.class), currentUser(1L));
+                mock(MemoryPhotoMapper.class), mock(com.travelmemory.mapper.TripCompanionMapper.class),
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(1L));
 
         assertNotFound(() -> service.setCover(10L, 30L));
         verify(tripMapper, never()).updateById(any(TravelTrip.class));

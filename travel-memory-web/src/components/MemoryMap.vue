@@ -25,6 +25,12 @@ let AMap = null
 let resizeObserver = null
 let destroyed = false
 const markers = new Map()
+const MARKER_SIZE = 18
+const OVERLAP_DISTANCE = 24
+
+function idKey(value) {
+  return value == null ? '' : String(value)
+}
 
 function markerLabel(point) {
   const excerpt = String(point.content || '').trim().replace(/\s+/g, ' ').slice(0, 24)
@@ -37,7 +43,10 @@ function markerElement(point, selected) {
   element.className = selected ? 'memory-map-marker is-selected' : 'memory-map-marker'
   element.setAttribute('aria-label', markerLabel(point))
   element.title = markerLabel(point)
-  element.addEventListener('click', () => emit('select', point.id))
+  element.addEventListener('click', (event) => {
+    event.stopPropagation()
+    emit('select', point.id)
+  })
   return element
 }
 
@@ -46,12 +55,48 @@ function clearMarkers() {
   markers.clear()
 }
 
+function spreadOverlappingMarkers() {
+  if (!map || !AMap || markers.size < 2) return
+
+  const entries = [...markers.values()].map((entry) => ({
+    ...entry,
+    anchor: map.lngLatToContainer([entry.point.longitude, entry.point.latitude]),
+  }))
+  const groups = []
+
+  entries.forEach((entry) => {
+    const group = groups.find((candidate) => candidate.some((item) => {
+      const deltaX = item.anchor.x - entry.anchor.x
+      const deltaY = item.anchor.y - entry.anchor.y
+      return Math.hypot(deltaX, deltaY) < OVERLAP_DISTANCE
+    }))
+    if (group) group.push(entry)
+    else groups.push([entry])
+  })
+
+  groups.forEach((group) => {
+    group.forEach((entry, index) => {
+      if (group.length === 1) {
+        entry.marker.setOffset(new AMap.Pixel(-MARKER_SIZE / 2, -MARKER_SIZE / 2))
+        return
+      }
+      const angle = -Math.PI / 2 + (Math.PI * 2 * index) / group.length
+      const radius = group.length <= 3 ? 18 : 24
+      entry.marker.setOffset(new AMap.Pixel(
+        Math.round(Math.cos(angle) * radius - MARKER_SIZE / 2),
+        Math.round(Math.sin(angle) * radius - MARKER_SIZE / 2),
+      ))
+    })
+  })
+}
+
 function updateMarkerSelection() {
-  markers.forEach(({ element, point }) => element.classList.toggle('is-selected', point.id === props.selectedId))
+  const selectedKey = idKey(props.selectedId)
+  markers.forEach(({ element, point }) => element.classList.toggle('is-selected', idKey(point.id) === selectedKey))
 }
 
 function focusSelected() {
-  const selected = markers.get(props.selectedId)
+  const selected = markers.get(idKey(props.selectedId))
   if (map && selected) map.panTo([selected.point.longitude, selected.point.latitude])
 }
 
@@ -70,7 +115,7 @@ function renderMarkers(shouldFit = false) {
   clearMarkers()
   displayPoints.value.forEach((point) => {
     try {
-      const element = markerElement(point, point.id === props.selectedId)
+      const element = markerElement(point, idKey(point.id) === idKey(props.selectedId))
       const marker = new AMap.Marker({
         position: [point.longitude, point.latitude],
         content: element,
@@ -79,11 +124,12 @@ function renderMarkers(shouldFit = false) {
       })
       marker.on('click', () => emit('select', point.id))
       marker.setMap(map)
-      markers.set(point.id, { marker, point, element })
+      markers.set(idKey(point.id), { marker, point, element })
     } catch (error) {
       console.error('Failed to create an AMap marker.', error)
     }
   })
+  spreadOverlappingMarkers()
   if (shouldFit) fitMapToMarkers()
 }
 
@@ -133,6 +179,8 @@ async function initializeMap() {
     map = new AMap.Map(mapElement.value, { viewMode: '2D', zoom: 5, zoomEnable: true, dragEnable: true })
     resizeObserver = new ResizeObserver(() => map?.resize())
     resizeObserver.observe(mapElement.value)
+    map.on('zoomend', spreadOverlappingMarkers)
+    map.on('moveend', spreadOverlappingMarkers)
     renderMarkers(true)
     state.value = 'ready'
   } catch (error) {

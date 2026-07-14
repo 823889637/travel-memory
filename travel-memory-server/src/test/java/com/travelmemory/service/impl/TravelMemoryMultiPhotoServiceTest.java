@@ -164,7 +164,9 @@ class TravelMemoryMultiPhotoServiceTest {
         var trip = new com.travelmemory.entity.TravelTrip(); trip.setId(1L); trip.setUserId(1L);
         when(tripMapper.selectById(1L)).thenReturn(trip);
         when(memoryMapper.selectList(any())).thenReturn(List.of(memory(10L, "/uploads/one.jpg")));
-        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper, photoMapper, currentUser());
+        TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper, photoMapper,
+                mock(com.travelmemory.mapper.TripCompanionMapper.class),
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser());
 
         service.delete(1L);
 
@@ -184,7 +186,8 @@ class TravelMemoryMultiPhotoServiceTest {
         when(photoMapper.insert(org.mockito.ArgumentMatchers.<MemoryPhoto>any())).thenAnswer(invocation -> { MemoryPhoto photo = invocation.getArgument(0); photo.setId(ids.getAndIncrement()); photos.add(photo); return 1; });
         when(photoMapper.updateById(org.mockito.ArgumentMatchers.<MemoryPhoto>any())).thenReturn(1);
         TravelMemoryServiceImpl service = new TravelMemoryServiceImpl(memoryMapper, photoMapper, tripService,
-                mock(FileStorageService.class), mock(ImageMetadataExtractor.class), currentUser());
+                mock(FileStorageService.class), mock(ImageMetadataExtractor.class), currentUser(),
+                mock(com.travelmemory.service.TripCompanionService.class));
         ReflectionTestUtils.setField(service, "uploadDir", uploadDir.toString());
         return new Fixture(service, memoryMapper, photoMapper, tripService, photos);
     }

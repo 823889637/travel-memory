@@ -140,5 +140,5 @@ onBeforeUnmount(() => {
 .location-picker-map-state p { margin: 0; font-size: 14px; }
 .location-picker-map-state strong { color: #3c332e; }
 .location-picker-map-state button { justify-self: center; padding: 7px 12px; border: 1px solid #dccfc2; border-radius: 6px; background: #fffdfa; color: #74513f; }
-@media (max-width: 700px) { .location-picker-map { min-height: min(48vh, 430px); } }
+@media (max-width: 700px) { .location-picker-map { min-height: min(36vh, 300px); border-radius: 0; } }
 </style>

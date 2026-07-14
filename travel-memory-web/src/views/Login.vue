@@ -42,12 +42,12 @@ async function submit () {
       <h1>登录 Travel Memory</h1>
       <p class="muted">进入属于你的旅行回忆。</p>
       <div class="field">
-        <label>用户名</label>
-        <input v-model="username" autocomplete="username" required />
+        <label for="login-username">用户名</label>
+        <input id="login-username" v-model="username" autocomplete="username" required />
       </div>
       <div class="field">
-        <label>密码</label>
-        <input v-model="password" type="password" autocomplete="current-password" required />
+        <label for="login-password">密码</label>
+        <input id="login-password" v-model="password" type="password" autocomplete="current-password" required />
       </div>
       <p v-if="error" class="error">{{ error }}</p>
       <button :disabled="saving">{{ saving ? '登录中…' : '登录' }}</button>

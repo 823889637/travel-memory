@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { addMemoryPhoto, deleteMemoryPhoto, getMemory, reorderMemoryPhotos, reverseGeocode, updateMemory } from '../api/memory'
 import LocationPicker from '../components/LocationPicker.vue'
+import CompanionSelector from '../components/CompanionSelector.vue'
+import { toDateTimeLocalValue } from '../utils/dateTime'
 
 const props = defineProps({
   tripId: {
@@ -30,6 +32,7 @@ const locationNameTouched = ref(false)
 const locationSuggestion = ref(null)
 const locationSuggestionStatus = ref('idle')
 const showLocationPicker = ref(false)
+const selectedCompanionIds = ref([])
 
 const MAX_PHOTO_SIZE = 50 * 1024 * 1024
 const ALLOWED_PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
@@ -64,13 +67,6 @@ function validateCoordinate(value, min, max, label) {
     return `${label}范围应为 ${min} 到 ${max}`
   }
   return ''
-}
-
-function toDateTimeLocalValue(value) {
-  if (!value) {
-    return ''
-  }
-  return String(value).slice(0, 16)
 }
 
 function triggerPhotoPicker() {
@@ -199,6 +195,7 @@ async function loadMemory() {
     form.longitude = memory.longitude == null ? '' : String(memory.longitude)
     currentPhotoUrl.value = memory.photoUrl || ''
     memoryPhotos.value = memory.photos?.length ? memory.photos : (memory.photoUrl ? [{ photoUrl: memory.photoUrl }] : [])
+    selectedCompanionIds.value = memory.companionIds || memory.companions?.map(item => item.id) || []
     if (hasCoordinateValues() && !form.locationName) {
       requestLocationSuggestion()
     }
@@ -224,6 +221,7 @@ async function submit() {
       recordTime: form.recordTime || null,
       latitude: form.latitude ? Number(form.latitude) : null,
       longitude: form.longitude ? Number(form.longitude) : null,
+      companionIds: selectedCompanionIds.value,
     })
 
     if (newPhoto.value) {
@@ -287,7 +285,7 @@ onBeforeUnmount(() => {
       <div class="edit-photo-block">
         <input
           ref="photoInput"
-          class="sr-only"
+          hidden
           type="file"
           accept="image/*"
           @change="onPhotoChange"
@@ -339,7 +337,7 @@ onBeforeUnmount(() => {
       <div class="field">
         <label for="edit-time">记录时间</label>
         <input id="edit-time" v-model="form.recordTime" type="datetime-local" />
-        <p class="time-warning">这个时间会影响 Timeline 和 Journey 的顺序。</p>
+        <p class="time-warning">这个时间会影响时间线和旅程回放的顺序。</p>
       </div>
 
       <div class="field">
@@ -414,6 +412,8 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
+
+      <CompanionSelector v-model="selectedCompanionIds" :trip-id="tripId" />
 
       <p v-if="error" class="error error-block">{{ error }}</p>
 

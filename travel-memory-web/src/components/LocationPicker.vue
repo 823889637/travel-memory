@@ -154,6 +154,7 @@ function confirm() {
         <aside class="location-picker-results" aria-label="地点搜索结果">
           <p v-if="draft.searching" class="location-picker-empty">正在寻找地点...</p>
           <p v-else-if="draft.keyword && !draft.results.length" class="location-picker-empty">没有找到合适的地点，可以直接在地图上选择。</p>
+          <p v-else-if="!draft.results.length" class="location-picker-empty">搜索地点后，候选结果会显示在这里；你也可以直接点击地图选点。</p>
           <button
             v-for="result in draft.results"
             :key="result.id || `${result.latitude}:${result.longitude}`"
@@ -232,16 +233,18 @@ function confirm() {
 .location-picker-confirm { border-color: #9c7256 !important; background: #8c7768 !important; color: #fff !important; }
 @media (max-width: 700px) {
   .location-picker-backdrop { padding: 0; align-items: end; }
-  .location-picker { width: 100%; max-height: 94vh; border-radius: 12px 12px 0 0; }
-  .location-picker-header { padding-top: 15px; }
-  .location-picker-search { grid-template-columns: minmax(0, 1fr) auto; }
+  .location-picker { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .location-picker-header { padding: 13px 16px 9px; }
+  .location-picker-search { grid-template-columns: minmax(0, 1fr) auto; padding: 0 16px 10px; }
   .location-picker-locate { grid-column: 1 / -1; height: 34px; }
-  .location-picker-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 180px) minmax(260px, 1fr); }
-  .location-picker-results { display: flex; overflow-x: auto; gap: 8px; }
-  .location-picker-result { flex: 0 0 190px; min-height: 94px; border: 1px solid #eee4da; border-radius: 6px; }
-  .location-picker-empty { min-width: 250px; }
-  .location-picker-footer { display: grid; gap: 12px; }
+  .location-picker-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(220px, 1fr); min-height: 0; }
+  .location-picker-results { display: flex; min-height: 74px; max-height: 126px; overflow-x: auto; gap: 8px; padding: 8px 16px; }
+  .location-picker-result { flex: 0 0 184px; min-height: 82px; padding: 9px; border: 1px solid #eee4da; border-radius: 6px; }
+  .location-picker-empty { min-width: min(310px, calc(100vw - 32px)); margin: 4px 0; }
+  .location-picker-footer { display: grid; gap: 10px; padding: 11px 16px max(12px, env(safe-area-inset-bottom)); }
   .location-picker-selection label { grid-template-columns: 1fr; }
-  .location-picker-actions { justify-content: flex-end; }
+  .location-picker-selection p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .location-picker-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .location-picker-actions button { min-height: 42px; }
 }
 </style>

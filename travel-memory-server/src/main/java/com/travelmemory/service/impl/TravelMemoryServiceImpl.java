@@ -12,6 +12,7 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.service.FileStorageService;
 import com.travelmemory.service.TravelMemoryService;
 import com.travelmemory.service.TravelTripService;
+import com.travelmemory.service.TripCompanionService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.security.UploadPathGuard;
 import com.travelmemory.util.ImageMetadataExtractor;
@@ -46,6 +47,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     private final FileStorageService fileStorageService;
     private final ImageMetadataExtractor imageMetadataExtractor;
     private final CurrentUser currentUser;
+    private final TripCompanionService tripCompanionService;
 
     @Value("${app.upload.dir:../uploads}")
     private String uploadDir;
@@ -53,13 +55,15 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     @Autowired
     public TravelMemoryServiceImpl(TravelMemoryMapper travelMemoryMapper, MemoryPhotoMapper memoryPhotoMapper,
             TravelTripService travelTripService, FileStorageService fileStorageService,
-            ImageMetadataExtractor imageMetadataExtractor, CurrentUser currentUser) {
+            ImageMetadataExtractor imageMetadataExtractor, CurrentUser currentUser,
+            TripCompanionService tripCompanionService) {
         this.travelMemoryMapper = travelMemoryMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
         this.travelTripService = travelTripService;
         this.fileStorageService = fileStorageService;
         this.imageMetadataExtractor = imageMetadataExtractor;
         this.currentUser = currentUser;
+        this.tripCompanionService = tripCompanionService;
     }
 
     @Override
@@ -121,6 +125,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         memory.setPhotos(null); memory.setPhotoCount(null);
         travelMemoryMapper.insert(memory);
         persistPhotos(memory.getId(), photos);
+        tripCompanionService.replaceMemoryCompanions(memory.getId(), memory.getTripId(), memory.getCompanionIds());
         return getById(memory.getId());
     }
 
@@ -198,9 +203,13 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     @Transactional
     public TravelMemory update(Long id, TravelMemory memory) {
         TravelMemory existing = getById(id);
+        List<Long> companionIds = memory.getCompanionIds();
         memory.setId(id); memory.setTripId(existing.getTripId()); memory.setPhotoUrl(existing.getPhotoUrl()); memory.setPhotoPath(existing.getPhotoPath());
         memory.setIsFavorite(existing.getIsFavorite()); memory.setPhotos(null); memory.setPhotoCount(null);
         travelMemoryMapper.updateById(memory);
+        if (companionIds != null) {
+            tripCompanionService.replaceMemoryCompanions(id, existing.getTripId(), companionIds);
+        }
         return getById(id);
     }
 
@@ -214,6 +223,7 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
     @Transactional
     public void delete(Long id) {
         TravelMemory memory = getById(id);
+        tripCompanionService.deleteByMemoryId(id);
         memoryPhotoMapper.delete(new LambdaQueryWrapper<MemoryPhoto>().eq(MemoryPhoto::getMemoryId, id));
         travelMemoryMapper.deleteById(id);
         travelTripService.clearCoverIfMatches(memory.getTripId(), memory.getPhotoUrl());
@@ -224,12 +234,16 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         Set<Long> ids = new HashSet<>(); memories.forEach(memory -> ids.add(memory.getId()));
         Map<Long, List<MemoryPhoto>> byMemory = new HashMap<>();
         loadPhotos(ids).forEach(photo -> byMemory.computeIfAbsent(photo.getMemoryId(), ignored -> new ArrayList<>()).add(photo));
+        Map<Long, List<com.travelmemory.dto.CompanionSummary>> companionsByMemory = tripCompanionService.findByMemoryIds(ids);
         memories.forEach(memory -> {
             List<MemoryPhoto> photos = byMemory.getOrDefault(memory.getId(), new ArrayList<>());
             if (photos.isEmpty() && hasUrl(memory.getPhotoUrl())) {
                 MemoryPhoto legacy = new MemoryPhoto(); legacy.setMemoryId(memory.getId()); legacy.setPhotoUrl(memory.getPhotoUrl()); legacy.setSortOrder(0); photos = List.of(legacy);
             }
             memory.setPhotos(photos); memory.setPhotoCount(photos.size());
+            List<com.travelmemory.dto.CompanionSummary> companions = companionsByMemory.getOrDefault(memory.getId(), List.of());
+            memory.setCompanions(companions);
+            memory.setCompanionIds(companions.stream().map(com.travelmemory.dto.CompanionSummary::getId).toList());
         });
         return memories;
     }

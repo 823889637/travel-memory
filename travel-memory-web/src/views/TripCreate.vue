@@ -88,6 +88,9 @@ async function submit() {
 
       <div class="actions">
         <button :disabled="!canSubmit">{{ saving ? '保存中...' : '创建' }}</button>
+        <button type="button" class="ghost" :disabled="saving" @click="router.push('/trips')">
+          取消
+        </button>
       </div>
     </form>
   </section>

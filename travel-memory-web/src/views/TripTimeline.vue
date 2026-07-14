@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { clearTripCover, getTrip, setTripCover } from '../api/trip'
 import { deleteMemory, favoriteMemory, getTimeline, searchMemories } from '../api/memory'
 import { hasExplicitTripCover, normalizePhotoUrl, resolveTripCoverUrl } from '../utils/tripCover'
+import { formatTripDayLabel } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 
 const props = defineProps({
@@ -31,10 +32,14 @@ const coverMessage = ref('')
 const coverError = ref('')
 const coverImageFailed = ref(false)
 
-const displayedMemories = computed(() => (
+const baseMemories = computed(() => (
   props.favoriteOnly
     ? memories.value.filter((memory) => memory.isFavorite === 1)
     : memories.value
+))
+
+const displayedMemories = computed(() => (
+  hasSearched.value && !props.favoriteOnly ? searchResults.value : baseMemories.value
 ))
 
 const dayGroups = computed(() => {
@@ -55,7 +60,7 @@ const dayGroups = computed(() => {
     if (!groupMap.has(dateKey)) {
       const group = {
         date: dateKey,
-        dayLabel: `第 ${groups.length + 1} 天`,
+        dayLabel: formatTripDayLabel(trip.value?.startDate, dateKey, groups.length + 1),
         memories: [],
       }
       groupMap.set(dateKey, group)
@@ -73,7 +78,7 @@ const coverPhotoUrl = computed(() => {
 
 const hasExplicitCover = computed(() => hasExplicitTripCover(trip.value))
 
-const photoCount = computed(() => displayedMemories.value.reduce((total, memory) => total + (memory.photoCount || (memory.photoUrl ? 1 : 0)), 0))
+const photoCount = computed(() => baseMemories.value.reduce((total, memory) => total + (memory.photoCount || (memory.photoUrl ? 1 : 0)), 0))
 
 const tripDateRange = computed(() => {
   if (!trip.value) {
@@ -122,17 +127,6 @@ function formatTime(value) {
   })
 }
 
-function formatDateTime(value) {
-  if (!value) {
-    return '未知时间'
-  }
-  const rawValue = String(value)
-  if (rawValue.length >= 16) {
-    return `${rawValue.slice(0, 10)} ${rawValue.slice(11, 16)}`
-  }
-  return rawValue
-}
-
 async function loadPage() {
   loading.value = true
   error.value = ''
@@ -179,7 +173,7 @@ async function clearCover() {
   if (!hasExplicitCover.value || coverActionId.value) {
     return
   }
-  if (!window.confirm('确定取消自定义封面吗？之后会自动使用第一张旅行照片。')) {
+  if (!window.confirm('确定取消自定义封面吗？之后会恢复使用自动封面。')) {
     return
   }
 
@@ -207,9 +201,12 @@ async function doSearch() {
 
   searchLoading.value = true
   hasSearched.value = true
+  searchResults.value = []
   try {
-    searchResults.value = await searchMemories(props.id, keyword)
+    const results = await searchMemories(props.id, keyword)
+    searchResults.value = Array.isArray(results) ? results : []
   } catch (err) {
+    hasSearched.value = false
     searchError.value = err.message || '搜索暂时没有成功，请稍后再试。'
   } finally {
     searchLoading.value = false
@@ -230,6 +227,7 @@ async function removeMemory(id) {
   try {
     await deleteMemory(id)
     await loadPage()
+    if (hasSearched.value) await doSearch()
   } catch (err) {
     window.alert(err.message || '删除失败')
   }
@@ -253,7 +251,7 @@ onMounted(loadPage)
 
 <template>
   <section class="timeline-page">
-    <header class="trip-memory-hero">
+    <header v-if="!loading && trip" class="trip-memory-hero">
       <img
         v-if="coverPhotoUrl"
         class="trip-memory-cover"
@@ -278,14 +276,16 @@ onMounted(loadPage)
       </div>
     </header>
 
-    <div class="view-tabs">
+    <div v-if="!loading && trip" class="view-tabs">
       <RouterLink :to="`/trips/${id}`" :class="['view-tab', { active: !favoriteOnly }]">时间线</RouterLink>
       <RouterLink :to="`/trips/${id}/journey`" class="view-tab view-tab-journey">旅程回放</RouterLink>
       <RouterLink :to="`/trips/${id}/map`" class="view-tab">地图</RouterLink>
+      <RouterLink :to="`/trips/${id}/recap`" class="view-tab">旅行回顾</RouterLink>
+      <RouterLink :to="`/trips/${id}/companions`" class="view-tab">同行的人</RouterLink>
       <RouterLink :to="`/trips/${id}/favorites`" :class="['view-tab', { active: favoriteOnly }]">收藏回看</RouterLink>
     </div>
 
-    <div class="timeline-toolbar">
+    <div v-if="!loading && trip" class="timeline-toolbar">
       <div>
         <h2>{{ favoriteOnly ? '收藏回看' : '原始记忆记录' }}</h2>
         <p class="muted">{{ favoriteOnly ? '只留下这趟旅行里你收藏的片段。' : '这里保留每一段记忆，可以搜索、编辑、收藏或删除。' }}</p>
@@ -300,7 +300,7 @@ onMounted(loadPage)
       </div>
     </div>
 
-    <div v-if="hasExplicitCover" class="cover-context">
+    <div v-if="!loading && trip && hasExplicitCover" class="cover-context">
       <span>当前使用自定义旅行封面</span>
       <button class="cover-clear-link" :disabled="coverActionId" @click="clearCover">
         {{ coverActionId === 'clear' ? '恢复中…' : '恢复自动封面' }}
@@ -312,7 +312,7 @@ onMounted(loadPage)
     <p v-if="loading" class="timeline-status">正在整理这次旅行的记忆...</p>
     <p v-if="error" class="error timeline-status">{{ error }}</p>
 
-    <section v-if="!favoriteOnly" class="memory-search">
+    <section v-if="!loading && trip && !favoriteOnly" class="memory-search">
       <form class="search-form" @submit.prevent="doSearch">
         <input v-model="searchKeyword" placeholder="搜索一句话或地点" />
         <button type="submit" class="ghost" :disabled="searchLoading">搜索</button>
@@ -320,43 +320,26 @@ onMounted(loadPage)
       </form>
       <p v-if="searchLoading" class="muted">正在搜索记忆...</p>
       <p v-if="searchError" class="error">{{ searchError }}</p>
-      <div v-if="hasSearched && !searchLoading" class="search-summary">
-        <template v-if="searchResults.length > 0">
-          找到 {{ searchResults.length }} 段记忆
-        </template>
-        <template v-else>
-          没有找到相关记忆。可以换一句话或地点再试试。
-        </template>
-      </div>
-      <div v-if="hasSearched && searchResults.length > 0" class="search-results">
-        <article v-for="memory in searchResults" :key="memory.id" class="search-result-item">
-          <img
-            v-if="memory.photoUrl"
-            class="search-result-photo"
-            :src="photoSrc(memory.photoUrl)"
-            alt="旅行记忆照片"
-          />
-          <div v-else class="search-result-photo empty">没有照片</div>
-          <div class="search-result-body">
-            <div class="search-result-meta">
-              <span>{{ formatDateTime(memory.recordTime) }}</span>
-              <span>{{ memory.locationName || '未填写地点' }}</span>
-            </div>
-            <p>“{{ memory.content || '没有文字记录' }}”</p>
-          </div>
-        </article>
+      <div v-if="hasSearched && !searchLoading && searchResults.length > 0" class="search-summary">
+        找到 {{ searchResults.length }} 段记忆，下面只显示这些结果。
       </div>
     </section>
 
-    <div v-if="!loading && displayedMemories.length === 0" class="timeline-empty">
-      <h2>{{ favoriteOnly ? '还没有特别标记的片段。' : '这次旅行还没有留下记忆。' }}</h2>
-      <p>{{ favoriteOnly ? '回到时间线，收藏那些你想以后再慢慢看的瞬间。' : '上传一张照片，写一句当时想记住的话。' }}</p>
-      <RouterLink :to="`/trips/${id}/memories/new`">
+    <div v-if="!loading && !searchLoading && trip && displayedMemories.length === 0" class="timeline-empty">
+      <template v-if="hasSearched && !favoriteOnly">
+        <h2>没有找到相关记忆。</h2>
+        <p>换一句原话或地点试试，也可以清空搜索回到完整时间线。</p>
+      </template>
+      <template v-else>
+        <h2>{{ favoriteOnly ? '还没有特别标记的片段。' : '这次旅行还没有留下记忆。' }}</h2>
+        <p>{{ favoriteOnly ? '回到时间线，收藏那些你想以后再慢慢看的瞬间。' : '上传一张照片，写一句当时想记住的话。' }}</p>
+      </template>
+      <RouterLink v-if="!hasSearched" :to="`/trips/${id}/memories/new`">
         <button>留下第一段记忆</button>
       </RouterLink>
     </div>
 
-    <div v-if="!loading && displayedMemories.length > 0" class="day-timeline">
+    <div v-if="!loading && !searchLoading && trip && displayedMemories.length > 0" class="day-timeline">
       <section v-for="group in dayGroups" :key="group.date" class="day-section">
         <div class="day-header">
           <div>
@@ -388,6 +371,10 @@ onMounted(loadPage)
                 <div class="memory-title-line">
                   <p :class="['memory-location', { muted: !memory.locationName }]">{{ memory.locationName || '地点还没有补充' }}</p>
                 </div>
+
+                <p v-if="memory.companions?.length" class="memory-companions">
+                  和 {{ memory.companions.map(item => item.name).join('、') }} 一起
+                </p>
 
                 <div class="actions memory-actions">
                   <button

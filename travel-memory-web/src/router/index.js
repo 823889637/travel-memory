@@ -7,6 +7,8 @@ import TripJourney from '../views/TripJourney.vue'
 import MemoryCreate from '../views/MemoryCreate.vue'
 import MemoryEdit from '../views/MemoryEdit.vue'
 import TripMap from '../views/TripMap.vue'
+import TripRecap from '../views/TripRecap.vue'
+import TripCompanions from '../views/TripCompanions.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import ChangePassword from '../views/ChangePassword.vue'
@@ -23,6 +25,8 @@ const routes = [
   { path: '/trips/new', component: TripCreate },
   { path: '/trips/:id/edit', component: TripEdit, props: true },
   { path: '/trips/:id/journey', component: TripJourney, props: true },
+  { path: '/trips/:id/recap', component: TripRecap, props: true },
+  { path: '/trips/:id/companions', component: TripCompanions, props: true },
   { path: '/trips/:id/favorites', component: TripTimeline, props: (route) => ({ id: route.params.id, favoriteOnly: true }) },
   { path: '/trips/:id', component: TripTimeline, props: true },
   { path: '/trips/:id/memories/new', component: MemoryCreate, props: true },
@@ -33,6 +37,9 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    return savedPosition || { top: 0 }
+  },
 })
 router.beforeEach(async (to) => {
   if (!authResolved.value) await loadCurrentUser()

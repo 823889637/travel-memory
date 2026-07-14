@@ -74,7 +74,7 @@ VITE_AMAP_SECURITY_JS_CODE=
 VITE_AMAP_SERVICE_HOST=
 ```
 
-`AMAP_WEB_SERVICE_KEY` 仅在后端使用，用于逆地理编码和地点 POI 搜索；`VITE_AMAP_JS_API_KEY` 不能复用它。Vite 的 `VITE_` 变量会在构建时注入浏览器产物；生产环境应优先配置安全代理地址 `VITE_AMAP_SERVICE_HOST`，`VITE_AMAP_SECURITY_JS_CODE` 仅适合本地开发或临时测试。当前 Docker 构建未注入这些前端变量，部署真实地图前需在构建环境提供它们，且不得把真实 Key 或安全密钥提交到仓库。
+`AMAP_WEB_SERVICE_KEY` 仅在后端使用，用于逆地理编码和地点 POI 搜索；`VITE_AMAP_JS_API_KEY` 不能复用它。Vite 的 `VITE_` 变量会在构建时注入浏览器产物；生产环境应优先配置安全代理地址 `VITE_AMAP_SERVICE_HOST`，`VITE_AMAP_SECURITY_JS_CODE` 仅适合本地开发或临时测试。Docker Compose 会在构建 frontend 镜像时从根目录 `.env` 注入这些前端变量；变更后必须使用 `--build` 重建 frontend，且不得把真实 Key 或安全密钥提交到仓库。
 
 ```bash
 cd travel-memory-server
@@ -95,7 +95,7 @@ docker compose up -d --build
 
 ## 生产部署与数据安全
 
-ECS 公网部署必须使用安全覆盖配置，详见 [安全部署说明](docs/SECURE_DEPLOY.md) 和 [ECS 部署说明](docs/ALIYUN_ECS_DEPLOY.md)。Basic Auth 只是临时访问保护，不等同于 HTTPS；生产公网使用前仍需要域名、HTTPS 和 HTTP 跳转 HTTPS。
+ECS 公网部署必须使用安全覆盖配置，详见 [安全部署说明](docs/SECURE_DEPLOY.md) 和完整的 [ECS 部署运行手册](docs/ALIYUN_ECS_DEPLOY.md)。手册包含首次部署、无 SQL 的普通迭代、带升级 SQL 的增量部署、备份、校验和回滚边界。Basic Auth 只是临时访问保护，不等同于 HTTPS；生产公网使用前仍需要域名、HTTPS 和 HTTP 跳转 HTTPS。
 
 - 生产 MySQL 保持 `mysql:8.4`；不得让 MySQL 8.0 使用现有 `mysql_data` volume。
 - MySQL 使用 Docker volume `mysql_data`；上传图片使用 `${UPLOADS_DIR:-./uploads}` 挂载到 backend `/app/uploads`。

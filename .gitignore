@@ -11,6 +11,7 @@ logs/
 # Frontend
 travel-memory-web/node_modules/
 travel-memory-web/dist/
+.npm-cache/
 
 # Backend
 travel-memory-server/target/

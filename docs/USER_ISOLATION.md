@@ -15,7 +15,7 @@ Travel Memory 的第一版账号能力使用 Spring Security Session。没有自
 
 上线前先完成已验证的 MySQL 与 `uploads` 备份。不要在已有数据的环境执行 `sql/init.sql`。
 
-1. 对目标数据库手工执行一次 `sql/upgrade_20260713_add_user_ownership.sql`。
+1. 若目标数据库仍是旧单图版本，先执行 `sql/upgrade_20260712_add_memory_photo.sql`；再执行 `sql/upgrade_20260713_add_user_ownership.sql`，最后执行 `sql/upgrade_20260714_add_trip_companion.sql`。每个 SQL 均应在备份完成后单独执行、查看结果并记录。
 2. 该 SQL 新建一个禁用的保留管理员账号 `id=1`，并把现有 Trip 归属给它；不会删除或重建现有表。
 3. 默认可以使用受控注册完成首次管理员初始化：设置 `APP_REGISTRATION_ENABLED=true` 和一段强随机 `APP_REGISTRATION_INVITE_CODE`，访问 `/register` 后使用该注册码注册。第一个成功注册的账号会激活预留 `id=1` 并成为管理员，后续注册账号均为普通用户。完成邀请后应立即将 `APP_REGISTRATION_ENABLED=false`。Docker Compose 会读取根目录 `.env`；本机直接运行 Spring Boot 时，需要在启动终端设置环境变量：
 
@@ -70,6 +70,8 @@ cd ..
 - `/uploads/**` 不使用静态目录映射：后端校验登录用户、用户目录、规范化路径、常规文件和每一层目录的符号链接。跨用户图片 URL 统一返回 `404`。
 
 正式公网启用前必须完成 HTTPS。启用 HTTPS 后将 ECS 的 `APP_SESSION_COOKIE_SECURE=true`，并保留现有 Basic Auth 作为迁移期间的外层保护。HTTP 传输尚未加密时不能启用该变量，否则浏览器不会发送 Session Cookie。
+
+完整的首次部署、普通迭代部署、带升级 SQL 的维护窗口和回滚边界见 [阿里云 ECS 部署运行手册](ALIYUN_ECS_DEPLOY.md)。
 
 ## 验收建议
 

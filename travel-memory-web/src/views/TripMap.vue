@@ -28,8 +28,18 @@ const selectedMemory = computed(() => {
   if (points.value.length === 0) {
     return null
   }
-  return points.value.find((item) => item.id === selectedMemoryId.value) || points.value[0]
+  const selectedKey = memoryIdKey(selectedMemoryId.value)
+  return points.value.find((item) => memoryIdKey(item.id) === selectedKey) || points.value[0]
 })
+
+function memoryIdKey(value) {
+  return value == null ? '' : String(value)
+}
+
+function selectMemory(memoryId) {
+  const selected = points.value.find((item) => memoryIdKey(item.id) === memoryIdKey(memoryId))
+  selectedMemoryId.value = selected?.id ?? null
+}
 
 function hasValidCoordinates(memory) {
   return isValidWgs84Coordinate(memory.latitude, memory.longitude)
@@ -78,9 +88,9 @@ watch(() => props.id, loadPage, { immediate: true })
 
 <template>
   <section class="trip-map-page">
-    <header class="trip-map-head">
+    <header v-if="!loading && trip" class="trip-map-head">
       <div>
-        <p class="trip-list-kicker">Map</p>
+        <p class="trip-list-kicker">地图</p>
         <h1>记忆地图</h1>
         <p>看看这次旅行中，那些瞬间发生在哪里。</p>
         <div class="trip-map-trip">
@@ -90,28 +100,27 @@ watch(() => props.id, loadPage, { immediate: true })
       </div>
 
       <div class="trip-map-actions">
-        <RouterLink :to="`/trips/${id}`">返回 Timeline</RouterLink>
-        <RouterLink :to="`/trips/${id}/journey`">进入 Journey</RouterLink>
+        <RouterLink :to="`/trips/${id}`">返回时间线</RouterLink>
+        <RouterLink :to="`/trips/${id}/journey`">进入旅程回放</RouterLink>
+        <RouterLink :to="`/trips/${id}/recap`">旅行回顾</RouterLink>
+        <RouterLink :to="`/trips/${id}/companions`">同行的人</RouterLink>
       </div>
     </header>
 
     <p v-if="loading" class="trip-map-status">正在整理这些记忆的位置...</p>
     <p v-if="error" class="error trip-map-status">{{ error }}</p>
 
-    <div v-if="!loading && points.length === 0" class="trip-map-empty">
+    <div v-if="!loading && !error && trip && points.length === 0" class="trip-map-empty">
       <h2>还没有可以放在地图上的记忆。</h2>
       <p>上传带定位的照片，或为记忆补充位置后，它们会出现在这里。</p>
       <div class="trip-map-empty-actions">
         <RouterLink :to="`/trips/${id}/memories/new`">
           <button>去添加记忆</button>
         </RouterLink>
-        <RouterLink :to="`/trips/${id}`">
-          <button class="ghost">返回 Timeline</button>
-        </RouterLink>
       </div>
     </div>
 
-    <template v-else-if="!loading">
+    <template v-else-if="!loading && !error && trip">
       <div class="trip-map-summary">
         <span>{{ points.length }} 段记忆显示在地图上</span>
         <span v-if="memoriesWithoutLocation > 0">
@@ -123,7 +132,7 @@ watch(() => props.id, loadPage, { immediate: true })
         ref="memoryMap"
         :points="points"
         :selected-id="selectedMemory?.id"
-        @select="selectedMemoryId = $event"
+        @select="selectMemory"
       />
 
       <article v-if="selectedMemory" class="map-memory-card">
@@ -142,6 +151,9 @@ watch(() => props.id, loadPage, { immediate: true })
             <span>{{ selectedMemory.locationName || '未填写地点' }}</span>
             <span>{{ formatDateTime(selectedMemory.recordTime) }}</span>
           </div>
+          <p v-if="selectedMemory.companions?.length" class="map-memory-companions">
+            和 {{ selectedMemory.companions.map(item => item.name).join('、') }} 一起
+          </p>
           <button type="button" class="map-memory-focus" @click="focusSelectedMemory">
             在地图上定位
           </button>

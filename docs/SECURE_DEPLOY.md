@@ -1,6 +1,6 @@
 # Travel Memory 安全部署说明
 
-本方案通过 Nginx Basic Auth 为单用户、小范围试用提供临时访问保护。应用当前另有基于 Session 的账号与数据隔离；Basic Auth 仍应在公网迁移期作为外层保护保留。两者都不等同于 HTTPS。
+本方案通过 Nginx Basic Auth 为单用户、小范围试用提供临时访问保护。应用当前另有基于 Session 的账号与数据隔离；Basic Auth 仍应在公网迁移期作为外层保护保留。两者都不等同于 HTTPS。首次部署、环境变量、普通迭代、带 SQL 的增量部署和回滚边界请遵循[阿里云 ECS 部署运行手册](ALIYUN_ECS_DEPLOY.md)。
 
 ## 创建单用户认证
 

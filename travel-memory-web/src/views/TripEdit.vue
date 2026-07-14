@@ -121,7 +121,7 @@ async function clearCover() {
   if (!hasExplicitCover.value || clearingCover.value) {
     return
   }
-  if (!window.confirm('确定取消自定义封面吗？之后会自动使用第一张旅行照片。')) {
+  if (!window.confirm('确定取消自定义封面吗？之后会恢复使用自动封面。')) {
     return
   }
 
@@ -251,7 +251,7 @@ onBeforeUnmount(() => {
           @error="coverImageFailed = true"
         />
         <p v-else class="muted">这次旅行还没有照片可作为封面。</p>
-        <p class="muted">{{ hasExplicitCover ? '当前使用已设置的旅行封面。' : '当前自动使用按时间排序的第一张旅行照片。' }}</p>
+        <p class="muted">{{ hasExplicitCover ? '当前使用已设置的旅行封面。' : '当前使用自动封面；你也可以在时间线中选择一张照片作为封面。' }}</p>
         <button v-if="hasExplicitCover" type="button" class="ghost" :disabled="clearingCover" @click="clearCover">
           {{ clearingCover ? '取消中…' : '取消自定义封面' }}
         </button>
@@ -306,6 +306,7 @@ onBeforeUnmount(() => {
       <div class="actions">
         <button :disabled="!canSubmit">{{ saving ? '保存中…' : '保存修改' }}</button>
         <button type="button" class="ghost" :disabled="saving || redirecting" @click="cancel">取消</button>
+        <RouterLink :to="`/trips/${route.params.id}/companions`" class="trip-companion-manage-link">管理同行的人</RouterLink>
       </div>
     </form>
   </section>
@@ -320,6 +321,12 @@ onBeforeUnmount(() => {
   background: #f1ebe3;
   object-fit: cover;
   object-position: center;
+}
+
+.trip-companion-manage-link {
+  align-self: center;
+  color: var(--tm-accent);
+  font-size: 13px;
 }
 
 @media (max-width: 640px) {

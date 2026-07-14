@@ -9,6 +9,8 @@ import com.travelmemory.config.SecurityConfig;
 import com.travelmemory.entity.AppUser;
 import com.travelmemory.mapper.AppUserMapper;
 import com.travelmemory.mapper.MemoryPhotoMapper;
+import com.travelmemory.mapper.MemoryCompanionMapper;
+import com.travelmemory.mapper.TripCompanionMapper;
 import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.security.CurrentUser;
@@ -53,6 +55,12 @@ class AdminUserSecurityMvcTest {
 
     @MockBean
     private MemoryPhotoMapper memoryPhotoMapper;
+
+    @MockBean
+    private MemoryCompanionMapper memoryCompanionMapper;
+
+    @MockBean
+    private TripCompanionMapper tripCompanionMapper;
 
     @Test
     void ordinaryUserCannotAccessAccountManagement() throws Exception {

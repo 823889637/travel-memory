@@ -170,7 +170,8 @@ class TravelCoverServiceTest {
                 tripService,
                 mock(FileStorageService.class),
                 mock(ImageMetadataExtractor.class),
-                currentUser());
+                currentUser(),
+                mock(com.travelmemory.service.TripCompanionService.class));
 
         service.delete(10L);
 
@@ -201,7 +202,8 @@ class TravelCoverServiceTest {
                 tripService,
                 storageService,
                 metadataExtractor,
-                currentUser());
+                currentUser(),
+                mock(com.travelmemory.service.TripCompanionService.class));
 
         service.uploadPhoto(10L, mock(MultipartFile.class));
 
@@ -219,7 +221,9 @@ class TravelCoverServiceTest {
     }
 
     private TravelTripServiceImpl tripService(TravelTripMapper tripMapper, TravelMemoryMapper memoryMapper) {
-        return new TravelTripServiceImpl(tripMapper, memoryMapper, mock(MemoryPhotoMapper.class), currentUser());
+        return new TravelTripServiceImpl(tripMapper, memoryMapper, mock(MemoryPhotoMapper.class),
+                mock(com.travelmemory.mapper.TripCompanionMapper.class),
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser());
     }
 
     private CurrentUser currentUser() {

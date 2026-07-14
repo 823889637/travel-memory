@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { resolveTripCoverUrl } from '../utils/tripCover'
+import { formatTripDayLabel } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 
 const props = defineProps({
@@ -38,7 +39,7 @@ const dayGroups = computed(() => {
     if (!groupMap.has(dateKey)) {
       const group = {
         date: dateKey,
-        dayLabel: `第 ${groups.length + 1} 天`,
+        dayLabel: formatTripDayLabel(trip.value?.startDate, dateKey, groups.length + 1),
         memories: [],
         stops: [],
       }
@@ -180,7 +181,7 @@ onMounted(loadPage)
 
 <template>
   <section class="journey-page">
-    <div class="journey-hero">
+    <div v-if="!loading && trip" class="journey-hero">
       <img
         v-if="coverPhotoUrl"
         class="journey-hero-photo"
@@ -199,7 +200,7 @@ onMounted(loadPage)
     <p v-if="loading">加载中...</p>
     <p v-if="error" class="error">{{ error }}</p>
 
-    <div v-if="!loading && dayGroups.length === 0" class="journey-empty">
+    <div v-if="!loading && !error && trip && dayGroups.length === 0" class="journey-empty">
       <p class="journey-empty-title">这段旅行还在等待第一段记忆</p>
       <p class="journey-empty-hint">当你留下照片和当时的心情，这里就会重新为你铺开走过的路。</p>
     </div>
@@ -209,6 +210,8 @@ onMounted(loadPage)
         <div class="journey-quiet-nav">
           <RouterLink :to="`/trips/${id}`">返回时间线</RouterLink>
           <RouterLink :to="`/trips/${id}/map`">查看地图</RouterLink>
+          <RouterLink :to="`/trips/${id}/recap`">旅行回顾</RouterLink>
+          <RouterLink :to="`/trips/${id}/companions`">同行的人</RouterLink>
         </div>
         <div class="day-switcher">
           <button
@@ -255,9 +258,12 @@ onMounted(loadPage)
                 <div v-else class="journey-stop-photo-empty">这一站没有留下照片，但当时的文字还在。</div>
 
                 <div class="journey-stop-contents">
-                  <p v-for="memory in stop.contents" :key="memory.id" class="journey-content">
-                    {{ memory.content }}
-                  </p>
+                  <div v-for="memory in stop.contents" :key="memory.id" class="journey-memory-copy">
+                    <p class="journey-content">{{ memory.content }}</p>
+                    <p v-if="memory.companions?.length" class="journey-companions">
+                      和 {{ memory.companions.map(item => item.name).join('、') }} 一起
+                    </p>
+                  </div>
                   <p v-if="stop.contents.length === 0" class="journey-content muted">这一站没有留下文字，就让照片替你记着吧。</p>
                 </div>
             </div>

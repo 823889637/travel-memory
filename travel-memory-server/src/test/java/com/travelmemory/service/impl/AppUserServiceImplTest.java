@@ -3,7 +3,6 @@ package com.travelmemory.service.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -67,6 +66,19 @@ class AppUserServiceImplTest {
         assertEquals(403, closed.getCode());
         assertThrows(BusinessException.class,
                 () -> service(mapper, encoder, true, "invite-code").register(request("user.one", "User", "wrong-code")));
+    }
+
+    @Test
+    void registrationStatusFailsClosedWithoutAConfiguredInviteCode() {
+        AppUserMapper mapper = mock(AppUserMapper.class);
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+
+        assertFalse(service(mapper, encoder, false, "invite-code").registrationStatus().enabled());
+        assertFalse(service(mapper, encoder, true, "").registrationStatus().enabled());
+
+        BusinessException missingInvite = assertThrows(BusinessException.class,
+                () -> service(mapper, encoder, true, "").register(request("user.one", "User", "invite-code")));
+        assertEquals(403, missingInvite.getCode());
     }
 
     @Test
