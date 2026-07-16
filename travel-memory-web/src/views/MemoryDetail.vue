@@ -3,13 +3,18 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import {
   ArrowLeft,
-  CalendarDays,
+  Briefcase,
+  ChevronLeft,
   ChevronRight,
   Ellipsis,
   Heart,
+  Image as ImageIcon,
+  Map as MapIcon,
   MapPin,
   Pencil,
+  Share2,
   Trash2,
+  Users,
 } from '@lucide/vue'
 import { deleteMemory, favoriteMemory, getMemory, getTimeline } from '../api/memory'
 import { getTrip } from '../api/trip'
@@ -32,6 +37,9 @@ const favoriteSaving = ref(false)
 const removing = ref(false)
 const menuOpen = ref(false)
 const menuAnchor = ref('top')
+const photoGallery = ref(null)
+const actionMessage = ref('')
+let actionMessageTimer = null
 
 const orderedMemories = computed(() => [...timeline.value].sort((left, right) => {
   const timeDiff = timeValue(left.recordTime) - timeValue(right.recordTime)
@@ -65,8 +73,14 @@ const detailTitle = computed(() => {
   if (memory.value?.content?.trim()) return ''
   return fallbackMemoryTitle(memory.value?.recordTime)
 })
-const tripDateLabel = computed(() => formatDateRange(trip.value?.startDate, trip.value?.endDate))
-const tripCoverUrl = computed(() => trip.value?.coverPhotoUrl || '')
+const memoryPlaceLabel = computed(() => {
+  const values = [
+    trip.value?.destinationCountry,
+    trip.value?.destination,
+    memory.value?.locationName,
+  ].map(value => String(value || '').trim()).filter(Boolean)
+  return [...new Set(values)].join(' · ') || '地点还没有补充'
+})
 
 function normalizePhotos(item) {
   if (item?.photos?.length) return item.photos
@@ -110,11 +124,6 @@ function formatCompactTime(value) {
   return [date, time].filter(Boolean).join(' · ')
 }
 
-function formatDateRange(startDate, endDate) {
-  const values = [startDate, endDate].filter(Boolean).map(value => String(value).replaceAll('-', '.'))
-  return values.join(' — ')
-}
-
 function fallbackMemoryTitle(value) {
   const parts = parseDateParts(value)
   return parts ? `${parts.year}年${parts.month}月${parts.day}日的记忆` : '这段记忆'
@@ -144,6 +153,39 @@ function toggleMenu(anchor) {
 
 function closeMenu() {
   menuOpen.value = false
+}
+
+function openGallery() {
+  if (photos.value.length) photoGallery.value?.open(0)
+}
+
+function showActionMessage(message) {
+  actionMessage.value = message
+  if (actionMessageTimer) window.clearTimeout(actionMessageTimer)
+  actionMessageTimer = window.setTimeout(() => {
+    actionMessage.value = ''
+    actionMessageTimer = null
+  }, 2400)
+}
+
+async function shareMemory() {
+  if (!memory.value) return
+  const shareData = {
+    title: memoryLabel(memory.value),
+    text: memory.value.content?.trim() || '一段旅行记忆',
+    url: window.location.href,
+  }
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData)
+      return
+    }
+    if (!navigator.clipboard?.writeText) throw new Error('当前浏览器暂不支持分享')
+    await navigator.clipboard.writeText(shareData.url)
+    showActionMessage('链接已复制')
+  } catch (error) {
+    if (error?.name !== 'AbortError') actionError.value = error.message || '暂时无法分享这段记忆。'
+  }
 }
 
 function handleKeydown(event) {
@@ -209,7 +251,10 @@ async function removeMemory() {
 
 watch(() => [props.tripId, props.memoryId], loadPage, { immediate: true })
 onMounted(() => document.addEventListener('keydown', handleKeydown))
-onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleKeydown)
+  if (actionMessageTimer) window.clearTimeout(actionMessageTimer)
+})
 </script>
 
 <template>
@@ -225,17 +270,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
         <button type="button" class="memory-detail-topbar-button" aria-label="返回上一页" @click="goBack">
           <ArrowLeft :size="21" aria-hidden="true" />
         </button>
-        <span class="memory-detail-topbar-title">记忆详情</span>
+        <span class="memory-detail-topbar-title">旅行记忆</span>
         <div class="memory-detail-topbar-actions">
           <button
             type="button"
-            :class="['memory-detail-topbar-button', { active: memory.isFavorite === 1 }]"
-            :disabled="favoriteSaving"
-            :aria-label="memory.isFavorite === 1 ? '取消收藏' : '收藏这段记忆'"
-            :aria-pressed="memory.isFavorite === 1"
-            @click.stop="toggleFavorite"
+            class="memory-detail-topbar-button"
+            aria-label="分享这段记忆"
+            @click.stop="shareMemory"
           >
-            <Heart :size="20" :fill="memory.isFavorite === 1 ? 'currentColor' : 'none'" aria-hidden="true" />
+            <Share2 :size="20" aria-hidden="true" />
           </button>
           <div class="memory-detail-more" @click.stop>
             <button type="button" class="memory-detail-topbar-button" aria-label="更多操作" :aria-expanded="menuOpen && menuAnchor === 'top'" @click="toggleMenu('top')">
@@ -256,6 +299,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
       <article :class="['memory-detail-content', { 'text-only': !photos.length }]">
         <section v-if="photos.length" class="memory-detail-photo-column" aria-label="记忆照片">
           <MemoryPhotoGallery
+            ref="photoGallery"
             :photos="photos"
             :fallback-url="memory.photoUrl"
             fit="contain"
@@ -273,8 +317,20 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
           <p v-if="!photos.length" class="memory-no-photo-note">没有照片，也是一段完整记忆。</p>
 
           <div class="memory-detail-meta-line">
-            <span class="memory-day-chip">{{ dayLabel }}</span>
-            <time :datetime="memory.recordTime || undefined">{{ recordTimeLabel }}</time>
+            <div class="memory-detail-time">
+              <span class="memory-day-chip">{{ dayLabel }}</span>
+              <time :datetime="memory.recordTime || undefined">{{ recordTimeLabel }}</time>
+            </div>
+            <button
+              type="button"
+              :class="['memory-detail-favorite', { active: memory.isFavorite === 1 }]"
+              :disabled="favoriteSaving"
+              :aria-label="memory.isFavorite === 1 ? '取消收藏' : '收藏这段记忆'"
+              :aria-pressed="memory.isFavorite === 1"
+              @click="toggleFavorite"
+            >
+              <Heart :size="25" :fill="memory.isFavorite === 1 ? 'currentColor' : 'none'" aria-hidden="true" />
+            </button>
           </div>
 
           <h1 v-if="detailTitle" class="memory-detail-title">{{ detailTitle }}</h1>
@@ -282,90 +338,92 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
           <blockquote :class="['memory-detail-quote', { 'is-empty': !memory.content }]">
             <span class="memory-quote-mark" aria-hidden="true">“</span>
             <p>{{ memory.content || '这一刻没有留下文字。' }}</p>
+            <span class="memory-quote-mark memory-quote-mark-end" aria-hidden="true">”</span>
           </blockquote>
 
-          <section class="memory-meta-section" aria-label="记忆信息">
-            <div class="memory-meta-item">
-              <CalendarDays :size="18" aria-hidden="true" />
-              <span><small>记录时间</small><strong>{{ recordTimeLabel }}</strong></span>
-            </div>
-            <div v-if="memory.locationName || hasCoordinates" class="memory-meta-item">
+          <section class="memory-context-list" aria-label="记忆信息">
+            <RouterLink
+              v-if="hasCoordinates"
+              class="memory-context-row"
+              :to="{ path: `/trips/${tripId}/map`, query: { memoryId: memory.id } }"
+            >
               <MapPin :size="18" aria-hidden="true" />
-              <span><small>地点</small><strong>{{ memory.locationName || '地点还没有补充' }}</strong></span>
-              <RouterLink v-if="hasCoordinates" class="memory-map-link" :to="{ path: `/trips/${tripId}/map`, query: { memoryId: memory.id } }">在地图中查看</RouterLink>
+              <strong>地点</strong>
+              <span>{{ memoryPlaceLabel }}</span>
+              <ChevronRight :size="18" aria-hidden="true" />
+            </RouterLink>
+            <div v-else class="memory-context-row">
+              <MapPin :size="18" aria-hidden="true" />
+              <strong>地点</strong>
+              <span>{{ memoryPlaceLabel }}</span>
+              <span aria-hidden="true"></span>
             </div>
+
+            <RouterLink class="memory-context-row" :to="`/trips/${tripId}`">
+              <Briefcase :size="18" aria-hidden="true" />
+              <strong>旅行</strong>
+              <span>{{ trip.title || '这次旅行' }}</span>
+              <ChevronRight :size="18" aria-hidden="true" />
+            </RouterLink>
+
+            <RouterLink class="memory-context-row memory-context-companions" :to="`/trips/${tripId}/companions`">
+              <Users :size="18" aria-hidden="true" />
+              <strong>同行的人</strong>
+              <span class="memory-context-companion-value">
+                <span v-if="memory.companions?.length" class="memory-context-avatars" aria-hidden="true">
+                  <span v-for="companion in memory.companions.slice(0, 3)" :key="companion.id || companion.name" class="memory-context-avatar">
+                    <img v-if="companion.avatarUrl" :src="companion.avatarUrl" alt="" />
+                    <template v-else>{{ companionInitial(companion) }}</template>
+                  </span>
+                </span>
+                <span>{{ memory.companions?.length ? `${memory.companions.length} 人` : '未标记' }}</span>
+              </span>
+              <ChevronRight :size="18" aria-hidden="true" />
+            </RouterLink>
           </section>
 
-          <section v-if="memory.companions?.length" class="memory-companion-section">
-            <h2>同行的人</h2>
-            <div class="memory-companion-list">
-              <span v-for="companion in memory.companions" :key="companion.id || companion.name" class="memory-companion">
-                <span class="memory-companion-avatar" aria-hidden="true"><img v-if="companion.avatarUrl" :src="companion.avatarUrl" alt="" /><template v-else>{{ companionInitial(companion) }}</template></span>
-                <span>{{ companion.name }}<small v-if="companion.isSelf">（你）</small></span>
-              </span>
-            </div>
-          </section>
-
-          <section class="memory-trip-source">
-            <h2>来自旅行</h2>
-            <RouterLink class="memory-trip-card" :to="`/trips/${tripId}`">
-              <span class="memory-trip-cover">
-                <img v-if="tripCoverUrl" :src="tripCoverUrl" :alt="`${trip.title || '旅行'}封面`" />
-                <span v-else aria-hidden="true">{{ (trip.destination || trip.title || '旅').slice(0, 1) }}</span>
-              </span>
-              <span class="memory-trip-copy">
-                <strong>{{ trip.title || '这次旅行' }}</strong>
-                <small>{{ [trip.destination, tripDateLabel].filter(Boolean).join(' · ') }}</small>
-              </span>
+          <section v-if="photos.length || hasCoordinates" :class="['memory-detail-quick-actions', { single: !photos.length || !hasCoordinates }]" aria-label="记忆浏览入口">
+            <button v-if="photos.length" type="button" @click="openGallery">
+              <ImageIcon :size="25" aria-hidden="true" />
+              <span><strong>查看全部照片</strong><small>{{ photos.length }} 张</small></span>
+              <ChevronRight :size="19" aria-hidden="true" />
+            </button>
+            <RouterLink v-if="hasCoordinates" :to="{ path: `/trips/${tripId}/map`, query: { memoryId: memory.id } }">
+              <MapIcon :size="25" aria-hidden="true" />
+              <span><strong>查看地图</strong><small>查看此地位置</small></span>
               <ChevronRight :size="19" aria-hidden="true" />
             </RouterLink>
           </section>
+
         </section>
       </article>
 
       <p v-if="actionError" class="memory-detail-action-error" role="alert">{{ actionError }}</p>
+      <p v-if="actionMessage" class="memory-detail-action-message" role="status">{{ actionMessage }}</p>
 
       <section v-if="showNeighborNavigation" class="memory-neighbors" aria-label="相邻记忆">
         <RouterLink v-if="previousMemory" class="memory-neighbor-card" :to="`/trips/${tripId}/memories/${previousMemory.id}`">
+          <ChevronLeft class="memory-neighbor-arrow" :size="22" aria-hidden="true" />
           <img v-if="firstPhotoUrl(previousMemory)" :src="firstPhotoUrl(previousMemory)" :alt="`${memoryLabel(previousMemory)}缩略图`" />
           <span class="memory-neighbor-copy">
-            <small>上一段记忆 · {{ formatCompactTime(previousMemory.recordTime) }}</small>
+            <small>上一篇记忆</small>
             <strong>{{ memoryLabel(previousMemory) }}</strong>
-            <span>{{ previousMemory.content || '这一刻没有留下文字。' }}</span>
+            <span>{{ formatCompactTime(previousMemory.recordTime) }}</span>
           </span>
         </RouterLink>
         <p v-else class="memory-neighbor-boundary">已经是这次旅行最早的一段记忆</p>
 
-        <RouterLink v-if="nextMemory" class="memory-neighbor-card" :to="`/trips/${tripId}/memories/${nextMemory.id}`">
-          <img v-if="firstPhotoUrl(nextMemory)" :src="firstPhotoUrl(nextMemory)" :alt="`${memoryLabel(nextMemory)}缩略图`" />
+        <RouterLink v-if="nextMemory" class="memory-neighbor-card memory-neighbor-next" :to="`/trips/${tripId}/memories/${nextMemory.id}`">
           <span class="memory-neighbor-copy">
-            <small>下一段记忆 · {{ formatCompactTime(nextMemory.recordTime) }}</small>
+            <small>下一篇记忆</small>
             <strong>{{ memoryLabel(nextMemory) }}</strong>
-            <span>{{ nextMemory.content || '这一刻没有留下文字。' }}</span>
+            <span>{{ formatCompactTime(nextMemory.recordTime) }}</span>
           </span>
+          <img v-if="firstPhotoUrl(nextMemory)" :src="firstPhotoUrl(nextMemory)" :alt="`${memoryLabel(nextMemory)}缩略图`" />
+          <ChevronRight class="memory-neighbor-arrow" :size="22" aria-hidden="true" />
         </RouterLink>
         <p v-else class="memory-neighbor-boundary">已经是这次旅行最后的一段记忆</p>
       </section>
-
-      <nav class="memory-detail-bottom-actions" aria-label="记忆操作">
-        <RouterLink :to="`/trips/${tripId}/memories/${memory.id}/edit`">
-          <Pencil :size="18" aria-hidden="true" /><span>编辑</span>
-        </RouterLink>
-        <button type="button" :disabled="favoriteSaving" :aria-pressed="memory.isFavorite === 1" @click="toggleFavorite">
-          <Heart :size="19" :fill="memory.isFavorite === 1 ? 'currentColor' : 'none'" aria-hidden="true" />
-          <span>{{ memory.isFavorite === 1 ? '取消收藏' : '收藏' }}</span>
-        </button>
-        <div class="memory-bottom-more" @click.stop>
-          <button type="button" aria-label="更多操作" :aria-expanded="menuOpen && menuAnchor === 'bottom'" @click="toggleMenu('bottom')">
-            <Ellipsis :size="20" aria-hidden="true" /><span>更多</span>
-          </button>
-          <div v-if="menuOpen && menuAnchor === 'bottom'" class="memory-detail-menu memory-bottom-menu" role="menu">
-            <button type="button" role="menuitem" class="danger" :disabled="removing" @click="removeMemory">
-              <Trash2 :size="15" aria-hidden="true" />{{ removing ? '删除中…' : '删除记忆' }}
-            </button>
-          </div>
-        </div>
-      </nav>
     </template>
   </section>
 </template>
@@ -388,48 +446,55 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 .memory-detail-photo-column :deep(.gallery-thumbs) { padding-top: 9px; }
 .memory-detail-reading { display: grid; gap: 20px; align-content: start; padding: 6px 0 0; }
 .memory-no-photo-note { margin: 0; color: var(--tm-text-muted); font-size: 13px; }
-.memory-detail-meta-line { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; color: var(--tm-accent); font-size: 13px; font-weight: 750; }
+.memory-detail-meta-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; color: var(--tm-accent); font-size: 13px; font-weight: 750; }
+.memory-detail-time { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
 .memory-day-chip { padding: 5px 9px; border-radius: 999px; background: var(--tm-accent-soft); }
+.memory-detail-favorite { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; padding: 0; border: 1px solid var(--tm-border); border-radius: 50%; background: transparent; color: #846f62; }
+.memory-detail-favorite:hover, .memory-detail-favorite:focus-visible, .memory-detail-favorite.active { border-color: #d8a88f; background: var(--tm-accent-soft); color: var(--tm-accent); }
 .memory-detail-title { margin: -2px 0 0; font-family: Georgia, "Microsoft YaHei", serif; font-size: clamp(27px, 3vw, 39px); line-height: 1.24; }
-.memory-detail-quote { position: relative; margin: 0; padding: 19px 18px 19px 37px; border: 1px solid rgba(226, 214, 201, .76); border-radius: 9px; background: rgba(247, 241, 233, .78); }
+.memory-detail-quote { position: relative; margin: 0; padding: 20px 34px 22px; border: 0; border-bottom: 1px solid rgba(226, 214, 201, .76); background: transparent; }
 .memory-detail-quote p { margin: 0; white-space: pre-wrap; font-size: 18px; line-height: 1.8; }
 .memory-detail-quote.is-empty p { color: var(--tm-text-muted); font-size: 15px; }
-.memory-quote-mark { position: absolute; top: 7px; left: 12px; color: #c9a88d; font-family: Georgia, serif; font-size: 34px; line-height: 1; }
-.memory-meta-section { display: grid; gap: 13px; padding: 17px 0; border-top: 1px solid var(--tm-border); border-bottom: 1px solid var(--tm-border); }
-.memory-meta-item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
-.memory-meta-item > svg { color: var(--tm-accent); }
-.memory-meta-item > span { display: grid; gap: 2px; }
-.memory-meta-item small { color: var(--tm-text-muted); font-size: 11px; font-weight: 500; }
-.memory-meta-item strong { font-size: 14px; }
-.memory-map-link { color: var(--tm-accent); font-size: 12px; }
-.memory-companion-section, .memory-trip-source { display: grid; gap: 10px; }
-.memory-companion-section h2, .memory-trip-source h2 { margin: 0; color: var(--tm-text-muted); font-size: 12px; font-weight: 650; }
-.memory-companion-list { display: flex; flex-wrap: wrap; gap: 10px 15px; }
-.memory-companion { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
-.memory-companion-avatar { display: grid; width: 30px; height: 30px; place-items: center; overflow: hidden; border: 1px solid #e1cbb9; border-radius: 50%; background: #f3e5da; color: #8d4d31; font-size: 12px; font-weight: 800; }
-.memory-companion-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.memory-trip-card { display: grid; grid-template-columns: 66px minmax(0, 1fr) auto; gap: 11px; align-items: center; min-width: 0; padding: 9px; border: 1px solid var(--tm-border); border-radius: 9px; background: rgba(255, 253, 249, .74); color: var(--tm-text); }
-.memory-trip-card:hover { border-color: #d2ad95; }
-.memory-trip-cover { display: grid; width: 66px; height: 48px; place-items: center; overflow: hidden; border-radius: 6px; background: linear-gradient(145deg, #ead7c7, #f6eee5); color: var(--tm-accent); font-weight: 800; }
-.memory-trip-cover img { width: 100%; height: 100%; object-fit: cover; }
-.memory-trip-copy { display: grid; min-width: 0; gap: 4px; }
-.memory-trip-copy strong, .memory-trip-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.memory-trip-copy strong { font-size: 14px; }
-.memory-trip-copy small { color: var(--tm-text-muted); font-size: 11px; }
+.memory-quote-mark { position: absolute; top: 10px; left: 5px; color: #d7b89f; font-family: Georgia, serif; font-size: 36px; line-height: 1; }
+.memory-quote-mark-end { top: auto; right: 5px; bottom: 7px; left: auto; }
+.memory-context-list { display: grid; border-bottom: 1px solid rgba(226, 214, 201, .76); }
+.memory-context-row { display: grid; grid-template-columns: 24px 86px minmax(0, 1fr) 18px; gap: 9px; align-items: center; min-height: 55px; border-bottom: 1px solid rgba(226, 214, 201, .68); color: var(--tm-text); }
+.memory-context-row:last-child { border-bottom: 0; }
+.memory-context-row > svg { color: #796052; }
+.memory-context-row > strong { font-size: 14px; font-weight: 650; }
+.memory-context-row > span { min-width: 0; overflow: hidden; color: var(--tm-text-muted); font-size: 13px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.memory-context-companion-value { display: flex; align-items: center; justify-content: flex-end; gap: 8px; overflow: visible !important; }
+.memory-context-avatars { display: flex; padding-left: 10px; }
+.memory-context-avatar { display: grid; width: 28px; height: 28px; place-items: center; overflow: hidden; margin-left: -10px; border: 2px solid #fffaf4; border-radius: 50%; background: #f1ded1; color: #8c5035; font-size: 10px; font-weight: 800; }
+.memory-context-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.memory-detail-quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.memory-detail-quick-actions.single { grid-template-columns: minmax(0, 1fr); }
+.memory-detail-quick-actions > button, .memory-detail-quick-actions > a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 66px; padding: 10px 12px; border: 1px solid var(--tm-border); border-radius: 10px; background: rgba(255, 253, 249, .8); color: var(--tm-text); text-align: left; }
+.memory-detail-quick-actions > button { font: inherit; }
+.memory-detail-quick-actions > button > svg:first-child, .memory-detail-quick-actions > a > svg:first-child { color: #886a59; }
+.memory-detail-quick-actions > button > svg:last-child, .memory-detail-quick-actions > a > svg:last-child { color: #ae998b; }
+.memory-detail-quick-actions span { display: grid; min-width: 0; gap: 2px; }
+.memory-detail-quick-actions strong { font-size: 13px; }
+.memory-detail-quick-actions small { color: var(--tm-text-muted); font-size: 10px; }
 .memory-detail-more, .memory-bottom-more { position: relative; }
 .memory-detail-menu { position: absolute; z-index: 30; top: calc(100% + 7px); right: 0; display: grid; min-width: 142px; overflow: hidden; border: 1px solid var(--tm-border); border-radius: 8px; background: var(--tm-surface); box-shadow: 0 14px 30px rgba(46, 36, 29, .16); }
 .memory-detail-menu a, .memory-detail-menu button { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border: 0; background: transparent; color: var(--tm-text); font: inherit; font-size: 13px; text-align: left; }
 .memory-detail-menu a:hover, .memory-detail-menu button:hover { background: var(--tm-accent-soft); }
 .memory-detail-menu .danger { border-top: 1px solid var(--tm-border); color: #a44735; }
 .memory-detail-action-error { margin: 18px 0 0; padding: 10px 12px; border-radius: 7px; background: #fbeae6; color: #a43f2e; font-size: 13px; }
+.memory-detail-action-message { position: fixed; z-index: 60; bottom: 24px; left: 50%; margin: 0; padding: 9px 15px; border-radius: 999px; background: rgba(48, 41, 36, .9); color: #fff; font-size: 12px; transform: translateX(-50%); }
 .memory-neighbors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 42px; }
-.memory-neighbor-card { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 12px; min-height: 102px; padding: 11px; border: 1px solid var(--tm-border); border-radius: 9px; background: rgba(255, 253, 249, .7); color: var(--tm-text); }
+.memory-neighbor-card { display: grid; grid-template-columns: auto 82px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 102px; padding: 11px; border: 1px solid var(--tm-border); border-radius: 12px; background: rgba(255, 253, 249, .76); color: var(--tm-text); }
+.memory-neighbor-next { grid-template-columns: minmax(0, 1fr) 82px auto; }
+.memory-neighbor-card:not(:has(img)) { grid-template-columns: auto minmax(0, 1fr); }
+.memory-neighbor-next:not(:has(img)) { grid-template-columns: minmax(0, 1fr) auto; }
 .memory-neighbor-card:hover { border-color: #d1aa91; }
 .memory-neighbor-card > img { width: 82px; height: 78px; object-fit: cover; border-radius: 6px; }
+.memory-neighbor-arrow { color: #a18473; }
 .memory-neighbor-copy { display: grid; min-width: 0; align-content: center; gap: 5px; }
 .memory-neighbor-copy small { color: var(--tm-text-muted); font-size: 11px; }
 .memory-neighbor-copy strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.memory-neighbor-copy > span { display: -webkit-box; overflow: hidden; color: var(--tm-text-muted); font-size: 12px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.memory-neighbor-copy > span { overflow: hidden; color: var(--tm-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .memory-neighbor-boundary { align-self: center; margin: 0; color: var(--tm-text-muted); font-size: 12px; text-align: center; }
 .memory-detail-bottom-actions { display: none; }
 .memory-detail-content.text-only { grid-template-columns: minmax(0, 780px); justify-content: center; }
@@ -438,33 +503,99 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 @media (max-width: 760px) {
   :global(.app-shell:has(.memory-detail-page) > .topbar) { display: none; }
   :global(.page:has(.memory-detail-page)) { width: 100%; margin: 0; }
-  .memory-detail-page { width: 100%; padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
-  .memory-detail-topbar { top: 0; min-height: 56px; margin: 0; padding: env(safe-area-inset-top) 12px 0; }
-  .memory-detail-topbar-title { color: var(--tm-text); font-size: 15px; }
-  .memory-detail-content { grid-template-columns: 1fr; gap: 0; }
-  .memory-detail-photo-column :deep(.gallery-main) { border-radius: 0; box-shadow: none; }
-  .memory-detail-photo-column :deep(.gallery-main img.gallery-image-contain) { max-height: min(58vh, 460px); border-radius: 0; }
-  .memory-detail-photo-column :deep(.gallery-main-with-backdrop) { height: min(58vh, 460px); }
-  .memory-detail-photo-column :deep(.gallery-thumbs) { padding: 9px 16px 3px; }
-  .memory-detail-reading { gap: 17px; padding: 20px 20px 0; }
-  .memory-detail-meta-line { font-size: 12px; }
-  .memory-detail-title { font-size: 27px; }
-  .memory-detail-quote { padding: 17px 15px 17px 34px; }
-  .memory-detail-quote p { font-size: 17px; line-height: 1.75; }
+  .memory-detail-page { width: 100%; padding-bottom: calc(26px + env(safe-area-inset-bottom)); }
+  .memory-detail-topbar {
+    top: 0;
+    min-height: 58px;
+    margin: 0;
+    padding: env(safe-area-inset-top) 14px 0;
+    border-bottom: 0;
+    background: rgba(255, 252, 247, .96);
+  }
+  .memory-detail-topbar-title {
+    color: var(--tm-text);
+    font-family: Georgia, "Songti SC", "Microsoft YaHei", serif;
+    font-size: 18px;
+  }
+  .memory-detail-content {
+    grid-template-columns: 1fr;
+    gap: 0;
+    overflow: hidden;
+    margin: 8px 12px 0;
+    border: 1px solid rgba(226, 214, 201, .82);
+    border-radius: 22px;
+    background: rgba(255, 253, 249, .96);
+    box-shadow: 0 10px 28px rgba(63, 49, 38, .075);
+  }
+  .memory-detail-photo-column :deep(.gallery) { gap: 0; }
+  .memory-detail-photo-column :deep(.gallery-main) {
+    width: 100%;
+    height: auto !important;
+    aspect-ratio: 16 / 10;
+    border-radius: 0;
+    background: #eee7df;
+    box-shadow: none;
+  }
+  .memory-detail-photo-column :deep(.gallery-main img.gallery-image-contain) {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    border-radius: 0;
+    object-fit: cover;
+  }
+  .memory-detail-photo-column :deep(.gallery-backdrop) { display: none; }
+  .memory-detail-photo-column :deep(.gallery-thumbs) { display: none; }
+  .memory-detail-photo-column :deep(.gallery-count) {
+    top: 14px;
+    right: 14px;
+    bottom: auto;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(48, 42, 37, .66);
+    font-size: 12px;
+  }
+  .memory-detail-reading { gap: 0; padding: 0 20px 22px; }
+  .memory-no-photo-note { padding-top: 22px; }
+  .memory-detail-meta-line { min-height: 66px; font-size: 12px; }
+  .memory-detail-time { gap: 10px; }
+  .memory-day-chip { padding: 6px 11px; }
+  .memory-detail-favorite { flex-basis: 40px; width: 40px; height: 40px; border: 0; }
+  .memory-detail-title { display: none; }
+  .memory-detail-quote { padding: 20px 26px 24px; }
+  .memory-detail-quote p {
+    font-family: Georgia, "Songti SC", "Microsoft YaHei", serif;
+    font-size: 18px;
+    line-height: 1.85;
+  }
   .memory-detail-quote.is-empty p { font-size: 14px; }
-  .memory-meta-item { grid-template-columns: 21px minmax(0, 1fr); }
-  .memory-map-link { grid-column: 2; justify-self: start; }
-  .memory-trip-card { grid-template-columns: 62px minmax(0, 1fr) auto; }
+  .memory-quote-mark { top: 12px; left: 0; }
+  .memory-quote-mark-end { top: auto; right: 0; bottom: 7px; left: auto; }
+  .memory-context-row { grid-template-columns: 22px 72px minmax(0, 1fr) 16px; min-height: 57px; }
+  .memory-context-row > strong { font-size: 14px; }
+  .memory-context-row > span { font-size: 12px; }
+  .memory-context-avatar { width: 27px; height: 27px; }
+  .memory-detail-quick-actions { gap: 9px; padding-top: 18px; }
+  .memory-detail-quick-actions > button, .memory-detail-quick-actions > a { min-height: 64px; padding: 9px 10px; border-radius: 13px; }
   .memory-detail-content.text-only { display: block; }
-  .memory-detail-content.text-only .memory-detail-reading { padding: 24px 20px 0; border: 0; background: transparent; }
-  .memory-neighbors { grid-template-columns: 1fr; gap: 9px; margin: 30px 20px 0; }
-  .memory-neighbor-card { grid-template-columns: 72px minmax(0, 1fr); min-height: 92px; }
-  .memory-neighbor-card > img { width: 72px; height: 68px; }
-  .memory-neighbor-boundary { padding: 8px 0; }
+  .memory-detail-content.text-only .memory-detail-reading { padding: 0 20px 22px; border: 0; background: transparent; }
+  .memory-neighbors { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 12px 0; }
+  .memory-neighbor-card {
+    grid-template-columns: auto 50px minmax(0, 1fr);
+    gap: 6px;
+    min-height: 88px;
+    padding: 8px 7px;
+    border-radius: 14px;
+  }
+  .memory-neighbor-next { grid-template-columns: minmax(0, 1fr) 50px auto; }
+  .memory-neighbor-card > img { width: 50px; height: 60px; border-radius: 8px; }
+  .memory-neighbor-arrow { width: 16px; }
+  .memory-neighbor-copy { gap: 3px; }
+  .memory-neighbor-copy small { font-size: 9px; }
+  .memory-neighbor-copy strong { font-size: 11px; }
+  .memory-neighbor-copy > span { font-size: 9px; }
+  .memory-neighbor-boundary { align-self: stretch; display: grid; min-height: 88px; place-items: center; padding: 8px; border: 1px solid var(--tm-border); border-radius: 14px; background: rgba(255, 253, 249, .65); font-size: 10px; }
   .memory-detail-action-error { margin: 18px 20px 0; }
-  .memory-detail-bottom-actions { position: fixed; z-index: 26; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(3, 1fr); min-height: 60px; padding: 7px 12px max(7px, env(safe-area-inset-bottom)); border-top: 1px solid rgba(226, 214, 201, .9); background: rgba(255, 253, 249, .96); box-shadow: 0 -8px 22px rgba(55, 43, 34, .06); backdrop-filter: blur(14px); }
-  .memory-detail-bottom-actions > a, .memory-detail-bottom-actions > button, .memory-bottom-more > button { display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--tm-text-muted); font: inherit; font-size: 11px; }
-  .memory-detail-bottom-actions > a:hover, .memory-detail-bottom-actions button:hover, .memory-detail-bottom-actions button:focus-visible { color: var(--tm-accent); }
-  .memory-bottom-menu { top: auto; right: 0; bottom: calc(100% + 9px); min-width: 136px; }
+  .memory-detail-action-message { bottom: max(22px, env(safe-area-inset-bottom)); }
 }
 </style>
