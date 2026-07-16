@@ -85,8 +85,9 @@ watch(() => props.tripId, load, { immediate: true })
         :aria-pressed="modelValue.includes(companion.id)"
         @click="toggle(companion.id)"
       >
-        <span class="companion-avatar" aria-hidden="true">{{ modelValue.includes(companion.id) ? '✓' : initial(companion.name) }}</span>
+        <span class="companion-avatar" aria-hidden="true">{{ initial(companion.name) }}</span>
         <small>{{ companion.name }}</small>
+        <span v-if="modelValue.includes(companion.id)" class="companion-remove" aria-hidden="true">×</span>
       </button>
       <button type="button" class="companion-option companion-add" aria-label="添加同行者" @click="addOpen = true">
         <span class="companion-avatar" aria-hidden="true">＋</span>
@@ -116,12 +117,15 @@ watch(() => props.tripId, load, { immediate: true })
 .companion-selector-head strong { font-size: 15px; }
 .companion-selector-head p { margin: 5px 0 0; color: var(--tm-text-muted); font-size: 12px; }
 .companion-selector-head a { flex: 0 0 auto; color: var(--tm-accent); font-size: 12px; }
-.companion-options { display: flex; gap: 12px; overflow-x: auto; padding: 3px 2px 8px; }
-.companion-option { display: grid; flex: 0 0 62px; justify-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: var(--tm-text-muted); }
-.companion-avatar { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid var(--tm-border); border-radius: 50%; background: var(--tm-surface); color: #765846; font-size: 15px; font-weight: 700; }
-.companion-option small { width: 100%; overflow: hidden; color: inherit; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.companion-option.selected .companion-avatar { border: 2px solid var(--tm-accent); background: var(--tm-accent-soft); color: var(--tm-accent); box-shadow: 0 0 0 3px rgba(180,87,49,.09); }
-.companion-add .companion-avatar { border-style: dashed; font-size: 22px; font-weight: 400; }
+.companion-options { display: flex; gap: 9px; overflow-x: auto; padding: 3px 2px 8px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.companion-option { display: inline-flex; flex: 0 0 auto; min-height: 44px; align-items: center; gap: 7px; padding: 4px 11px 4px 5px; border: 1px solid var(--tm-border); border-radius: 999px; background: rgba(255,253,249,.78); color: var(--tm-text-muted); scroll-snap-align: start; }
+.companion-avatar { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: #f0e5da; color: #765846; font-size: 13px; font-weight: 700; }
+.companion-option small { max-width: 72px; overflow: hidden; color: inherit; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.companion-option.selected { border-color: #d8a98f; background: #fff8f2; color: #6f4937; box-shadow: 0 4px 12px rgba(180,87,49,.07); }
+.companion-option.selected .companion-avatar { background: var(--tm-accent-soft); color: var(--tm-accent); }
+.companion-remove { color: #aa745a; font-size: 15px; line-height: 1; }
+.companion-add { border-style: dashed; padding-right: 13px; }
+.companion-add .companion-avatar { background: transparent; color: var(--tm-accent); font-size: 21px; font-weight: 400; }
 .companion-selector-status, .companion-selector-error { margin: 0; font-size: 12px; }
 .companion-selector-status { color: var(--tm-text-muted); }
 .companion-selector-error { color: #c0402c; }

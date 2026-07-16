@@ -150,13 +150,24 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Override
     @Transactional
     public TravelTrip update(Long id, TravelTrip travelTrip) {
+        return update(id, travelTrip, false);
+    }
+
+    @Override
+    @Transactional
+    public TravelTrip update(Long id, TravelTrip travelTrip, boolean clearCover) {
         TravelTrip existing = getById(id);
         normalizeDestinationCountry(travelTrip);
         validateTripFields(travelTrip);
         validateDateRange(travelTrip);
         travelTrip.setId(id);
         travelTrip.setUserId(existing.getUserId());
-        travelTrip.setCoverPhotoUrl(existing.getCoverPhotoUrl());
+        String requestedCoverPhotoUrl = normalizePhotoUrl(travelTrip.getCoverPhotoUrl());
+        travelTrip.setCoverPhotoUrl(clearCover
+                ? null
+                : (requestedCoverPhotoUrl == null
+                        ? existing.getCoverPhotoUrl()
+                        : normalizeOwnedCover(requestedCoverPhotoUrl)));
         travelTrip.setIsFavorite(existing.getIsFavorite());
         travelTrip.setCreateTime(existing.getCreateTime());
         travelTrip.setUpdateTime(null);
@@ -164,6 +175,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         travelTripMapper.updateById(travelTrip);
         travelTripMapper.update(null, new UpdateWrapper<TravelTrip>()
                 .eq("id", id)
+                .set("cover_photo_url", travelTrip.getCoverPhotoUrl())
                 .set("destination_country", travelTrip.getDestinationCountry())
                 .set("destination_latitude", travelTrip.getDestinationLatitude())
                 .set("destination_longitude", travelTrip.getDestinationLongitude()));

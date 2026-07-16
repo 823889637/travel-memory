@@ -37,6 +37,11 @@ public class TripUpdateRequest {
     @Size(max = 1000, message = "notes must not exceed 1000 characters")
     private String notes;
 
+    @Size(max = 255, message = "coverPhotoUrl must not exceed 255 characters")
+    private String coverPhotoUrl;
+
+    private Boolean clearCover;
+
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDestination() { return destination; }
@@ -55,6 +60,10 @@ public class TripUpdateRequest {
     public void setDescription(String description) { this.description = description; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getCoverPhotoUrl() { return coverPhotoUrl; }
+    public void setCoverPhotoUrl(String coverPhotoUrl) { this.coverPhotoUrl = coverPhotoUrl; }
+    public Boolean getClearCover() { return clearCover; }
+    public void setClearCover(Boolean clearCover) { this.clearCover = clearCover; }
 
     @AssertTrue(message = "endDate must not be before startDate")
     public boolean isDateRangeValid() {

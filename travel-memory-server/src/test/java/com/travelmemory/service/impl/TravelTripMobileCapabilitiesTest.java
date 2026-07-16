@@ -90,6 +90,85 @@ class TravelTripMobileCapabilitiesTest {
     }
 
     @Test
+    void updatesCoverOnlyAfterOwnedUploadValidation() {
+        TravelTripMapper mapper = mock(TravelTripMapper.class);
+        CurrentUser currentUser = mock(CurrentUser.class);
+        ProtectedUploadReferenceService uploads = mock(ProtectedUploadReferenceService.class);
+        AtomicReference<TravelTrip> stored = new AtomicReference<>();
+        TravelTrip existing = new TravelTrip();
+        existing.setId(9L);
+        existing.setUserId(7L);
+        existing.setTitle("天津之旅");
+        existing.setCoverPhotoUrl("/uploads/users/7/old.jpg");
+        stored.set(existing);
+        when(currentUser.requireId()).thenReturn(7L);
+        when(mapper.selectById(9L)).thenAnswer(ignored -> stored.get());
+        when(uploads.requireOwnedImage("/uploads/users/7/new.jpg"))
+                .thenReturn("/uploads/users/7/new.jpg");
+        when(mapper.updateById(any(TravelTrip.class))).thenAnswer(invocation -> {
+            stored.set(invocation.getArgument(0));
+            return 1;
+        });
+        TravelTrip request = new TravelTrip();
+        request.setTitle("天津之旅");
+        request.setCoverPhotoUrl("/uploads/users/7/new.jpg");
+
+        TravelTrip result = service(mapper, currentUser, uploads).update(9L, request);
+
+        assertEquals("/uploads/users/7/new.jpg", result.getCoverPhotoUrl());
+        verify(uploads).requireOwnedImage("/uploads/users/7/new.jpg");
+    }
+
+    @Test
+    void refusesForeignCoverDuringTripUpdate() {
+        TravelTripMapper mapper = mock(TravelTripMapper.class);
+        CurrentUser currentUser = mock(CurrentUser.class);
+        ProtectedUploadReferenceService uploads = mock(ProtectedUploadReferenceService.class);
+        TravelTrip existing = new TravelTrip();
+        existing.setId(9L);
+        existing.setUserId(7L);
+        existing.setTitle("天津之旅");
+        existing.setCoverPhotoUrl("/uploads/users/7/old.jpg");
+        when(currentUser.requireId()).thenReturn(7L);
+        when(mapper.selectById(9L)).thenReturn(existing);
+        when(uploads.requireOwnedImage("/uploads/users/8/private.jpg"))
+                .thenThrow(new BusinessException(400, "Invalid upload reference"));
+        TravelTrip request = new TravelTrip();
+        request.setTitle("天津之旅");
+        request.setCoverPhotoUrl("/uploads/users/8/private.jpg");
+
+        assertThrows(BusinessException.class, () -> service(mapper, currentUser, uploads).update(9L, request));
+
+        verify(mapper, never()).updateById(any(TravelTrip.class));
+    }
+
+    @Test
+    void clearsExplicitCoverOnlyWhenUpdateRequestsIt() {
+        TravelTripMapper mapper = mock(TravelTripMapper.class);
+        CurrentUser currentUser = mock(CurrentUser.class);
+        AtomicReference<TravelTrip> stored = new AtomicReference<>();
+        TravelTrip existing = new TravelTrip();
+        existing.setId(9L);
+        existing.setUserId(7L);
+        existing.setTitle("天津之旅");
+        existing.setCoverPhotoUrl("/uploads/users/7/old.jpg");
+        stored.set(existing);
+        when(currentUser.requireId()).thenReturn(7L);
+        when(mapper.selectById(9L)).thenAnswer(ignored -> stored.get());
+        when(mapper.updateById(any(TravelTrip.class))).thenAnswer(invocation -> {
+            stored.set(invocation.getArgument(0));
+            return 1;
+        });
+        TravelTrip request = new TravelTrip();
+        request.setTitle("天津之旅");
+
+        TravelTrip result = service(mapper, currentUser,
+                mock(ProtectedUploadReferenceService.class)).update(9L, request, true);
+
+        assertEquals(null, result.getCoverPhotoUrl());
+    }
+
+    @Test
     void favoriteToggleKeepsTripOwnershipCheck() {
         TravelTripMapper mapper = mock(TravelTripMapper.class);
         CurrentUser currentUser = mock(CurrentUser.class);

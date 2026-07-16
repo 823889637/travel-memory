@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ImagePlus, LoaderCircle, Save } from '@lucide/vue'
+import { Image as ImageIcon, LoaderCircle, Save } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import {
   createTrip,
@@ -10,7 +10,8 @@ import {
   uploadImage,
 } from '../api/trip'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
-import TripCityField from '../components/TripCityField.vue'
+import TripCoverEditor from '../components/TripCoverEditor.vue'
+import TripFormFields from '../components/TripFormFields.vue'
 
 const router = useRouter()
 const saving = ref(false)
@@ -19,7 +20,6 @@ const draftSaving = ref(false)
 const draftLoaded = ref(false)
 const draftMessage = ref('')
 const error = ref('')
-const coverInput = ref(null)
 const coverPreview = ref('')
 let previewObjectUrl = ''
 let draftTimer = null
@@ -64,9 +64,7 @@ function clearPreviewObjectUrl() {
   previewObjectUrl = ''
 }
 
-async function chooseCover(event) {
-  const file = event.target.files?.[0]
-  event.target.value = ''
+async function chooseCover(file) {
   if (!file || uploadingCover.value) return
   error.value = ''
   clearPreviewObjectUrl()
@@ -182,63 +180,27 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <form class="form card trip-form-card" @submit.prevent="submit">
-      <section class="trip-create-cover-field">
-        <div v-if="coverPreview" class="trip-create-cover-preview">
-          <img :src="coverPreview" alt="旅行封面预览" />
-        </div>
-        <div v-else class="trip-create-cover-placeholder">
-          <span>{{ form.destination || '旅行封面' }}</span>
-          <small>选择一张真实照片，让这趟旅行更容易被认出。</small>
-        </div>
-        <button type="button" class="trip-cover-picker" :disabled="uploadingCover" @click="coverInput?.click()">
-          <LoaderCircle v-if="uploadingCover" :size="17" class="spin" aria-hidden="true" />
-          <ImagePlus v-else :size="17" aria-hidden="true" />
-          {{ uploadingCover ? '上传中…' : (coverPreview ? '更换封面' : '添加封面') }}
-        </button>
-        <input ref="coverInput" class="visually-hidden" type="file" accept="image/*" @change="chooseCover" />
+    <form class="form trip-form-layout" @submit.prevent="submit">
+      <TripCoverEditor
+        :preview-url="coverPreview"
+        :location-label="form.destination"
+        :uploading="uploadingCover"
+        @select="chooseCover"
+      />
+
+      <section class="card trip-form-card">
+        <TripFormFields :form="form" id-prefix="create-trip" :date-error="dateError" />
+        <p v-if="draftMessage" class="trip-draft-message">{{ draftMessage }}</p>
+        <p v-if="error" class="error">{{ error }}</p>
       </section>
 
-      <div class="field">
-        <label for="create-trip-title">旅行标题</label>
-        <input id="create-trip-title" v-model="form.title" required maxlength="100" placeholder="例如：天津之旅" />
-      </div>
-      <TripCityField
-        id="create-trip-destination"
-        v-model="form.destination"
-        v-model:country="form.destinationCountry"
-        v-model:latitude="form.destinationLatitude"
-        v-model:longitude="form.destinationLongitude"
-      />
-      <div class="trip-form-date-grid">
-        <div class="field">
-          <label for="create-trip-start-date">开始日期</label>
-          <input id="create-trip-start-date" v-model="form.startDate" type="date" :max="form.endDate || undefined" />
-        </div>
-        <div class="field">
-          <label for="create-trip-end-date">结束日期</label>
-          <input id="create-trip-end-date" v-model="form.endDate" type="date" :min="form.startDate || undefined" />
-        </div>
-      </div>
-      <p v-if="dateError" class="error">{{ dateError }}</p>
-
-      <div class="field">
-        <label for="create-trip-description">一句话描述</label>
-        <textarea id="create-trip-description" v-model="form.description" maxlength="500" placeholder="这趟旅行最想留住的是什么？"></textarea>
-        <small>{{ form.description.length }}/500</small>
-      </div>
-      <div class="field">
-        <label for="create-trip-notes">旅行笔记 <span class="muted">（可选）</span></label>
-        <textarea id="create-trip-notes" v-model="form.notes" maxlength="1000" placeholder="记录期待、灵感，或以后想补充的内容…"></textarea>
-        <small>{{ form.notes.length }}/1000</small>
-      </div>
-
-      <p v-if="draftMessage" class="trip-draft-message">{{ draftMessage }}</p>
-      <p v-if="error" class="error">{{ error }}</p>
-
+      <aside class="trip-cover-guidance">
+        <span aria-hidden="true"><ImageIcon :size="22" :stroke-width="1.5" /></span>
+        <p>封面以后仍可以从旅行记忆中随时更换。</p>
+      </aside>
       <div class="actions trip-form-actions">
         <button :disabled="!canSubmit"><Save :size="17" aria-hidden="true" />{{ saving ? '保存中…' : '保存旅行' }}</button>
-        <button type="button" class="ghost" :disabled="saving" @click="router.push('/trips')">取消</button>
+        <button type="button" class="ghost trip-form-cancel-action" :disabled="saving" @click="router.push('/trips')">取消</button>
       </div>
     </form>
   </section>

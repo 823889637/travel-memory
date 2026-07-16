@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   BookOpen,
@@ -81,11 +81,14 @@ async function removeTrip(id) {
 
 async function toggleTripFavorite(trip) {
   if (favoriteSavingIds.value.has(trip.id)) return
+  const previous = Boolean(trip.isFavorite)
+  trip.isFavorite = !previous
   favoriteSavingIds.value = new Set([...favoriteSavingIds.value, trip.id])
   try {
-    const updated = await favoriteTrip(trip.id, !trip.isFavorite)
+    const updated = await favoriteTrip(trip.id, !previous)
     trip.isFavorite = Boolean(updated.isFavorite)
   } catch (err) {
+    trip.isFavorite = previous
     error.value = err.message || '旅行收藏状态暂时没有更新成功。'
   } finally {
     const next = new Set(favoriteSavingIds.value)
@@ -94,7 +97,17 @@ async function toggleTripFavorite(trip) {
   }
 }
 
-onMounted(loadTrips)
+function closeTripMenus(event) {
+  document.querySelectorAll('.trip-card-more[open]').forEach((menu) => {
+    if (!menu.contains(event.target)) menu.removeAttribute('open')
+  })
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', closeTripMenus)
+  loadTrips()
+})
+onBeforeUnmount(() => document.removeEventListener('pointerdown', closeTripMenus))
 </script>
 
 <template>
@@ -155,13 +168,14 @@ onMounted(loadTrips)
                 :class="['trip-bookmark-button', { active: trip.isFavorite }]"
                 :disabled="favoriteSavingIds.has(trip.id)"
                 :aria-label="trip.isFavorite ? '取消收藏旅行' : '收藏旅行'"
+                :title="trip.isFavorite ? '取消收藏旅行' : '收藏旅行'"
                 :aria-pressed="Boolean(trip.isFavorite)"
-                @click="toggleTripFavorite(trip)"
+                @click.stop="toggleTripFavorite(trip)"
               >
                 <Bookmark :size="19" :fill="trip.isFavorite ? 'currentColor' : 'none'" aria-hidden="true" />
               </button>
               <details class="trip-card-more">
-                <summary aria-label="更多旅行操作" title="更多旅行操作"></summary>
+                <summary aria-label="更多旅行操作" title="更多旅行操作" @click.stop></summary>
                 <div class="trip-card-more-menu">
                   <RouterLink :to="`/trips/${trip.id}/memories/new`">新增记忆</RouterLink>
                   <RouterLink :to="`/trips/${trip.id}/edit`">编辑旅行</RouterLink>

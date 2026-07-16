@@ -274,6 +274,36 @@
   .companions-memory-card { border-radius: 16px; }
 
   /* 02/07 forms and 08 detail */
+  .trip-form-layout {
+    gap: 14px;
+    padding-bottom: 0;
+  }
+  .trip-form-page .trip-form-card,
+  .trip-create-mobile-page .trip-form-card {
+    gap: 16px;
+    padding: 18px 16px;
+    border: 1px solid var(--tm-mobile-line);
+    border-radius: 20px;
+    background: var(--tm-mobile-card);
+    box-shadow: var(--tm-mobile-shadow);
+  }
+  .trip-cover-form-field {
+    border-radius: 20px;
+    box-shadow: var(--tm-mobile-shadow);
+  }
+  .trip-cover-form-wash { background: rgba(255, 248, 239, .2); }
+  .trip-cover-form-placeholder { padding: 20px; }
+  .trip-cover-form-placeholder strong { font-size: 24px; }
+  .trip-cover-picker {
+    right: 12px;
+    bottom: 12px;
+    min-height: 42px;
+    padding-inline: 14px;
+  }
+  .trip-cover-status {
+    padding-inline: 4px;
+    line-height: 1.5;
+  }
   .trip-form-card .field input,
   .trip-form-card .field textarea,
   .trip-city-search-row input,
@@ -281,6 +311,20 @@
   .memory-form-section textarea { border-color: var(--tm-mobile-line); background: rgba(255,253,249,.94); }
   .trip-form-card .field input,
   .trip-form-card .field textarea { border-radius: 13px; }
+  .trip-form-card .field textarea { min-height: 96px; }
+  .trip-form-card .field label { font-size: 15px; }
+  .trip-field-counter { right: 13px; bottom: 9px; }
+  .trip-cover-guidance {
+    min-height: 58px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255, 251, 245, .68);
+    font-size: 12px;
+  }
+  .trip-form-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .trip-form-actions .trip-form-cancel-action { display: none; }
   .trip-edit-cover-preview {
     height: auto;
     aspect-ratio: 16 / 9;
@@ -290,6 +334,13 @@
   .trip-edit-cover-preview img { width: 100%; height: 100%; object-fit: cover; }
   .trip-form-actions button:first-child,
   .memory-save-button { min-height: 54px; border-radius: 15px; font-size: 17px; }
+  .trip-form-actions button:first-child { width: 100%; }
+  .trip-companion-manage-link {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
   .memory-form-section { border-radius: 18px; box-shadow: var(--tm-mobile-shadow); }
   .memory-detail-topbar { background: rgba(250,247,241,.94); }
   .memory-detail-reading { border-radius: 0 0 22px 22px; }
@@ -400,9 +451,25 @@
 .trip-create-button:hover { color: #fff; filter: brightness(.98); }
 
 .trip-card {
+  overflow: visible;
   border-color: rgba(225, 211, 197, .68);
   background: rgba(255, 254, 251, .88);
   box-shadow: 0 9px 24px rgba(76, 53, 38, .06);
+}
+
+.trip-card .trip-cover {
+  overflow: hidden;
+  border-radius: inherit;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.trip-card-more[open] {
+  z-index: 90;
+}
+
+.trip-card-more[open] .trip-card-more-menu {
+  display: grid;
 }
 
 .trip-cover-destination,
@@ -542,6 +609,7 @@
   }
   .trip-grid { gap: 18px; }
   .trip-card {
+    overflow: visible;
     border-radius: 18px;
     background: rgba(255, 254, 251, .92);
     box-shadow: 0 8px 20px rgba(76, 53, 38, .055);
@@ -559,6 +627,28 @@
   .trip-stats { gap: 6px 11px; font-size: 11px; }
   .trip-cover-destination { top: 11px; left: 11px; right: auto; max-width: calc(100% - 78px); }
   .trip-cover-photo-count { top: 11px; right: 11px; }
+  .trip-card-title-row .trip-card-more-menu {
+    position: fixed;
+    z-index: 100;
+    top: auto;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 12px;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 14px;
+    background: #fffdfa;
+    box-shadow: 0 18px 46px rgba(55, 40, 30, .2);
+  }
+  .trip-card-title-row .trip-card-more-menu a,
+  .trip-card-title-row .trip-card-more-menu button {
+    min-height: 46px;
+    padding: 12px;
+  }
+  .trip-bookmark-button.active {
+    color: var(--tm-accent);
+    background: #f4dfd2;
+  }
   .trip-continuation {
     gap: 10px;
     min-height: 94px;
@@ -571,6 +661,26 @@
   .trip-continuation-action { width: 43px; height: 43px; }
   .trip-continuation-empty { grid-template-columns: auto minmax(0, 1fr) auto; padding: 18px 14px; }
   .trip-continuation-empty h2 { font-size: 20px; }
+  .trip-form-date-grid {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .trip-form-date-grid > .field {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .trip-form-date-grid input[type="date"] {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-inline: 10px;
+    font-size: 15px;
+  }
+  .trip-form-date-grid input[type="date"]::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: left;
+  }
 }
 
 @media (max-width: 370px) {

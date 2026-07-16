@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { MapPinned, Search, X } from '@lucide/vue'
 import { searchCities } from '../api/memory'
 import { isValidWgs84Coordinate } from '../utils/coordinates'
-import LocationPicker from './LocationPicker.vue'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -20,7 +19,6 @@ const results = ref([])
 const searching = ref(false)
 const searchAttempted = ref(false)
 const searchError = ref('')
-const pickerOpen = ref(false)
 const selectedName = ref(hasCoordinates() ? String(props.modelValue || '').trim() : '')
 let searchTimer = null
 let searchSequence = 0
@@ -87,19 +85,6 @@ function selectCity(city) {
   searchError.value = ''
 }
 
-function applyMapSelection(selection) {
-  const name = String(selection?.locationName || keyword.value || '').trim()
-  keyword.value = name
-  selectedName.value = isValidWgs84Coordinate(selection?.latitude, selection?.longitude) ? name : ''
-  emit('update:modelValue', name)
-  emit('update:country', selection?.countryName || '')
-  emit('update:latitude', selection?.latitude ?? null)
-  emit('update:longitude', selection?.longitude ?? null)
-  results.value = []
-  searchAttempted.value = false
-  pickerOpen.value = false
-}
-
 function levelLabel(level) {
   return ({ province: '省级行政区', city: '城市', district: '区县' })[level] || '城市或地区'
 }
@@ -141,7 +126,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" class="field trip-city-field">
-    <label :for="id">目的城市</label>
+    <label :for="id">目的城市 <span class="trip-field-optional">（可选）</span></label>
     <div class="trip-city-control">
       <MapPinned :size="18" :stroke-width="1.7" aria-hidden="true" />
       <input
@@ -156,10 +141,6 @@ onBeforeUnmount(() => {
       <button type="button" class="trip-city-icon-button" :disabled="searching" aria-label="搜索目的城市" title="搜索城市" @click="runSearch">
         <Search :size="18" :stroke-width="1.8" aria-hidden="true" />
       </button>
-      <button type="button" class="trip-city-map-button" @click="pickerOpen = true">
-        <MapPinned :size="16" :stroke-width="1.8" aria-hidden="true" />
-        地图确认
-      </button>
     </div>
 
     <div v-if="results.length || (searchAttempted && !searching && !searchError)" class="trip-city-results" role="listbox" aria-label="城市候选">
@@ -167,7 +148,7 @@ onBeforeUnmount(() => {
         <span><strong>{{ city.name }}</strong><small>{{ cityContext(city) }}</small></span>
         <MapPinned :size="16" :stroke-width="1.7" aria-hidden="true" />
       </button>
-      <p v-if="!results.length">没有找到合适的城市，可以直接填写名称或用地图确认。</p>
+      <p v-if="!results.length">没有找到合适的城市，可以继续直接填写名称。</p>
     </div>
 
     <p v-if="located" class="trip-city-located">
@@ -178,30 +159,18 @@ onBeforeUnmount(() => {
     </p>
     <p v-else-if="searching" class="trip-city-help">正在查找城市候选…</p>
     <p v-else-if="searchError" class="trip-city-error">{{ searchError }}</p>
-    <p v-else class="trip-city-help">可以只填写名称；选择候选后会同时保存城市中心坐标。</p>
 
-    <LocationPicker
-      v-if="pickerOpen"
-      mode="city"
-      :location-name="modelValue"
-      :country-name="country"
-      :latitude="latitude"
-      :longitude="longitude"
-      @confirm="applyMapSelection"
-      @cancel="pickerOpen = false"
-    />
   </div>
 </template>
 
 <style scoped>
 .trip-city-field { position: relative; }
-.trip-city-control { display: grid; grid-template-columns: auto minmax(0, 1fr) 42px auto; align-items: center; overflow: hidden; min-height: 48px; border: 1px solid var(--tm-border); border-radius: 10px; background: #fff; }
+.trip-city-control { display: grid; grid-template-columns: auto minmax(0, 1fr) 42px; align-items: center; overflow: hidden; min-height: 48px; border: 1px solid var(--tm-border); border-radius: 10px; background: #fff; }
 .trip-city-control > svg { margin-left: 13px; color: #8d7666; }
 .trip-city-control input { min-width: 0; min-height: 46px; padding: 0 10px; border: 0; background: transparent; box-shadow: none; }
 .trip-city-control input:focus { outline: none; }
-.trip-city-icon-button, .trip-city-map-button { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 5px; margin: 5px; padding: 0 10px; border: 0; border-left: 1px solid #eadfd3; border-radius: 0; background: transparent; color: var(--tm-accent); }
+.trip-city-icon-button { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 5px; margin: 5px; padding: 0 10px; border: 0; border-left: 1px solid #eadfd3; border-radius: 0; background: transparent; color: var(--tm-accent); }
 .trip-city-icon-button { width: 38px; margin-inline: 0; padding: 0; }
-.trip-city-map-button { white-space: nowrap; font-size: 13px; }
 .trip-city-results { position: absolute; z-index: 12; top: calc(100% - 28px); right: 0; left: 0; overflow: hidden; border: 1px solid var(--tm-border); border-radius: 10px; background: #fffdfa; box-shadow: 0 16px 36px rgba(63, 47, 37, .14); }
 .trip-city-results button { display: flex; width: 100%; min-height: 52px; align-items: center; justify-content: space-between; padding: 9px 13px; border: 0; border-bottom: 1px solid #eee4da; background: transparent; color: var(--tm-text); text-align: left; }
 .trip-city-results button:hover { background: #f8f0e7; }
@@ -215,7 +184,6 @@ onBeforeUnmount(() => {
 .trip-city-error { color: var(--tm-danger, #a94f35); }
 @media (max-width: 640px) {
   .trip-city-control { grid-template-columns: auto minmax(0, 1fr) 40px; }
-  .trip-city-map-button { grid-column: 1 / -1; min-height: 40px; margin: 0; border-top: 1px solid #eadfd3; border-left: 0; }
-  .trip-city-results { top: calc(100% - 20px); }
+  .trip-city-results { top: calc(100% + 6px); }
 }
 </style>

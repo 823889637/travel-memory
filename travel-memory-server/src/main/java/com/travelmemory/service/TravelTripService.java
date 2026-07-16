@@ -14,6 +14,8 @@ public interface TravelTripService {
 
     TravelTrip update(Long id, TravelTrip travelTrip);
 
+    TravelTrip update(Long id, TravelTrip travelTrip, boolean clearCover);
+
     TravelTrip setCover(Long tripId, Long memoryId);
 
     TravelTrip setCoverUrl(Long tripId, String photoUrl);

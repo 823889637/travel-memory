@@ -127,10 +127,10 @@ class TravelCoverServiceTest {
     }
 
     @Test
-    void regularTripUpdateCannotReplaceExplicitCover() {
+    void regularTripUpdateWithoutCoverKeepsExplicitCover() {
         TravelTripMapper tripMapper = mock(TravelTripMapper.class);
         TravelTrip existing = trip(1L, "/uploads/cover.jpg");
-        TravelTrip request = trip(99L, "https://example.test/not-allowed.jpg");
+        TravelTrip request = trip(99L, null);
         when(tripMapper.selectById(1L)).thenReturn(existing);
 
         TravelTripServiceImpl service = tripService(tripMapper, mock(TravelMemoryMapper.class));

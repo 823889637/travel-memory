@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
-import { ArrowLeft, CalendarDays } from '@lucide/vue'
+import { ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, MapPin } from '@lucide/vue'
 import {
   createMemory,
   deleteMemoryDraft,
@@ -13,7 +13,7 @@ import {
 import CompanionSelector from '../components/CompanionSelector.vue'
 import LocationPicker from '../components/LocationPicker.vue'
 import MemoryPhotoEditor from '../components/MemoryPhotoEditor.vue'
-import { formatDisplayDateTime, formatLocalDateTime, toDateTimeLocalValue } from '../utils/dateTime'
+import { formatLocalDateTime, toDateTimeLocalValue } from '../utils/dateTime'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
@@ -54,7 +54,6 @@ const canSubmit = computed(() => !saving.value && !uploading.value && !coordinat
 const hasUploadResult = computed(() => Boolean(photoUploadResult.value))
 const hasExifTime = computed(() => Boolean(photoUploadResult.value?.photoTakenTime))
 const hasExifLocation = computed(() => photoUploadResult.value?.latitude != null && photoUploadResult.value?.longitude != null)
-const formattedExifTime = computed(() => formatDisplayDateTime(photoUploadResult.value?.photoTakenTime))
 const formattedExifLocation = computed(() => hasExifLocation.value
   ? `${formatCoordinate(photoUploadResult.value.latitude)}, ${formatCoordinate(photoUploadResult.value.longitude)}`
   : '')
@@ -394,8 +393,11 @@ onBeforeUnmount(() => {
     </header>
 
     <form class="memory-form" @submit.prevent="submit">
-      <section class="memory-form-section">
-        <h2 class="memory-form-section-title"><span class="memory-form-step">1</span>照片</h2>
+      <section class="memory-photo-section" aria-labelledby="memory-create-photo-title">
+        <div class="memory-photo-section-head">
+          <h2 id="memory-create-photo-title">照片</h2>
+          <span>{{ photoItems.length }} / {{ MAX_PHOTOS }}</span>
+        </div>
         <input ref="photoInput" hidden type="file" accept="image/*" multiple @change="onPhotoChange" />
         <MemoryPhotoEditor
           :photos="photoItems"
@@ -411,13 +413,10 @@ onBeforeUnmount(() => {
         />
         <p v-if="photoError" class="memory-form-error" role="alert">{{ photoError }}</p>
         <p v-if="uploading" class="memory-form-help" role="status">正在上传并识别照片信息…</p>
-        <p v-else-if="hasUploadResult && (hasExifTime || hasExifLocation)" class="memory-form-success">
-          已识别{{ hasExifTime ? `拍摄时间 ${formattedExifTime}` : '' }}{{ hasExifTime && hasExifLocation ? '，并' : '' }}{{ hasExifLocation ? '照片定位' : '' }}。
-        </p>
       </section>
 
-      <section class="memory-form-section">
-        <h2 class="memory-form-section-title"><span class="memory-form-step">2</span>这一刻想记住什么？</h2>
+      <section class="memory-form-card memory-copy-card">
+        <h2 class="memory-form-section-title">这一刻想记住什么？</h2>
         <div class="memory-content-field">
           <label class="sr-only" for="memory-create-content">这一刻想记住什么</label>
           <textarea id="memory-create-content" v-model="form.content" maxlength="300" placeholder="记录这一刻的想法……&#10;当时的感受、遇见的风景、听到的话……"></textarea>
@@ -425,62 +424,67 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="memory-form-section">
-        <h2 class="memory-form-section-title"><span class="memory-form-step">3</span>记录时间</h2>
-        <label class="memory-time-field" for="memory-create-time">
-          <CalendarDays :size="18" aria-hidden="true" />
-          <input id="memory-create-time" v-model="form.recordTime" type="datetime-local" @input="onRecordTimeInput" />
-          <span>修改</span>
-        </label>
-        <p v-if="hasExifTime" class="memory-form-success">
-          已识别拍摄时间，可确认或修改。
-          <button type="button" class="memory-inline-action" @click="usePrimaryPhotoTime">使用主图时间</button>
-        </p>
-        <p v-else-if="hasUploadResult" class="memory-form-help">未识别到照片拍摄时间，请选择记录时间。</p>
-      </section>
+      <section class="memory-form-card memory-details-card">
+        <div class="memory-detail-group">
+          <h2 class="memory-form-section-title">记录时间</h2>
+          <label class="memory-time-field" for="memory-create-time">
+            <CalendarDays :size="18" aria-hidden="true" />
+            <input id="memory-create-time" v-model="form.recordTime" type="datetime-local" @input="onRecordTimeInput" />
+            <ChevronDown :size="17" aria-hidden="true" />
+          </label>
+          <p v-if="hasExifTime" class="memory-form-success memory-recognition-status">
+            <CheckCircle2 :size="15" aria-hidden="true" />
+            <span>已从主图拍摄信息中识别，你可以修改。</span>
+            <button type="button" class="memory-inline-action" @click="usePrimaryPhotoTime">使用主图时间</button>
+          </p>
+          <p v-else-if="hasUploadResult" class="memory-form-help">未识别到照片拍摄时间，请选择记录时间。</p>
+        </div>
 
-      <section class="memory-form-section">
-        <h2 class="memory-form-section-title"><span class="memory-form-step">4</span>地点</h2>
-        <div class="memory-location-row">
-          <label class="sr-only" for="memory-create-location">地点名称</label>
-          <input id="memory-create-location" v-model="form.locationName" maxlength="255" placeholder="输入地点名称" @input="onLocationNameInput" />
-          <button type="button" class="memory-location-picker-button" @click="showLocationPicker = true">搜索／地图选点</button>
-        </div>
-        <div v-if="locationSuggestionStatus !== 'idle' && !form.locationName" class="memory-location-suggestion">
-          <p v-if="locationSuggestionStatus === 'loading'">正在识别附近地点…</p>
-          <template v-else-if="hasLocationSuggestion">
-            <p>推荐地点：{{ locationSuggestion.locationName }}</p>
-            <button type="button" class="memory-inline-action" @click="useLocationSuggestion">使用</button>
-          </template>
-          <p v-else>暂时无法识别这里的名称，你可以自己填写。</p>
-        </div>
-        <div class="memory-more">
-          <button type="button" class="memory-more-toggle" :aria-expanded="showMoreLocation" @click="showMoreLocation = !showMoreLocation">
-            <span>更多位置信息（可选）</span><span>{{ showMoreLocation ? '收起 ↑' : '展开 ↓' }}</span>
-          </button>
-          <div v-if="showMoreLocation" class="memory-more-panel">
-            <p v-if="hasExifLocation" class="memory-form-help">照片定位：{{ formattedExifLocation }}</p>
-            <div class="memory-location-actions">
-              <button type="button" :disabled="locating" @click="getLocation">{{ locating ? '定位中…' : '使用当前位置' }}</button>
-              <button v-if="hasCoordinates" type="button" :disabled="locationSuggestionStatus === 'loading'" @click="requestLocationSuggestion({ force: true })">识别附近地点</button>
+        <div class="memory-detail-group">
+          <h2 class="memory-form-section-title">地点</h2>
+          <div class="memory-location-row">
+            <MapPin :size="18" aria-hidden="true" />
+            <label class="sr-only" for="memory-create-location">地点名称</label>
+            <input id="memory-create-location" v-model="form.locationName" maxlength="255" placeholder="输入地点名称" @input="onLocationNameInput" />
+            <button type="button" class="memory-location-picker-button" @click="showLocationPicker = true">搜索 / 地图选点</button>
+          </div>
+          <div v-if="locationSuggestionStatus !== 'idle' && !form.locationName" class="memory-location-suggestion">
+            <p v-if="locationSuggestionStatus === 'loading'">正在识别附近地点…</p>
+            <template v-else-if="hasLocationSuggestion">
+              <p>推荐地点：{{ locationSuggestion.locationName }}</p>
+              <button type="button" class="memory-inline-action" @click="useLocationSuggestion">使用</button>
+            </template>
+            <p v-else>暂时无法识别这里的名称，你可以自己填写。</p>
+          </div>
+          <div class="memory-more">
+            <button type="button" class="memory-more-toggle" :aria-expanded="showMoreLocation" @click="showMoreLocation = !showMoreLocation">
+              <span>更多位置信息（可选）</span>
+              <ChevronDown :size="16" :class="{ expanded: showMoreLocation }" aria-hidden="true" />
+            </button>
+            <div v-if="showMoreLocation" class="memory-more-panel">
+              <p v-if="hasExifLocation" class="memory-form-help">照片定位：{{ formattedExifLocation }}</p>
+              <div class="memory-location-actions">
+                <button type="button" :disabled="locating" @click="getLocation">{{ locating ? '定位中…' : '使用当前位置' }}</button>
+                <button v-if="hasCoordinates" type="button" :disabled="locationSuggestionStatus === 'loading'" @click="requestLocationSuggestion({ force: true })">识别附近地点</button>
+              </div>
+              <div class="memory-coordinate-grid">
+                <label for="memory-create-lat">纬度<input id="memory-create-lat" v-model.trim="form.latitude" inputmode="decimal" @input="onLatitudeInput" /></label>
+                <label for="memory-create-lng">经度<input id="memory-create-lng" v-model.trim="form.longitude" inputmode="decimal" @input="onLongitudeInput" /></label>
+              </div>
+              <p v-if="latitudeError || longitudeError" class="memory-form-error">{{ latitudeError || longitudeError }}</p>
             </div>
-            <div class="memory-coordinate-grid">
-              <label for="memory-create-lat">纬度<input id="memory-create-lat" v-model.trim="form.latitude" inputmode="decimal" @input="onLatitudeInput" /></label>
-              <label for="memory-create-lng">经度<input id="memory-create-lng" v-model.trim="form.longitude" inputmode="decimal" @input="onLongitudeInput" /></label>
-            </div>
-            <p v-if="latitudeError || longitudeError" class="memory-form-error">{{ latitudeError || longitudeError }}</p>
           </div>
         </div>
-      </section>
 
-      <section class="memory-form-section">
-        <h2 class="memory-form-section-title"><span class="memory-form-step">5</span>同行者</h2>
-        <CompanionSelector v-model="selectedCompanionIds" :trip-id="id" :show-heading="false" />
+        <div class="memory-detail-group memory-companion-group">
+          <h2 class="memory-form-section-title">同行的人</h2>
+          <CompanionSelector v-model="selectedCompanionIds" :trip-id="id" :show-heading="false" />
+        </div>
       </section>
 
       <p v-if="error" class="memory-form-alert" role="alert">{{ error }}</p>
       <div class="memory-save-bar">
-        <button type="submit" class="memory-save-button" :disabled="!canSubmit">{{ saving ? '保存中…' : '保存记忆' }}</button>
+        <button type="submit" class="memory-save-button" :disabled="!canSubmit">{{ saving ? '保存中…' : '保存这段记忆' }}</button>
       </div>
     </form>
 

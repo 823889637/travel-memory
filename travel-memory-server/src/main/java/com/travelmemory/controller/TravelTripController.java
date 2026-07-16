@@ -56,7 +56,11 @@ public class TravelTripController {
 
     @PutMapping("/{id}")
     public Result<TravelTrip> update(@PathVariable Long id, @Valid @RequestBody TripUpdateRequest request) {
-        return Result.success(travelTripService.update(id, toTravelTrip(request)));
+        return Result.success(travelTripService.update(
+                id,
+                toTravelTrip(request),
+                Boolean.TRUE.equals(request.getClearCover())
+        ));
     }
 
     @PutMapping("/{id}/cover")
@@ -111,6 +115,7 @@ public class TravelTripController {
         trip.setEndDate(request.getEndDate());
         trip.setDescription(normalizeNullable(request.getDescription()));
         trip.setNotes(normalizeNullable(request.getNotes()));
+        trip.setCoverPhotoUrl(normalizeNullable(request.getCoverPhotoUrl()));
         return trip;
     }
 

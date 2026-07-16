@@ -1,11 +1,13 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { Image as ImageIcon } from '@lucide/vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { clearTripCover, getTrip, updateTrip } from '../api/trip'
+import { getTrip, updateTrip, uploadImage } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { hasExplicitTripCover, resolveTripCoverUrl } from '../utils/tripCover'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
-import TripCityField from '../components/TripCityField.vue'
+import TripCoverEditor from '../components/TripCoverEditor.vue'
+import TripFormFields from '../components/TripFormFields.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -18,10 +20,13 @@ const originalTrip = ref(null)
 const originalForm = ref(null)
 const memories = ref([])
 const coverError = ref('')
-const clearingCover = ref(false)
+const uploadingCover = ref(false)
+const coverPreview = ref('')
+const clearCoverRequested = ref(false)
 const coverImageFailed = ref(false)
 const skipLeavePrompt = ref(false)
 let redirectTimer = null
+let previewObjectUrl = ''
 
 const form = reactive({
   title: '',
@@ -33,6 +38,7 @@ const form = reactive({
   endDate: '',
   description: '',
   notes: '',
+  coverPhotoUrl: '',
 })
 
 const dateError = computed(() => {
@@ -49,11 +55,24 @@ const isDirty = computed(() => {
   return JSON.stringify(normalizeForm(form)) !== JSON.stringify(originalForm.value)
 })
 
-const canSubmit = computed(() => !loading.value && !saving.value && !redirecting.value)
+const canSubmit = computed(() => !loading.value && !saving.value && !redirecting.value && !uploadingCover.value)
+const automaticCoverPhotoUrl = computed(() => resolveTripCoverUrl(
+  originalTrip.value ? { ...originalTrip.value, coverPhotoUrl: null } : null,
+  memories.value,
+))
 const coverPhotoUrl = computed(() => (
-  coverImageFailed.value ? '' : resolveTripCoverUrl(originalTrip.value, memories.value)
+  coverImageFailed.value
+    ? ''
+    : (coverPreview.value || form.coverPhotoUrl || automaticCoverPhotoUrl.value)
 ))
 const hasExplicitCover = computed(() => hasExplicitTripCover(originalTrip.value))
+const hasPendingCover = computed(() => (
+  normalizeText(form.coverPhotoUrl) !== normalizeText(originalTrip.value?.coverPhotoUrl)
+))
+const coverSecondaryLabel = computed(() => {
+  if (clearCoverRequested.value) return '撤销恢复自动封面'
+  return hasPendingCover.value ? '放弃新封面' : '恢复自动封面'
+})
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -80,6 +99,7 @@ function normalizeForm(source) {
     endDate: normalizeDate(source.endDate),
     description: normalizeText(source.description),
     notes: normalizeText(source.notes),
+    coverPhotoUrl: normalizeText(source.coverPhotoUrl),
   }
 }
 
@@ -95,6 +115,35 @@ function applyTrip(trip) {
   const normalized = normalizeForm(trip)
   Object.assign(form, normalized)
   originalForm.value = normalized
+}
+
+function clearPreviewObjectUrl() {
+  if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl)
+  previewObjectUrl = ''
+}
+
+async function chooseCover(file) {
+  if (!file || uploadingCover.value) return
+  coverError.value = ''
+  coverImageFailed.value = false
+  clearPreviewObjectUrl()
+  previewObjectUrl = URL.createObjectURL(file)
+  coverPreview.value = previewObjectUrl
+  uploadingCover.value = true
+  try {
+    const data = new FormData()
+    data.append('photo', file)
+    const result = await uploadImage(data)
+    form.coverPhotoUrl = result.photoUrl
+    coverPreview.value = result.photoUrl
+    clearCoverRequested.value = false
+  } catch (err) {
+    coverPreview.value = ''
+    coverError.value = err.message || '封面上传失败，请重新选择。'
+  } finally {
+    uploadingCover.value = false
+    clearPreviewObjectUrl()
+  }
 }
 
 async function loadTrip() {
@@ -121,6 +170,8 @@ async function loadTrip() {
     originalTrip.value = trip
     memories.value = timeline
     coverImageFailed.value = false
+    coverPreview.value = ''
+    clearCoverRequested.value = false
     applyTrip(trip)
   } catch (err) {
     originalTrip.value = null
@@ -134,23 +185,24 @@ async function loadTrip() {
 }
 
 async function clearCover() {
-  if (!hasExplicitCover.value || clearingCover.value) {
+  if (clearCoverRequested.value) {
+    clearCoverRequested.value = false
+    form.coverPhotoUrl = normalizeText(originalTrip.value?.coverPhotoUrl)
+    coverPreview.value = ''
     return
   }
-  if (!window.confirm('确定取消自定义封面吗？之后会恢复使用自动封面。')) {
+  if (hasPendingCover.value) {
+    form.coverPhotoUrl = normalizeText(originalTrip.value?.coverPhotoUrl)
+    coverPreview.value = ''
+    coverError.value = ''
     return
   }
-
+  if (!hasExplicitCover.value) return
+  clearCoverRequested.value = true
+  form.coverPhotoUrl = ''
+  coverPreview.value = ''
   coverError.value = ''
-  clearingCover.value = true
-  try {
-    originalTrip.value = await clearTripCover(route.params.id)
-    coverImageFailed.value = false
-  } catch (err) {
-    coverError.value = err.message || '取消自定义封面失败，请稍后再试。'
-  } finally {
-    clearingCover.value = false
-  }
+  coverImageFailed.value = false
 }
 
 function validate() {
@@ -179,12 +231,16 @@ async function submit() {
   const normalized = normalizeForm(form)
   saving.value = true
   try {
-    await updateTrip(route.params.id, {
+    const updated = await updateTrip(route.params.id, {
       ...normalized,
       startDate: normalized.startDate || null,
       endDate: normalized.endDate || null,
+      clearCover: clearCoverRequested.value,
     })
-    originalForm.value = normalized
+    originalTrip.value = updated
+    coverPreview.value = ''
+    clearCoverRequested.value = false
+    applyTrip(updated)
     skipLeavePrompt.value = true
     redirecting.value = true
     successMessage.value = '旅行信息已保存。'
@@ -237,6 +293,7 @@ onBeforeUnmount(() => {
   if (redirectTimer) {
     window.clearTimeout(redirectTimer)
   }
+  clearPreviewObjectUrl()
 })
 </script>
 
@@ -255,117 +312,50 @@ onBeforeUnmount(() => {
     <p v-if="loading" class="muted">正在加载这次旅行...</p>
     <p v-else-if="error && !originalTrip" class="error">{{ error }}</p>
 
-    <form v-else-if="originalTrip" class="form card trip-form-card" @submit.prevent="submit">
-      <div class="trip-form-section-head">
-        <span>01</span>
-        <div><strong>旅行封面</strong><p>封面来自这次旅行已经保存的照片。</p></div>
-      </div>
-      <div class="field trip-cover-editor">
-        <img
-          v-if="coverPhotoUrl"
-          class="trip-edit-cover-preview"
-          :src="coverPhotoUrl"
-          alt="当前旅行封面"
-          @error="coverImageFailed = true"
-        />
-        <p v-else class="muted">这次旅行还没有照片可作为封面。</p>
-        <p class="muted">{{ hasExplicitCover ? '当前使用已设置的旅行封面。' : '当前使用自动封面；你也可以在时间线中选择一张照片作为封面。' }}</p>
-        <button v-if="hasExplicitCover" type="button" class="ghost" :disabled="clearingCover" @click="clearCover">
-          {{ clearingCover ? '取消中…' : '取消自定义封面' }}
-        </button>
-        <p v-if="coverError" class="error">{{ coverError }}</p>
-      </div>
-
-      <div class="trip-form-section-head">
-        <span>02</span>
-        <div><strong>基本信息</strong><p>修改后不会影响已经保存的 Memory。</p></div>
-      </div>
-
-      <div class="field">
-        <label for="trip-title">旅行标题</label>
-        <input id="trip-title" v-model="form.title" required maxlength="100" placeholder="例如：京都春日散步" />
-      </div>
-
-      <TripCityField
-        id="trip-destination"
-        v-model="form.destination"
-        v-model:country="form.destinationCountry"
-        v-model:latitude="form.destinationLatitude"
-        v-model:longitude="form.destinationLongitude"
+    <form v-else-if="originalTrip" class="form trip-form-layout" @submit.prevent="submit">
+      <TripCoverEditor
+        :preview-url="coverPhotoUrl"
+        :location-label="form.destination"
+        :uploading="uploadingCover"
+        alt="当前旅行封面"
+        @select="chooseCover"
+        @error="coverImageFailed = true"
       />
-
-      <div class="trip-form-date-grid">
-      <div class="field">
-        <label for="trip-start-date">开始日期</label>
-        <input
-          id="trip-start-date"
-          v-model="form.startDate"
-          type="date"
-          :max="form.endDate || undefined"
-        />
+      <div class="trip-cover-status">
+        <span>{{ form.coverPhotoUrl ? '当前使用自定义旅行封面。' : '当前使用旅行记忆中的自动封面。' }}</span>
+        <button
+          v-if="hasExplicitCover || hasPendingCover"
+          type="button"
+          @click="clearCover"
+        >
+          {{ coverSecondaryLabel }}
+        </button>
       </div>
+      <p v-if="coverError" class="error">{{ coverError }}</p>
 
-      <div class="field">
-        <label for="trip-end-date">结束日期</label>
-        <input
-          id="trip-end-date"
-          v-model="form.endDate"
-          type="date"
-          :min="form.startDate || undefined"
-        />
-        <p v-if="dateError" class="error">{{ dateError }}</p>
-      </div>
-      </div>
+      <section class="card trip-form-card">
+        <TripFormFields :form="form" id-prefix="trip" :date-error="dateError" />
+        <p v-if="error" class="error">{{ error }}</p>
+        <p v-if="successMessage" class="muted">{{ successMessage }}</p>
+      </section>
 
-      <div class="field">
-        <label for="trip-description">旅行描述</label>
-        <textarea
-          id="trip-description"
-          v-model="form.description"
-          maxlength="500"
-          placeholder="简单写一点这趟旅行的背景"
-        ></textarea>
-      </div>
-
-      <div class="field">
-        <label for="trip-notes">旅行笔记 <span class="muted">（可选）</span></label>
-        <textarea id="trip-notes" v-model="form.notes" maxlength="1000" placeholder="只属于你的旅行灵感、期待或补充内容…"></textarea>
-        <small>{{ form.notes.length }}/1000</small>
-      </div>
-
-      <p v-if="error" class="error">{{ error }}</p>
-      <p v-if="successMessage" class="muted">{{ successMessage }}</p>
-
+      <aside class="trip-cover-guidance">
+        <span aria-hidden="true"><ImageIcon :size="22" :stroke-width="1.5" /></span>
+        <p>更换封面会在保存修改后生效，取消编辑不会改变原封面。</p>
+      </aside>
+      <RouterLink :to="`/trips/${route.params.id}/companions`" class="trip-companion-manage-link">管理同行的人</RouterLink>
       <div class="actions trip-form-actions">
         <button :disabled="!canSubmit">{{ saving ? '保存中…' : '保存修改' }}</button>
-        <button type="button" class="ghost" :disabled="saving || redirecting" @click="cancel">取消</button>
-        <RouterLink :to="`/trips/${route.params.id}/companions`" class="trip-companion-manage-link">管理同行的人</RouterLink>
+        <button type="button" class="ghost trip-form-cancel-action" :disabled="saving || redirecting" @click="cancel">取消</button>
       </div>
     </form>
   </section>
 </template>
 
 <style scoped>
-.trip-edit-cover-preview {
-  display: block;
-  width: min(100%, 420px);
-  height: 190px;
-  border-radius: 8px;
-  background: #f1ebe3;
-  object-fit: cover;
-  object-position: center;
-}
-
 .trip-companion-manage-link {
-  align-self: center;
+  justify-self: center;
   color: var(--tm-accent);
   font-size: 13px;
-}
-
-@media (max-width: 640px) {
-  .trip-edit-cover-preview {
-    width: 100%;
-    height: min(52vw, 190px);
-  }
 }
 </style>
