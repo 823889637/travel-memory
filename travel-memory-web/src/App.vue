@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell">
-    <header :class="['topbar', { 'mobile-standalone-hidden': route.meta.mobileStandalone }]">
+    <header :class="['topbar', `mobile-header-${mobileHeaderMode}`]">
       <div class="topbar-inner">
         <RouterLink class="brand" to="/">
           <span class="brand-mark" aria-hidden="true">◇</span>
@@ -14,16 +14,21 @@
       </div>
     </header>
 
-    <main :class="['page', { 'mobile-standalone-page': route.meta.mobileStandalone }]">
+    <main :class="['page', `mobile-header-${mobileHeaderMode}`]">
       <RouterView />
     </main>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { currentUser } from './auth'
 import UserMenu from './components/UserMenu.vue'
 
 const route = useRoute()
+const mobileHeaderMode = computed(() => {
+  const mode = route.meta.mobileHeader
+  return ['global', 'page', 'none'].includes(mode) ? mode : 'global'
+})
 </script>

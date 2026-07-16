@@ -92,26 +92,22 @@ const items = [
 
 @media (max-width: 640px) {
   .trip-view-nav {
-    overflow-x: auto;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    overflow: hidden;
     border-radius: 14px;
     padding: 3px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-  }
-
-  .trip-view-nav::-webkit-scrollbar {
-    display: none;
   }
 
   .trip-view-nav-link {
     display: grid;
-    flex: 0 0 66px;
+    width: 100%;
+    min-width: 0;
     justify-items: center;
     gap: 4px;
-    padding: 8px 4px 7px;
+    padding: 8px 1px 7px;
     border-radius: 10px;
-    font-size: 11px;
-    scroll-snap-align: start;
+    font-size: 9px;
   }
 
 }

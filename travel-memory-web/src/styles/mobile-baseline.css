@@ -64,28 +64,6 @@
   color: var(--tm-text-muted);
 }
 
-.map-memory-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.map-memory-favorite {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--tm-text-muted);
-}
-
-.map-memory-favorite.active {
-  color: var(--tm-accent);
-}
-
 .map-day-calendar {
   position: relative;
   display: grid;
@@ -149,7 +127,8 @@
   }
 
   .page,
-  .page.mobile-standalone-page,
+  .page.mobile-header-page,
+  .page.mobile-header-none,
   .page:has(.journey-reader-page),
   .page:has(.memory-detail-page) {
     width: min(100%, 430px);
@@ -157,7 +136,8 @@
     padding-inline: var(--tm-mobile-gutter);
   }
 
-  .page.mobile-standalone-page {
+  .page.mobile-header-page,
+  .page.mobile-header-none {
     padding-top: 0;
   }
 
@@ -718,13 +698,6 @@
     overflow: hidden;
   }
 
-  .map-memory-card-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-
-  .map-memory-favorite,
   .map-memory-close {
     display: grid;
     width: 30px;
@@ -735,10 +708,6 @@
     border-radius: 50%;
     background: transparent;
     color: var(--tm-text-muted);
-  }
-
-  .map-memory-favorite.active {
-    color: var(--tm-accent);
   }
 
   .map-memory-heading h2 {

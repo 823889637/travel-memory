@@ -222,7 +222,7 @@ onMounted(loadPage)
             <template v-for="(memory, memoryIndex) in group.memories" :key="memory.id">
               <article :class="['journey-memory-section', { 'is-text-only': !hasPhotos(memory) }]">
                 <div class="journey-memory-copy-panel">
-                  <p class="journey-memory-meta">第 {{ memoryIndex + 1 }} 站 · {{ formatTime(memory.recordTime) }} · 1 段记忆</p>
+                  <p class="journey-memory-meta">第 {{ memoryIndex + 1 }} 站 · {{ formatTime(memory.recordTime) }}</p>
                   <RouterLink
                     v-if="memory.locationName"
                     class="journey-memory-location"
@@ -230,6 +230,7 @@ onMounted(loadPage)
                   >
                     {{ memory.locationName }}
                   </RouterLink>
+                  <p v-else class="journey-memory-location muted">地点还没有补充</p>
                   <RouterLink class="journey-memory-detail-link" :to="`/trips/${id}/memories/${memory.id}`">
                     <span v-if="memory.content">“{{ memory.content }}”</span>
                     <span v-else class="muted">这一刻没有留下文字。</span>

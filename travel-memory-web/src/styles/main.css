@@ -319,11 +319,13 @@
 }
 
 @media (max-width: 760px) {
-  .topbar.mobile-standalone-hidden {
+  .topbar.mobile-header-page,
+  .topbar.mobile-header-none {
     display: none;
   }
 
-  .page.mobile-standalone-page {
+  .page.mobile-header-page,
+  .page.mobile-header-none {
     margin-top: 0;
   }
 
@@ -4070,13 +4072,14 @@ textarea {
     background: #f8f5ef;
   }
 
-  .page.mobile-standalone-page {
+  .page.mobile-header-page,
+  .page.mobile-header-none {
     width: calc(100vw - (var(--tm-mobile-gutter) * 2));
     margin: 0 auto 32px;
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .page.mobile-standalone-page:has(.auth-page) {
+  .page.mobile-header-none:has(.auth-page) {
     width: 100%;
     margin-bottom: 0;
   }
