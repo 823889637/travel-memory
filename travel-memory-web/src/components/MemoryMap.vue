@@ -8,6 +8,9 @@ const props = defineProps({
   selectedId: { type: [String, Number], default: null },
   activeDate: { type: String, default: '' },
   focusSelectedOnReady: { type: Boolean, default: false },
+  fallbackLatitude: { type: [Number, String], default: null },
+  fallbackLongitude: { type: [Number, String], default: null },
+  fallbackLabel: { type: String, default: '' },
 })
 const emit = defineEmits(['select'])
 
@@ -20,14 +23,20 @@ const displayPoints = computed(() => props.points.map((point) => {
   const coordinate = wgs84ToGcj02(point.latitude, point.longitude)
   return coordinate ? { ...point, ...coordinate } : null
 }).filter(Boolean))
+const fallbackCoordinate = computed(() => {
+  if (!isValidWgs84Coordinate(props.fallbackLatitude, props.fallbackLongitude)) return null
+  return wgs84ToGcj02(props.fallbackLatitude, props.fallbackLongitude)
+})
 const pointSignature = computed(() => displayPoints.value
   .map((point) => `${point.id}:${point.latitude}:${point.longitude}:${point.sequenceNumber}:${point.mapDate}`).join('|'))
+const mapSignature = computed(() => `${pointSignature.value}|${fallbackCoordinate.value?.latitude || ''}:${fallbackCoordinate.value?.longitude || ''}`)
 
 let map = null
 let AMap = null
 let resizeObserver = null
 let routeAnimationFrame = null
 let destroyed = false
+let destinationMarker = null
 const markers = new Map()
 const MARKER_SIZE = 32
 const OVERLAP_DISTANCE = 34
@@ -61,6 +70,26 @@ function markerElement(point, selected) {
 function clearMarkers() {
   markers.forEach(({ marker }) => marker.setMap(null))
   markers.clear()
+}
+
+function clearDestinationMarker() {
+  destinationMarker?.setMap(null)
+  destinationMarker = null
+}
+
+function renderDestinationMarker() {
+  clearDestinationMarker()
+  if (!map || !AMap || !fallbackCoordinate.value || displayPoints.value.length) return
+  const element = document.createElement('div')
+  element.className = 'memory-map-destination-marker'
+  element.textContent = props.fallbackLabel || '目的城市'
+  destinationMarker = new AMap.Marker({
+    position: [fallbackCoordinate.value.longitude, fallbackCoordinate.value.latitude],
+    content: element,
+    anchor: 'bottom-center',
+    zIndex: 50,
+  })
+  destinationMarker.setMap(map)
 }
 
 function clearRouteLines() {
@@ -209,11 +238,16 @@ function focusPoints(memoryIds = []) {
 }
 
 function fitAll() {
-  fitEntries([...markers.values()], 12)
+  if (markers.size) {
+    fitEntries([...markers.values()], 12)
+  } else if (map && fallbackCoordinate.value) {
+    map.setZoomAndCenter(10, [fallbackCoordinate.value.longitude, fallbackCoordinate.value.latitude])
+  }
 }
 
 function renderMarkers(shouldFit = false) {
   if (!map || !AMap) return
+  clearDestinationMarker()
   clearMarkers()
   displayPoints.value.forEach((point) => {
     try {
@@ -233,6 +267,7 @@ function renderMarkers(shouldFit = false) {
     }
   })
   spreadOverlappingMarkers()
+  if (displayPoints.value.length === 0) renderDestinationMarker()
   if (shouldFit) fitAll()
 }
 
@@ -261,6 +296,7 @@ function cleanUpMap() {
   resizeObserver?.disconnect()
   resizeObserver = null
   clearRouteLines()
+  clearDestinationMarker()
   clearMarkers()
   map?.destroy()
   map = null
@@ -291,7 +327,7 @@ async function initializeMap() {
     return
   }
   if (!configureSecurity()) return
-  if (!mapElement.value || displayPoints.value.length === 0) {
+  if (!mapElement.value || (displayPoints.value.length === 0 && !fallbackCoordinate.value)) {
     state.value = 'idle'
     return
   }
@@ -307,7 +343,10 @@ async function initializeMap() {
     AMap = loadedAMap
     map = new AMap.Map(mapElement.value, {
       viewMode: '2D',
-      zoom: 5,
+      zoom: fallbackCoordinate.value && displayPoints.value.length === 0 ? 10 : 5,
+      center: fallbackCoordinate.value && displayPoints.value.length === 0
+        ? [fallbackCoordinate.value.longitude, fallbackCoordinate.value.latitude]
+        : undefined,
       zoomEnable: true,
       dragEnable: true,
     })
@@ -336,8 +375,9 @@ function retry() {
   initializeMap()
 }
 
-watch(pointSignature, (next, previous) => {
+watch(mapSignature, (next, previous) => {
   if (state.value === 'ready' && next !== previous) renderMarkers(true)
+  else if (next !== previous) initializeMap()
 })
 watch(() => props.selectedId, () => {
   updateMarkerSelection()

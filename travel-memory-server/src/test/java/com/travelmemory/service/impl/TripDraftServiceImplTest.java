@@ -15,6 +15,7 @@ import com.travelmemory.exception.BusinessException;
 import com.travelmemory.mapper.TripDraftMapper;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.service.ProtectedUploadReferenceService;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
@@ -36,6 +37,8 @@ class TripDraftServiceImplTest {
         assertEquals("天津之旅", result.title());
         assertEquals("/uploads/users/7/2026/07/cover.jpg", result.coverPhotoUrl());
         assertEquals(LocalDate.of(2026, 7, 14), result.startDate());
+        assertEquals(new BigDecimal("39.0851000"), result.destinationLatitude());
+        assertEquals(new BigDecimal("117.1994000"), result.destinationLongitude());
         verify(mapper).insert(any(TripDraft.class));
         verify(uploads).requireOwnedImage("/uploads/users/7/2026/07/cover.jpg");
     }
@@ -71,6 +74,8 @@ class TripDraftServiceImplTest {
         TripDraftRequest request = new TripDraftRequest();
         request.setTitle(title);
         request.setDestination("天津");
+        request.setDestinationLatitude(new BigDecimal("39.0851000"));
+        request.setDestinationLongitude(new BigDecimal("117.1994000"));
         request.setStartDate(LocalDate.of(2026, 7, 14));
         request.setEndDate(LocalDate.of(2026, 7, 21));
         request.setDescription("海河边散步");

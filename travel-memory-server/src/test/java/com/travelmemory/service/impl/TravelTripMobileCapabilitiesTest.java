@@ -18,6 +18,7 @@ import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.mapper.TripCompanionMapper;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.service.ProtectedUploadReferenceService;
+import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +42,9 @@ class TravelTripMobileCapabilitiesTest {
         when(mapper.selectById(9L)).thenAnswer(ignored -> stored.get());
         TravelTrip request = new TravelTrip();
         request.setTitle("天津之旅");
+        request.setDestination("天津市");
+        request.setDestinationLatitude(new BigDecimal("39.0851000"));
+        request.setDestinationLongitude(new BigDecimal("117.1994000"));
         request.setCoverPhotoUrl("/uploads/users/7/cover.jpg");
         request.setIsFavorite(true);
 
@@ -49,7 +53,22 @@ class TravelTripMobileCapabilitiesTest {
         assertEquals(7L, result.getUserId());
         assertEquals("/uploads/users/7/cover.jpg", result.getCoverPhotoUrl());
         assertEquals(false, result.getIsFavorite());
+        assertEquals(new BigDecimal("39.0851000"), result.getDestinationLatitude());
+        assertEquals(new BigDecimal("117.1994000"), result.getDestinationLongitude());
         verify(uploads).requireOwnedImage("/uploads/users/7/cover.jpg");
+    }
+
+    @Test
+    void refusesIncompleteDestinationCoordinates() {
+        TravelTripMapper mapper = mock(TravelTripMapper.class);
+        CurrentUser currentUser = mock(CurrentUser.class);
+        TravelTrip request = new TravelTrip();
+        request.setTitle("天津之旅");
+        request.setDestinationLatitude(new BigDecimal("39.0851000"));
+
+        assertThrows(BusinessException.class, () -> service(mapper, currentUser,
+                mock(ProtectedUploadReferenceService.class)).create(request));
+        verify(mapper, never()).insert(any(TravelTrip.class));
     }
 
     @Test

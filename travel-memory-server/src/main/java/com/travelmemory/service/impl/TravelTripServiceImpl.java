@@ -18,6 +18,7 @@ import com.travelmemory.service.TravelTripService;
 import com.travelmemory.service.ProtectedUploadReferenceService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.vo.TravelTripListVO;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -159,6 +160,10 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         travelTrip.setUpdateTime(null);
         travelTrip.setDeleted(existing.getDeleted());
         travelTripMapper.updateById(travelTrip);
+        travelTripMapper.update(null, new UpdateWrapper<TravelTrip>()
+                .eq("id", id)
+                .set("destination_latitude", travelTrip.getDestinationLatitude())
+                .set("destination_longitude", travelTrip.getDestinationLongitude()));
         return getById(id);
     }
 
@@ -297,11 +302,30 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         if (travelTrip.getDestination() != null && travelTrip.getDestination().length() > 100) {
             throw new BusinessException(400, "Destination must not exceed 100 characters");
         }
+        validateDestinationCoordinates(travelTrip.getDestinationLatitude(), travelTrip.getDestinationLongitude());
+        if (travelTrip.getDestinationLatitude() != null
+                && (travelTrip.getDestination() == null || travelTrip.getDestination().trim().isEmpty())) {
+            throw new BusinessException(400, "Destination name is required when destination coordinates are provided");
+        }
         if (travelTrip.getDescription() != null && travelTrip.getDescription().length() > 500) {
             throw new BusinessException(400, "Description must not exceed 500 characters");
         }
         if (travelTrip.getNotes() != null && travelTrip.getNotes().length() > 1000) {
             throw new BusinessException(400, "Notes must not exceed 1000 characters");
+        }
+    }
+
+    private void validateDestinationCoordinates(BigDecimal latitude, BigDecimal longitude) {
+        if ((latitude == null) != (longitude == null)) {
+            throw new BusinessException(400, "Destination latitude and longitude must be provided together");
+        }
+        if (latitude != null && (latitude.compareTo(BigDecimal.valueOf(-90)) < 0
+                || latitude.compareTo(BigDecimal.valueOf(90)) > 0)) {
+            throw new BusinessException(400, "Destination latitude must be between -90 and 90");
+        }
+        if (longitude != null && (longitude.compareTo(BigDecimal.valueOf(-180)) < 0
+                || longitude.compareTo(BigDecimal.valueOf(180)) > 0)) {
+            throw new BusinessException(400, "Destination longitude must be between -180 and 180");
         }
     }
 

@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { BookOpen, Bookmark, Compass, List, Map } from '@lucide/vue'
 import { deleteTrip, favoriteTrip, getTrips } from '../api/trip'
 import { resolveTripCoverUrl } from '../utils/tripCover'
+import UserMenu from '../components/UserMenu.vue'
 
 const trips = ref([])
 const loading = ref(false)
@@ -84,6 +85,7 @@ onMounted(loadTrips)
         <h1>我的旅行</h1>
         <p class="muted">把每一次旅行，留给未来重新经过。</p>
       </div>
+      <UserMenu class="trip-list-user-menu" />
       <RouterLink v-if="trips.length > 0" to="/trips/new">
         <button class="trip-create-button"><span aria-hidden="true">+</span> 新建旅行</button>
       </RouterLink>
@@ -119,16 +121,26 @@ onMounted(loadTrips)
         <div class="trip-card-body">
           <div class="trip-card-title-row">
             <h2>{{ trip.title }}</h2>
-            <button
-              type="button"
-              :class="['trip-bookmark-button', { active: trip.isFavorite }]"
-              :disabled="favoriteSavingIds.has(trip.id)"
-              :aria-label="trip.isFavorite ? '取消收藏旅行' : '收藏旅行'"
-              :aria-pressed="Boolean(trip.isFavorite)"
-              @click="toggleTripFavorite(trip)"
-            >
-              <Bookmark :size="19" :fill="trip.isFavorite ? 'currentColor' : 'none'" aria-hidden="true" />
-            </button>
+            <div class="trip-card-title-actions">
+              <button
+                type="button"
+                :class="['trip-bookmark-button', { active: trip.isFavorite }]"
+                :disabled="favoriteSavingIds.has(trip.id)"
+                :aria-label="trip.isFavorite ? '取消收藏旅行' : '收藏旅行'"
+                :aria-pressed="Boolean(trip.isFavorite)"
+                @click="toggleTripFavorite(trip)"
+              >
+                <Bookmark :size="19" :fill="trip.isFavorite ? 'currentColor' : 'none'" aria-hidden="true" />
+              </button>
+              <details class="trip-card-more">
+                <summary aria-label="更多旅行操作" title="更多旅行操作"></summary>
+                <div class="trip-card-more-menu">
+                  <RouterLink :to="`/trips/${trip.id}/memories/new`">新增记忆</RouterLink>
+                  <RouterLink :to="`/trips/${trip.id}/edit`">编辑旅行</RouterLink>
+                  <button class="danger-text" @click="removeTrip(trip.id)">删除旅行</button>
+                </div>
+              </details>
+            </div>
           </div>
           <div class="trip-meta">
             <p class="trip-destination">{{ trip.destination || '目的地还没有补充' }}</p>
@@ -143,23 +155,9 @@ onMounted(loadTrips)
             </div>
           </div>
 
-          <div class="trip-main-actions">
-            <RouterLink :to="`/trips/${trip.id}/journey`">
-              <button><Compass :size="16" aria-hidden="true" />进入 Journey</button>
-            </RouterLink>
-            <RouterLink :to="`/trips/${trip.id}`">
-              <button class="ghost"><List :size="16" aria-hidden="true" />查看 Timeline</button>
-            </RouterLink>
-            <details class="trip-card-more">
-              <summary aria-label="更多旅行操作" title="更多旅行操作">更多</summary>
-              <div class="trip-card-more-menu">
-                <RouterLink :to="`/trips/${trip.id}/memories/new`">新增记忆</RouterLink>
-                <RouterLink :to="`/trips/${trip.id}/edit`">编辑旅行</RouterLink>
-                <button class="danger-text" @click="removeTrip(trip.id)">删除旅行</button>
-              </div>
-            </details>
-          </div>
           <nav class="trip-card-view-links" aria-label="旅行浏览入口">
+            <RouterLink class="primary" :to="`/trips/${trip.id}/journey`"><Compass :size="16" aria-hidden="true" />Journey</RouterLink>
+            <RouterLink :to="`/trips/${trip.id}`"><List :size="16" aria-hidden="true" />Timeline</RouterLink>
             <RouterLink :to="`/trips/${trip.id}/map`"><Map :size="16" aria-hidden="true" />地图</RouterLink>
             <RouterLink :to="`/trips/${trip.id}/recap`"><BookOpen :size="16" aria-hidden="true" />旅行回顾</RouterLink>
           </nav>

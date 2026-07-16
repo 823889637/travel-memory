@@ -9,6 +9,8 @@ import { getChronologicalTripDayNumber } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import TripViewNav from '../components/TripViewNav.vue'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
+import TripContextCard from '../components/TripContextCard.vue'
+import UserMenu from '../components/UserMenu.vue'
 
 const props = defineProps({
   id: {
@@ -290,7 +292,7 @@ onMounted(loadPage)
 <template>
   <section :class="['timeline-page', { 'favorite-timeline-page': favoriteOnly }]">
     <MobilePageHeader :title="favoriteOnly ? '收藏回看' : '时间线'" back-to="/trips" />
-    <header v-if="!loading && trip" :class="['trip-memory-hero', { 'has-cover': coverPhotoUrl }]">
+    <header v-if="!loading && trip && !favoriteOnly" :class="['trip-memory-hero', { 'has-cover': coverPhotoUrl }]">
       <img
         v-if="coverPhotoUrl"
         class="trip-memory-cover"
@@ -313,6 +315,17 @@ onMounted(loadPage)
         </div>
       </div>
     </header>
+
+    <header v-if="!loading && trip && favoriteOnly" class="favorite-page-intro">
+      <div>
+        <h1>收藏回看</h1>
+        <p>只保留你标记的重要瞬间</p>
+      </div>
+      <UserMenu />
+    </header>
+    <RouterLink v-if="!loading && trip && favoriteOnly" class="favorite-trip-context-link" :to="`/trips/${id}`">
+      <TripContextCard :trip="trip" variant="favorite" />
+    </RouterLink>
 
     <TripViewNav v-if="!loading && trip" :trip-id="id" :active="favoriteOnly ? 'favorites' : 'timeline'" />
 

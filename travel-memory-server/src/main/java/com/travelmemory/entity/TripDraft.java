@@ -3,6 +3,7 @@ package com.travelmemory.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -13,6 +14,8 @@ public class TripDraft {
     private Long userId;
     private String title;
     private String destination;
+    private BigDecimal destinationLatitude;
+    private BigDecimal destinationLongitude;
     private LocalDate startDate;
     private LocalDate endDate;
     private String description;
@@ -29,6 +32,10 @@ public class TripDraft {
     public void setTitle(String title) { this.title = title; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
+    public BigDecimal getDestinationLatitude() { return destinationLatitude; }
+    public void setDestinationLatitude(BigDecimal destinationLatitude) { this.destinationLatitude = destinationLatitude; }
+    public BigDecimal getDestinationLongitude() { return destinationLongitude; }
+    public void setDestinationLongitude(BigDecimal destinationLongitude) { this.destinationLongitude = destinationLongitude; }
     public LocalDate getStartDate() { return startDate; }
     public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
     public LocalDate getEndDate() { return endDate; }

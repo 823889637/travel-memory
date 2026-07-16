@@ -41,7 +41,7 @@ function goBack() {
     top: 0;
     display: grid;
     min-height: calc(56px + env(safe-area-inset-top));
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    grid-template-columns: minmax(64px, 1fr) minmax(0, auto) minmax(64px, 1fr);
     align-items: end;
     margin-inline: -12px;
     padding: env(safe-area-inset-top) 12px 6px;
@@ -80,6 +80,17 @@ function goBack() {
     min-width: 44px;
     align-items: center;
     justify-content: flex-end;
+  }
+
+  .mobile-page-header-actions :deep(.trip-draft-header-action) {
+    display: inline-flex;
+    width: auto;
+    min-width: 76px;
+    gap: 5px;
+    justify-content: flex-end;
+    border-radius: 0;
+    color: var(--tm-accent);
+    font-size: 13px;
   }
 }
 </style>

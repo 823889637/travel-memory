@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import jakarta.validation.constraints.NotBlank;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -22,6 +23,8 @@ public class TravelTrip {
     private String description;
     private String notes;
     private String destination;
+    private BigDecimal destinationLatitude;
+    private BigDecimal destinationLongitude;
     private LocalDate startDate;
     private LocalDate endDate;
     private String coverPhotoUrl;
@@ -68,6 +71,11 @@ public class TravelTrip {
     public void setDestination(String destination) {
         this.destination = destination;
     }
+
+    public BigDecimal getDestinationLatitude() { return destinationLatitude; }
+    public void setDestinationLatitude(BigDecimal destinationLatitude) { this.destinationLatitude = destinationLatitude; }
+    public BigDecimal getDestinationLongitude() { return destinationLongitude; }
+    public void setDestinationLongitude(BigDecimal destinationLongitude) { this.destinationLongitude = destinationLongitude; }
 
     public LocalDate getStartDate() {
         return startDate;

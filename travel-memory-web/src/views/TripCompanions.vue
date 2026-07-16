@@ -8,6 +8,7 @@ import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTripDayNumber } from '../utils/tripDay'
 import TripViewNav from '../components/TripViewNav.vue'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
+import TripContextCard from '../components/TripContextCard.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const trip = ref(null)
@@ -189,16 +190,17 @@ watch(() => props.id, loadPage, { immediate: true })
 <template>
   <section class="companions-page">
     <MobilePageHeader title="同行的人" back-to="/trips" />
+    <TripContextCard v-if="!loading && trip" :trip="trip" variant="compact" />
+
+    <TripViewNav v-if="!loading && trip" :trip-id="id" active="companions" />
+
     <header v-if="!loading && trip" class="companions-head">
       <div>
-        <p class="trip-list-kicker">同行的人</p>
-        <h1>{{ trip?.title || '这次旅行' }}</h1>
-        <p>记下每个瞬间当时和谁一起，不把同行者变成账号或权限关系。</p>
+        <h1>同行的人</h1>
+        <p>记录这趟旅程里和你一起的人</p>
       </div>
       <RouterLink :to="`/trips/${id}/memories/new`"><button class="secondary">新增记忆</button></RouterLink>
     </header>
-
-    <TripViewNav v-if="!loading && trip" :trip-id="id" active="companions" />
 
     <p v-if="loading" class="muted">正在整理同行的记忆...</p>
     <p v-if="error" class="error">{{ error }}</p>

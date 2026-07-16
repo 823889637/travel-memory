@@ -1,5 +1,6 @@
 package com.travelmemory.service;
 
+import com.travelmemory.dto.CitySearchResult;
 import com.travelmemory.dto.ReverseGeocodeResult;
 import com.travelmemory.dto.CoordinateNormalizeRequest;
 import com.travelmemory.dto.CoordinateNormalizeResult;
@@ -12,6 +13,8 @@ public interface LocationService {
     ReverseGeocodeResult reverseGeocode(BigDecimal latitude, BigDecimal longitude);
 
     List<LocationSearchResult> search(String keyword, BigDecimal latitude, BigDecimal longitude, String city);
+
+    List<CitySearchResult> searchCities(String keyword);
 
     CoordinateNormalizeResult normalize(CoordinateNormalizeRequest request);
 }

@@ -89,6 +89,8 @@ public class TravelTripController {
         TravelTrip trip = new TravelTrip();
         trip.setTitle(request.getTitle().trim());
         trip.setDestination(normalizeNullable(request.getDestination()));
+        trip.setDestinationLatitude(request.getDestinationLatitude());
+        trip.setDestinationLongitude(request.getDestinationLongitude());
         trip.setStartDate(request.getStartDate());
         trip.setEndDate(request.getEndDate());
         trip.setDescription(normalizeNullable(request.getDescription()));
@@ -101,6 +103,8 @@ public class TravelTripController {
         TravelTrip trip = new TravelTrip();
         trip.setTitle(request.getTitle().trim());
         trip.setDestination(normalizeNullable(request.getDestination()));
+        trip.setDestinationLatitude(request.getDestinationLatitude());
+        trip.setDestinationLongitude(request.getDestinationLongitude());
         trip.setStartDate(request.getStartDate());
         trip.setEndDate(request.getEndDate());
         trip.setDescription(normalizeNullable(request.getDescription()));

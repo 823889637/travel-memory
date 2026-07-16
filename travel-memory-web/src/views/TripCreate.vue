@@ -10,6 +10,7 @@ import {
   uploadImage,
 } from '../api/trip'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
+import TripCityField from '../components/TripCityField.vue'
 
 const router = useRouter()
 const saving = ref(false)
@@ -26,6 +27,8 @@ let draftTimer = null
 const form = reactive({
   title: '',
   destination: '',
+  destinationLatitude: null,
+  destinationLongitude: null,
   startDate: '',
   endDate: '',
   description: '',
@@ -44,6 +47,8 @@ function draftPayload() {
   return {
     title: form.title.trim() || null,
     destination: form.destination.trim() || null,
+    destinationLatitude: form.destinationLatitude,
+    destinationLongitude: form.destinationLongitude,
     startDate: form.startDate || null,
     endDate: form.endDate || null,
     description: form.description.trim() || null,
@@ -89,6 +94,8 @@ async function loadDraft() {
     if (draft) {
       form.title = draft.title || ''
       form.destination = draft.destination || ''
+      form.destinationLatitude = draft.destinationLatitude ?? null
+      form.destinationLongitude = draft.destinationLongitude ?? null
       form.startDate = draft.startDate || ''
       form.endDate = draft.endDate || ''
       form.description = draft.description || ''
@@ -157,9 +164,9 @@ onBeforeUnmount(() => {
   <section class="trip-form-page trip-create-mobile-page">
     <MobilePageHeader title="创建旅行" back-to="/trips">
       <template #actions>
-        <button type="button" :disabled="draftSaving" aria-label="保存旅行草稿" @click="saveDraft()">
-          <LoaderCircle v-if="draftSaving" :size="20" class="spin" aria-hidden="true" />
-          <Save v-else :size="20" aria-hidden="true" />
+        <button class="trip-draft-header-action" type="button" :disabled="draftSaving" aria-label="保存旅行草稿" @click="saveDraft()">
+          <LoaderCircle v-if="draftSaving" :size="17" class="spin" aria-hidden="true" />
+          <span>{{ draftSaving ? '保存中…' : '保存草稿' }}</span>
         </button>
       </template>
     </MobilePageHeader>
@@ -193,10 +200,12 @@ onBeforeUnmount(() => {
         <label for="create-trip-title">旅行标题</label>
         <input id="create-trip-title" v-model="form.title" required maxlength="100" placeholder="例如：天津之旅" />
       </div>
-      <div class="field">
-        <label for="create-trip-destination">目的地</label>
-        <input id="create-trip-destination" v-model="form.destination" maxlength="100" placeholder="例如：天津" />
-      </div>
+      <TripCityField
+        id="create-trip-destination"
+        v-model="form.destination"
+        v-model:latitude="form.destinationLatitude"
+        v-model:longitude="form.destinationLongitude"
+      />
       <div class="trip-form-date-grid">
         <div class="field">
           <label for="create-trip-start-date">开始日期</label>

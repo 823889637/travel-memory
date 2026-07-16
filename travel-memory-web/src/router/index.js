@@ -22,7 +22,7 @@ const routes = [
   { path: '/register', component: Register, meta: { public: true, mobileStandalone: true } },
   { path: '/change-password', component: ChangePassword, meta: { mobileStandalone: true } },
   { path: '/admin/users', component: AdminUsers, meta: { admin: true, mobileStandalone: true } },
-  { path: '/trips', component: TripList },
+  { path: '/trips', component: TripList, meta: { mobileStandalone: true } },
   { path: '/trips/new', component: TripCreate, meta: { mobileStandalone: true } },
   { path: '/trips/:id/edit', component: TripEdit, props: true, meta: { mobileStandalone: true } },
   { path: '/trips/:id/journey', component: TripJourney, props: true, meta: { mobileStandalone: true } },

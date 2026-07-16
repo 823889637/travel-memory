@@ -1,12 +1,13 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { normalizeCoordinate, reverseGeocode, searchLocations } from '../api/memory'
+import { normalizeCoordinate, reverseGeocode, searchCities, searchLocations } from '../api/memory'
 import LocationPickerMap from './LocationPickerMap.vue'
 
 const props = defineProps({
   locationName: { type: String, default: '' },
   latitude: { type: [Number, String], default: '' },
   longitude: { type: [Number, String], default: '' },
+  mode: { type: String, default: 'place' },
 })
 const emit = defineEmits(['confirm', 'cancel'])
 
@@ -24,8 +25,42 @@ const draft = reactive({
   error: '',
 })
 const locationNameTouched = ref(Boolean(props.locationName?.trim()))
-const hasCoordinates = computed(() => Number.isFinite(Number(draft.latitude)) && Number.isFinite(Number(draft.longitude)))
-const selectedLabel = computed(() => draft.locationName.trim() || draft.formattedAddress || '尚未选择地点')
+const isCityMode = computed(() => props.mode === 'city')
+const hasCoordinates = computed(() => {
+  if (String(draft.latitude).trim() === '' || String(draft.longitude).trim() === '') return false
+  const latitude = Number(draft.latitude)
+  const longitude = Number(draft.longitude)
+  return Number.isFinite(latitude) && Number.isFinite(longitude)
+    && latitude >= -90 && latitude <= 90
+    && longitude >= -180 && longitude <= 180
+})
+const selectedLabel = computed(() => draft.locationName.trim() || draft.formattedAddress
+  || (isCityMode.value ? '尚未选择城市' : '尚未选择地点'))
+const pickerCopy = computed(() => (isCityMode.value ? {
+  title: '选择目的城市',
+  closeLabel: '关闭城市选择',
+  searchPlaceholder: '搜索城市或地区，例如：天津、京都',
+  searchLabel: '搜索城市',
+  locateLabel: '使用当前位置识别城市',
+  emptySearch: '没有找到合适的城市，可以在地图上确认大致位置或直接填写城市名称。',
+  emptyInitial: '先搜索目的城市；也可以点击地图确认旅行的大致中心。',
+  selected: '已选择城市',
+  name: '城市名称',
+  namePlaceholder: '可以保留你习惯的城市称呼',
+  confirm: '使用这个城市',
+} : {
+  title: '搜索或选择地点',
+  closeLabel: '关闭地点选点',
+  searchPlaceholder: '搜索景点、酒店、餐厅或地址',
+  searchLabel: '搜索地点',
+  locateLabel: '定位到当前位置',
+  emptySearch: '没有找到合适的地点，可以直接在地图上选择。',
+  emptyInitial: '搜索地点后，候选结果会显示在这里；你也可以直接点击地图选点。',
+  selected: '已选择',
+  name: '地点名称',
+  namePlaceholder: '可以保留你自己的地点描述',
+  confirm: '使用此地点',
+}))
 
 function coordinateOptions() {
   return hasCoordinates.value ? { latitude: draft.latitude, longitude: draft.longitude } : {}
@@ -44,10 +79,12 @@ async function search() {
   draft.searching = true
   draft.error = ''
   try {
-    draft.results = await searchLocations(keyword, coordinateOptions())
+    draft.results = isCityMode.value
+      ? await searchCities(keyword)
+      : await searchLocations(keyword, coordinateOptions())
   } catch (error) {
     draft.results = []
-    draft.error = error.message || '地点搜索暂时不可用，请直接在地图上选择。'
+    draft.error = error.message || `${isCityMode.value ? '城市' : '地点'}搜索暂时不可用，请直接填写名称。`
   } finally {
     draft.searching = false
   }
@@ -57,8 +94,10 @@ async function selectSearchResult(result) {
   draft.latitude = String(result.latitude)
   draft.longitude = String(result.longitude)
   draft.locationName = result.name || ''
-  draft.formattedAddress = [result.district, result.address].filter(Boolean).join('')
-  draft.candidates = result.name ? [{ name: result.name, distance: result.distance }] : []
+  draft.formattedAddress = isCityMode.value
+    ? cityLevelLabel(result.level)
+    : [result.district, result.address].filter(Boolean).join('')
+  draft.candidates = !isCityMode.value && result.name ? [{ name: result.name, distance: result.distance }] : []
   locationNameTouched.value = false
   draft.error = ''
 }
@@ -84,15 +123,22 @@ async function refreshReverseGeocode() {
     const result = await reverseGeocode(draft.latitude, draft.longitude)
     if (!result?.success) return
     draft.formattedAddress = result.formattedAddress || ''
-    draft.candidates = result.candidates || []
-    if (!locationNameTouched.value && result.locationName) {
-      draft.locationName = result.locationName
+    draft.candidates = isCityMode.value ? [] : (result.candidates || [])
+    const suggestedName = isCityMode.value
+      ? (result.cityName || result.districtName || result.provinceName)
+      : result.locationName
+    if (!locationNameTouched.value && suggestedName) {
+      draft.locationName = suggestedName
     }
   } catch (error) {
     // A map point remains usable even if reverse geocoding is temporarily unavailable.
   } finally {
     draft.reverseGeocoding = false
   }
+}
+
+function cityLevelLabel(level) {
+  return ({ province: '省级行政区', city: '城市', district: '区县' })[level] || '城市或地区'
 }
 
 function chooseCandidate(candidate) {
@@ -140,15 +186,15 @@ function confirm() {
   <div class="location-picker-backdrop" role="presentation" @click.self="emit('cancel')">
     <section class="location-picker" role="dialog" aria-modal="true" aria-labelledby="location-picker-title">
       <header class="location-picker-header">
-        <h2 id="location-picker-title">搜索或选择地点</h2>
-        <button type="button" class="location-picker-close" aria-label="关闭地点选点" @click="emit('cancel')">关闭</button>
+        <h2 id="location-picker-title">{{ pickerCopy.title }}</h2>
+        <button type="button" class="location-picker-close" :aria-label="pickerCopy.closeLabel" @click="emit('cancel')">关闭</button>
       </header>
 
       <form class="location-picker-search" @submit.prevent="search">
-        <input v-model="draft.keyword" type="search" placeholder="搜索景点、酒店、餐厅或地址" aria-label="搜索地点" />
+        <input v-model="draft.keyword" type="search" :placeholder="pickerCopy.searchPlaceholder" :aria-label="pickerCopy.searchLabel" />
         <button type="submit" :disabled="draft.searching">{{ draft.searching ? '搜索中...' : '搜索' }}</button>
         <button type="button" class="location-picker-locate" :disabled="draft.locating" @click="locateCurrentPosition">
-          {{ draft.locating ? '定位中...' : '定位到当前位置' }}
+          {{ draft.locating ? '定位中...' : pickerCopy.locateLabel }}
         </button>
       </form>
 
@@ -157,8 +203,8 @@ function confirm() {
       <div class="location-picker-body">
         <aside class="location-picker-results" aria-label="地点搜索结果">
           <p v-if="draft.searching" class="location-picker-empty">正在寻找地点...</p>
-          <p v-else-if="draft.keyword && !draft.results.length" class="location-picker-empty">没有找到合适的地点，可以直接在地图上选择。</p>
-          <p v-else-if="!draft.results.length" class="location-picker-empty">搜索地点后，候选结果会显示在这里；你也可以直接点击地图选点。</p>
+          <p v-else-if="draft.keyword && !draft.results.length" class="location-picker-empty">{{ pickerCopy.emptySearch }}</p>
+          <p v-else-if="!draft.results.length" class="location-picker-empty">{{ pickerCopy.emptyInitial }}</p>
           <button
             v-for="result in draft.results"
             :key="result.id || `${result.latitude}:${result.longitude}`"
@@ -168,8 +214,8 @@ function confirm() {
             @click="selectSearchResult(result)"
           >
             <strong>{{ result.name }}</strong>
-            <span>{{ [result.district, result.address].filter(Boolean).join('') || '未提供详细地址' }}</span>
-            <small v-if="result.distance != null">约 {{ result.distance }} 米</small>
+            <span>{{ isCityMode ? cityLevelLabel(result.level) : ([result.district, result.address].filter(Boolean).join('') || '未提供详细地址') }}</span>
+            <small v-if="!isCityMode && result.distance != null">约 {{ result.distance }} 米</small>
           </button>
         </aside>
 
@@ -182,22 +228,22 @@ function confirm() {
 
       <footer class="location-picker-footer">
         <div class="location-picker-selection">
-          <span>已选择</span>
+          <span>{{ pickerCopy.selected }}</span>
           <strong>{{ selectedLabel }}</strong>
           <p v-if="draft.formattedAddress">{{ draft.formattedAddress }}</p>
           <p v-else-if="draft.reverseGeocoding">正在识别附近地点...</p>
-          <div v-if="draft.candidates.length > 1" class="location-picker-candidates">
+          <div v-if="!isCityMode && draft.candidates.length > 1" class="location-picker-candidates">
             <span>推荐地点</span>
             <button v-for="candidate in draft.candidates" :key="candidate.name" type="button" @click="chooseCandidate(candidate)">{{ candidate.name }}</button>
           </div>
           <label>
-            地点名称
-            <input v-model="draft.locationName" type="text" placeholder="可以保留你自己的地点描述" @input="onLocationNameInput" />
+            {{ pickerCopy.name }}
+            <input v-model="draft.locationName" type="text" :placeholder="pickerCopy.namePlaceholder" @input="onLocationNameInput" />
           </label>
         </div>
         <div class="location-picker-actions">
           <button type="button" class="location-picker-cancel" @click="emit('cancel')">取消</button>
-          <button type="button" class="location-picker-confirm" @click="confirm">使用此地点</button>
+          <button type="button" class="location-picker-confirm" @click="confirm">{{ pickerCopy.confirm }}</button>
         </div>
       </footer>
     </section>

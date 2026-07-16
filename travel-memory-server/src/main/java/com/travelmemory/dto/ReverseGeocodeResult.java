@@ -6,6 +6,9 @@ public class ReverseGeocodeResult {
 
     private String locationName;
     private String formattedAddress;
+    private String provinceName;
+    private String cityName;
+    private String districtName;
     private String source;
     private boolean success;
     private String message;
@@ -57,6 +60,13 @@ public class ReverseGeocodeResult {
     public void setFormattedAddress(String formattedAddress) {
         this.formattedAddress = formattedAddress;
     }
+
+    public String getProvinceName() { return provinceName; }
+    public void setProvinceName(String provinceName) { this.provinceName = provinceName; }
+    public String getCityName() { return cityName; }
+    public void setCityName(String cityName) { this.cityName = cityName; }
+    public String getDistrictName() { return districtName; }
+    public void setDistrictName(String districtName) { this.districtName = districtName; }
 
     public String getSource() {
         return source;

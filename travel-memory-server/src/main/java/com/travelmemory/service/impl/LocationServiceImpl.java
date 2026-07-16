@@ -3,6 +3,7 @@ package com.travelmemory.service.impl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelmemory.config.AmapProperties;
+import com.travelmemory.dto.CitySearchResult;
 import com.travelmemory.dto.CoordinateNormalizeRequest;
 import com.travelmemory.dto.CoordinateNormalizeResult;
 import com.travelmemory.dto.LocationNameCandidate;
@@ -37,6 +38,7 @@ public class LocationServiceImpl implements LocationService {
     private static final Logger log = LoggerFactory.getLogger(LocationServiceImpl.class);
     private static final String AMAP_REVERSE_GEOCODE_URL = "https://restapi.amap.com/v3/geocode/regeo";
     private static final String AMAP_TEXT_SEARCH_URL = "https://restapi.amap.com/v3/place/text";
+    private static final String AMAP_DISTRICT_SEARCH_URL = "https://restapi.amap.com/v3/config/district";
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
@@ -125,6 +127,33 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
+    public List<CitySearchResult> searchCities(String keyword) {
+        String key = amapProperties.getWebService().getKey();
+        if (!StringUtils.hasText(key)) {
+            throw new BusinessException(503, "城市搜索暂时不可用");
+        }
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(buildDistrictSearchUrl(keyword, key)))
+                    .timeout(Duration.ofSeconds(5))
+                    .GET()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.info("City search request failed with status {}", response.statusCode());
+                throw new BusinessException(503, "城市搜索暂时不可用");
+            }
+            return parseDistrictSearchResponse(response.body());
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            log.info("Failed to search cities for keyword {}", keyword, exception);
+            throw new BusinessException(503, "城市搜索暂时不可用");
+        }
+    }
+
+    @Override
     public CoordinateNormalizeResult normalize(CoordinateNormalizeRequest request) {
         BigDecimal latitude = request.getLatitude();
         BigDecimal longitude = request.getLongitude();
@@ -195,6 +224,68 @@ public class LocationServiceImpl implements LocationService {
         return url.toString();
     }
 
+    private String buildDistrictSearchUrl(String keyword, String key) {
+        return AMAP_DISTRICT_SEARCH_URL
+                + "?output=json"
+                + "&subdistrict=1"
+                + "&extensions=base"
+                + "&keywords=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8)
+                + "&key=" + URLEncoder.encode(key, StandardCharsets.UTF_8);
+    }
+
+    private List<CitySearchResult> parseDistrictSearchResponse(String body) throws Exception {
+        JsonNode root = objectMapper.readTree(body);
+        if (!"1".equals(root.path("status").asText())) {
+            throw new BusinessException(503, "城市搜索暂时不可用");
+        }
+        JsonNode districts = root.path("districts");
+        if (!districts.isArray()) {
+            return List.of();
+        }
+
+        java.util.ArrayList<JsonNode> candidates = new java.util.ArrayList<>();
+        collectDistricts(districts, candidates, 0);
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        return candidates.stream()
+                .map(this::toCitySearchResult)
+                .filter(Objects::nonNull)
+                .filter(result -> seen.add(result.id()))
+                .limit(8)
+                .toList();
+    }
+
+    private void collectDistricts(JsonNode districts, List<JsonNode> output, int depth) {
+        if (!districts.isArray() || depth > 2) {
+            return;
+        }
+        districts.forEach(district -> {
+            output.add(district);
+            collectDistricts(district.path("districts"), output, depth + 1);
+        });
+    }
+
+    private CitySearchResult toCitySearchResult(JsonNode district) {
+        String id = textOrNull(district.path("adcode"));
+        String name = textOrNull(district.path("name"));
+        String level = textOrNull(district.path("level"));
+        Coordinate coordinate = parseAmapCoordinate(textOrNull(district.path("center")));
+        if (!StringUtils.hasText(id) || !StringUtils.hasText(name) || coordinate == null
+                || "country".equalsIgnoreCase(level)) {
+            return null;
+        }
+        Coordinate wgs84 = CoordinateConverter.gcj02ToWgs84(
+                BigDecimal.valueOf(coordinate.latitude()),
+                BigDecimal.valueOf(coordinate.longitude())
+        );
+        return new CitySearchResult(
+                id,
+                name,
+                level,
+                toCoordinateDecimal(wgs84.latitude()),
+                toCoordinateDecimal(wgs84.longitude())
+        );
+    }
+
     private ReverseGeocodeResult parseAmapResponse(String body) throws Exception {
         JsonNode root = objectMapper.readTree(body);
         if (!"1".equals(root.path("status").asText())) {
@@ -203,10 +294,26 @@ public class LocationServiceImpl implements LocationService {
 
         JsonNode regeocode = root.path("regeocode");
         String formattedAddress = textOrNull(regeocode.path("formatted_address"));
+        JsonNode addressComponent = regeocode.path("addressComponent");
+        String provinceName = textOrNull(addressComponent.path("province"));
+        String cityName = textOrNull(addressComponent.path("city"));
+        String districtName = textOrNull(addressComponent.path("district"));
+        if (!StringUtils.hasText(cityName) && StringUtils.hasText(provinceName) && provinceName.endsWith("市")) {
+            cityName = provinceName;
+        }
+        String administrativeName = StringUtils.hasText(cityName)
+                ? cityName
+                : (StringUtils.hasText(districtName) ? districtName : provinceName);
         List<LocationCandidate> candidates = locationNameSelector.candidates(regeocode);
-        return candidates.stream().findFirst()
+        ReverseGeocodeResult result = candidates.stream().findFirst()
                 .map(candidate -> toSuccessResult(candidate, formattedAddress, candidates))
-                .orElseGet(() -> ReverseGeocodeResult.failure("暂时没有推荐出地点名称，你可以手动填写。"));
+                .orElseGet(() -> StringUtils.hasText(administrativeName)
+                        ? ReverseGeocodeResult.success(administrativeName, formattedAddress, "amap")
+                        : ReverseGeocodeResult.failure("暂时没有推荐出地点名称，你可以手动填写。"));
+        result.setProvinceName(provinceName);
+        result.setCityName(cityName);
+        result.setDistrictName(districtName);
+        return result;
     }
 
     private ReverseGeocodeResult toSuccessResult(

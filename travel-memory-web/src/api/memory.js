@@ -31,6 +31,10 @@ export function searchLocations(keyword, options = {}) {
   })
 }
 
+export function searchCities(keyword) {
+  return request.get('/api/location/cities', { params: { keyword } })
+}
+
 export function normalizeCoordinate(data) {
   return request.post('/api/location/normalize', data)
 }

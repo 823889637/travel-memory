@@ -1,6 +1,7 @@
 package com.travelmemory.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.travelmemory.dto.TripDraftRequest;
 import com.travelmemory.dto.TripDraftResponse;
 import com.travelmemory.entity.TripDraft;
@@ -8,6 +9,8 @@ import com.travelmemory.mapper.TripDraftMapper;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.service.ProtectedUploadReferenceService;
 import com.travelmemory.service.TripDraftService;
+import com.travelmemory.exception.BusinessException;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +37,10 @@ public class TripDraftServiceImpl implements TripDraftService {
     @Override
     @Transactional
     public TripDraftResponse save(TripDraftRequest request) {
+        validateDestinationCoordinates(request.getDestinationLatitude(), request.getDestinationLongitude());
+        if (request.getDestinationLatitude() != null && normalize(request.getDestination()) == null) {
+            throw new BusinessException(400, "Destination name is required when destination coordinates are provided");
+        }
         Long userId = currentUser.requireId();
         TripDraft draft = find(userId);
         if (draft == null) {
@@ -42,14 +49,23 @@ public class TripDraftServiceImpl implements TripDraftService {
         }
         draft.setTitle(normalize(request.getTitle()));
         draft.setDestination(normalize(request.getDestination()));
+        draft.setDestinationLatitude(request.getDestinationLatitude());
+        draft.setDestinationLongitude(request.getDestinationLongitude());
         draft.setStartDate(request.getStartDate());
         draft.setEndDate(request.getEndDate());
         draft.setDescription(normalize(request.getDescription()));
         draft.setNotes(normalize(request.getNotes()));
         draft.setCoverPhotoUrl(normalizeCover(request.getCoverPhotoUrl()));
         draft.setUpdateTime(LocalDateTime.now());
-        if (draft.getId() == null) tripDraftMapper.insert(draft);
-        else tripDraftMapper.updateById(draft);
+        if (draft.getId() == null) {
+            tripDraftMapper.insert(draft);
+        } else {
+            tripDraftMapper.updateById(draft);
+            tripDraftMapper.update(null, new UpdateWrapper<TripDraft>()
+                    .eq("id", draft.getId())
+                    .set("destination_latitude", draft.getDestinationLatitude())
+                    .set("destination_longitude", draft.getDestinationLongitude()));
+        }
         return toResponse(draft);
     }
 
@@ -77,8 +93,21 @@ public class TripDraftServiceImpl implements TripDraftService {
         return normalized.isEmpty() ? null : normalized;
     }
 
+    private void validateDestinationCoordinates(BigDecimal latitude, BigDecimal longitude) {
+        if ((latitude == null) != (longitude == null)) {
+            throw new BusinessException(400, "Destination latitude and longitude must be provided together");
+        }
+        if (latitude != null && (latitude.compareTo(BigDecimal.valueOf(-90)) < 0
+                || latitude.compareTo(BigDecimal.valueOf(90)) > 0
+                || longitude.compareTo(BigDecimal.valueOf(-180)) < 0
+                || longitude.compareTo(BigDecimal.valueOf(180)) > 0)) {
+            throw new BusinessException(400, "Destination coordinates are invalid");
+        }
+    }
+
     private TripDraftResponse toResponse(TripDraft draft) {
         return new TripDraftResponse(draft.getId(), draft.getTitle(), draft.getDestination(),
+                draft.getDestinationLatitude(), draft.getDestinationLongitude(),
                 draft.getStartDate(), draft.getEndDate(), draft.getDescription(), draft.getNotes(),
                 draft.getCoverPhotoUrl(), draft.getUpdateTime());
     }

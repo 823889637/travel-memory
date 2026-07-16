@@ -2976,6 +2976,21 @@ textarea {
   opacity: 0.42;
 }
 
+.memory-map-destination-marker {
+  max-width: 160px;
+  overflow: hidden;
+  padding: 7px 11px;
+  border: 1px solid rgba(164, 82, 48, .28);
+  border-radius: 999px;
+  background: rgba(255, 251, 245, .95);
+  box-shadow: 0 6px 18px rgba(72, 52, 40, .18);
+  color: var(--tm-accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .map-memory-card {
   position: absolute;
   z-index: 20;

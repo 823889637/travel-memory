@@ -5,6 +5,7 @@ import { clearTripCover, getTrip, updateTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { hasExplicitTripCover, resolveTripCoverUrl } from '../utils/tripCover'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
+import TripCityField from '../components/TripCityField.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +26,8 @@ let redirectTimer = null
 const form = reactive({
   title: '',
   destination: '',
+  destinationLatitude: null,
+  destinationLongitude: null,
   startDate: '',
   endDate: '',
   description: '',
@@ -59,10 +62,18 @@ function normalizeDate(value) {
   return value ? String(value).slice(0, 10) : ''
 }
 
+function normalizeCoordinate(value) {
+  if (value == null || String(value).trim() === '') return null
+  const coordinate = Number(value)
+  return Number.isFinite(coordinate) ? coordinate : null
+}
+
 function normalizeForm(source) {
   return {
     title: normalizeText(source.title),
     destination: normalizeText(source.destination),
+    destinationLatitude: normalizeCoordinate(source.destinationLatitude),
+    destinationLongitude: normalizeCoordinate(source.destinationLongitude),
     startDate: normalizeDate(source.startDate),
     endDate: normalizeDate(source.endDate),
     description: normalizeText(source.description),
@@ -273,10 +284,12 @@ onBeforeUnmount(() => {
         <input id="trip-title" v-model="form.title" required maxlength="100" placeholder="例如：京都春日散步" />
       </div>
 
-      <div class="field">
-        <label for="trip-destination">目的地</label>
-        <input id="trip-destination" v-model="form.destination" maxlength="100" placeholder="例如：京都" />
-      </div>
+      <TripCityField
+        id="trip-destination"
+        v-model="form.destination"
+        v-model:latitude="form.destinationLatitude"
+        v-model:longitude="form.destinationLongitude"
+      />
 
       <div class="trip-form-date-grid">
       <div class="field">

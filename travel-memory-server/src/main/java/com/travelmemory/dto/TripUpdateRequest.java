@@ -1,8 +1,11 @@
 package com.travelmemory.dto;
 
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class TripUpdateRequest {
@@ -13,6 +16,14 @@ public class TripUpdateRequest {
 
     @Size(max = 100, message = "destination must not exceed 100 characters")
     private String destination;
+
+    @DecimalMin(value = "-90", message = "destinationLatitude must be at least -90")
+    @DecimalMax(value = "90", message = "destinationLatitude must not exceed 90")
+    private BigDecimal destinationLatitude;
+
+    @DecimalMin(value = "-180", message = "destinationLongitude must be at least -180")
+    @DecimalMax(value = "180", message = "destinationLongitude must not exceed 180")
+    private BigDecimal destinationLongitude;
 
     private LocalDate startDate;
     private LocalDate endDate;
@@ -27,6 +38,10 @@ public class TripUpdateRequest {
     public void setTitle(String title) { this.title = title; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
+    public BigDecimal getDestinationLatitude() { return destinationLatitude; }
+    public void setDestinationLatitude(BigDecimal destinationLatitude) { this.destinationLatitude = destinationLatitude; }
+    public BigDecimal getDestinationLongitude() { return destinationLongitude; }
+    public void setDestinationLongitude(BigDecimal destinationLongitude) { this.destinationLongitude = destinationLongitude; }
     public LocalDate getStartDate() { return startDate; }
     public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
     public LocalDate getEndDate() { return endDate; }
@@ -39,5 +54,10 @@ public class TripUpdateRequest {
     @AssertTrue(message = "endDate must not be before startDate")
     public boolean isDateRangeValid() {
         return startDate == null || endDate == null || !endDate.isBefore(startDate);
+    }
+
+    @AssertTrue(message = "destinationLatitude and destinationLongitude must be provided together")
+    public boolean isDestinationCoordinatePairValid() {
+        return (destinationLatitude == null) == (destinationLongitude == null);
     }
 }

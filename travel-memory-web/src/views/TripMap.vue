@@ -10,6 +10,7 @@ import { isValidWgs84Coordinate } from '../utils/coordinates'
 import { getTripDayNumber } from '../utils/tripDay'
 import TripViewNav from '../components/TripViewNav.vue'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
+import TripContextCard from '../components/TripContextCard.vue'
 
 const props = defineProps({
   id: {
@@ -74,6 +75,10 @@ const selectedMemory = computed(() => {
   return points.value.find((item) => memoryIdKey(item.id) === selectedKey) || null
 })
 const selectedPhotoCount = computed(() => photoCount(selectedMemory.value))
+const hasDestinationCoordinates = computed(() => isValidWgs84Coordinate(
+  trip.value?.destinationLatitude,
+  trip.value?.destinationLongitude,
+))
 
 function memoryIdKey(value) {
   return value == null ? '' : String(value)
@@ -245,28 +250,14 @@ watch(() => route.query.memoryId, (memoryId) => {
 <template>
   <section class="trip-map-page">
     <MobilePageHeader title="地图" back-to="/trips" />
-    <header v-if="!loading && trip" class="trip-map-head">
-      <div class="trip-map-cover" aria-hidden="true">
-        <img v-if="trip.coverPhotoUrl" :src="trip.coverPhotoUrl" alt="" />
-        <span v-else>{{ (trip.destination || trip.title || '旅').slice(0, 1) }}</span>
-      </div>
-      <div class="trip-map-title-line">
-        <h1>{{ trip.title || '这次旅行' }}</h1>
-        <p>
-          <span v-if="trip.destination">{{ trip.destination }}</span>
-          <span v-if="trip.startDate || trip.endDate">
-            {{ formatDate(trip.startDate) }} — {{ formatDate(trip.endDate) }}
-          </span>
-        </p>
-      </div>
-    </header>
+    <TripContextCard v-if="!loading && trip" :trip="trip" variant="compact" />
 
     <TripViewNav v-if="!loading && trip" :trip-id="id" active="map" />
 
     <p v-if="loading" class="trip-map-status">正在整理这些记忆的位置...</p>
     <p v-if="error" class="error trip-map-status">{{ error }}</p>
 
-    <div v-if="!loading && !error && trip && points.length === 0" class="trip-map-empty">
+    <div v-if="!loading && !error && trip && points.length === 0 && !hasDestinationCoordinates" class="trip-map-empty">
       <h2>这趟旅行还没有可以显示在地图上的记忆</h2>
       <p>为 Memory 添加地点或在地图中选点后，它们就会出现在这里。</p>
       <div class="trip-map-empty-actions">
@@ -276,7 +267,8 @@ watch(() => route.query.memoryId, (memoryId) => {
 
     <template v-else-if="!loading && !error && trip">
       <div class="trip-map-summary">
-        <span>{{ points.length }} 段记忆显示在地图上</span>
+        <span v-if="points.length">{{ points.length }} 段记忆显示在地图上</span>
+        <span v-else>已定位到 {{ trip.destination || '目的城市' }}，新增带位置的 Memory 后会显示旅行路线。</span>
         <span v-if="memoriesWithoutLocation > 0">
           另有 {{ memoriesWithoutLocation }} 段记忆暂未记录位置。
         </span>
@@ -289,6 +281,9 @@ watch(() => route.query.memoryId, (memoryId) => {
           :selected-id="selectedMemoryId"
           :active-date="activeDate"
           :focus-selected-on-ready="Boolean(route.query.memoryId)"
+          :fallback-latitude="trip.destinationLatitude"
+          :fallback-longitude="trip.destinationLongitude"
+          :fallback-label="trip.destination || '目的城市'"
           @select="selectMemory"
         />
 
@@ -350,7 +345,7 @@ watch(() => route.query.memoryId, (memoryId) => {
           </div>
         </article>
 
-        <nav class="map-day-navigation" aria-label="地图自然日导航">
+        <nav v-if="dayOptions.length" class="map-day-navigation" aria-label="地图自然日导航">
           <button
             v-for="day in dayOptions"
             :key="day.date"

@@ -1,6 +1,7 @@
 package com.travelmemory.controller;
 
 import com.travelmemory.common.Result;
+import com.travelmemory.dto.CitySearchResult;
 import com.travelmemory.dto.CoordinateNormalizeRequest;
 import com.travelmemory.dto.CoordinateNormalizeResult;
 import com.travelmemory.dto.LocationSearchResult;
@@ -49,6 +50,14 @@ public class LocationController {
             return Result.fail(400, "latitude 和 longitude 需要同时提供");
         }
         return Result.success(locationService.search(keyword.trim(), latitude, longitude, city));
+    }
+
+    @GetMapping("/cities")
+    public Result<List<CitySearchResult>> searchCities(@RequestParam String keyword) {
+        if (!StringUtils.hasText(keyword) || keyword.trim().length() > 40) {
+            return Result.fail(400, "请输入不超过 40 个字符的城市关键词");
+        }
+        return Result.success(locationService.searchCities(keyword.trim()));
     }
 
     @PostMapping("/normalize")
