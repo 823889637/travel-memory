@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import { BookOpen, CirclePlay, Clock3, Map, Star, Users } from '@lucide/vue'
+import { BookOpen, CirclePlay, Clock3, Map, Users } from '@lucide/vue'
 
 defineProps({
   tripId: {
@@ -19,7 +19,6 @@ const items = [
   { key: 'map', label: '地图', icon: Map, suffix: '/map' },
   { key: 'recap', label: '旅行回顾', icon: BookOpen, suffix: '/recap' },
   { key: 'companions', label: '同行的人', icon: Users, suffix: '/companions' },
-  { key: 'favorites', label: '收藏回看', icon: Star, suffix: '/favorites' },
 ]
 </script>
 
@@ -93,7 +92,7 @@ const items = [
 @media (max-width: 640px) {
   .trip-view-nav {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     overflow: hidden;
     border-radius: 14px;
     padding: 3px;

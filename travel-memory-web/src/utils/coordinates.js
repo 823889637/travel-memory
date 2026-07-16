@@ -19,7 +19,10 @@ export function isValidWgs84Coordinate(latitude, longitude) {
     && lng <= 180
 }
 
-function isInChina(latitude, longitude) {
+export function isCoordinateInChina(latitude, longitude) {
+  if (!isValidWgs84Coordinate(latitude, longitude)) {
+    return false
+  }
   return longitude >= 72.004
     && longitude <= 137.8347
     && latitude >= 0.8293
@@ -52,7 +55,7 @@ export function wgs84ToGcj02(latitude, longitude) {
 
   const lat = Number(latitude)
   const lng = Number(longitude)
-  if (!isInChina(lat, lng)) {
+  if (!isCoordinateInChina(lat, lng)) {
     return { latitude: lat, longitude: lng }
   }
 

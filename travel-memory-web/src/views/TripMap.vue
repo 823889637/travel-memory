@@ -1,12 +1,12 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { CalendarDays, Maximize2, X } from '@lucide/vue'
+import { Clock3, LocateFixed, MapPin, X } from '@lucide/vue'
 import MemoryMap from '../components/MemoryMap.vue'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
-import { isValidWgs84Coordinate } from '../utils/coordinates'
+import { isCoordinateInChina, isValidWgs84Coordinate } from '../utils/coordinates'
 import { getTripDayNumber } from '../utils/tripDay'
 import TripViewNav from '../components/TripViewNav.vue'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
@@ -28,6 +28,8 @@ const error = ref('')
 const selectedMemoryId = ref(null)
 const activeDate = ref('')
 const memoryMap = ref(null)
+const mapCardReady = ref(false)
+const dayButtonElements = new Map()
 
 const points = computed(() => {
   const fallbackDays = new Map()
@@ -72,11 +74,30 @@ const selectedMemory = computed(() => {
   if (!selectedKey) return null
   return points.value.find((item) => memoryIdKey(item.id) === selectedKey) || null
 })
-const selectedPhotoCount = computed(() => photoCount(selectedMemory.value))
 const hasDestinationCoordinates = computed(() => isValidWgs84Coordinate(
   trip.value?.destinationLatitude,
   trip.value?.destinationLongitude,
 ))
+const selectedLocationLabel = computed(() => {
+  if (!selectedMemory.value) return ''
+  const explicitCountry = String(trip.value?.destinationCountry || '').trim()
+  const coordinateSuggestsChina = isCoordinateInChina(
+    selectedMemory.value.latitude,
+    selectedMemory.value.longitude,
+  ) || isCoordinateInChina(
+    trip.value?.destinationLatitude,
+    trip.value?.destinationLongitude,
+  )
+  const country = explicitCountry || (coordinateSuggestsChina ? '中国' : '')
+  const names = [
+    country,
+    trip.value?.destination,
+    selectedMemory.value.locationName,
+  ]
+    .map(value => String(value || '').trim())
+    .filter(Boolean)
+  return [...new Set(names)].join(' · ') || '地点还没有补充'
+})
 
 function memoryIdKey(value) {
   return value == null ? '' : String(value)
@@ -113,32 +134,54 @@ function replaceMemoryQuery(memoryId) {
 function selectMemory(memoryId, { updateRoute = true } = {}) {
   const selected = points.value.find((item) => memoryIdKey(item.id) === memoryIdKey(memoryId))
   if (!selected) return
+  const changed = memoryIdKey(selectedMemoryId.value) !== memoryIdKey(selected.id)
+  if (changed) mapCardReady.value = false
   selectedMemoryId.value = selected.id
   activeDate.value = selected.mapDate
   if (updateRoute) replaceMemoryQuery(selected.id)
+  nextTick(syncActiveDayButton)
 }
 
 function closeMemoryCard() {
+  mapCardReady.value = false
   selectedMemoryId.value = null
   replaceMemoryQuery(null)
+}
+
+function revealMemoryCard(memoryId) {
+  if (memoryIdKey(memoryId) === memoryIdKey(selectedMemoryId.value)) {
+    mapCardReady.value = true
+  }
+}
+
+function setDayButtonRef(date, element) {
+  if (element) dayButtonElements.set(date, element)
+  else dayButtonElements.delete(date)
+}
+
+function syncActiveDayButton() {
+  dayButtonElements.get(activeDate.value)?.scrollIntoView({
+    behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'nearest',
+    inline: 'center',
+  })
 }
 
 function selectDay(day) {
   activeDate.value = day.date
   const firstMemory = day.memories[0]
   if (firstMemory) {
+    if (memoryIdKey(selectedMemoryId.value) !== memoryIdKey(firstMemory.id)) {
+      mapCardReady.value = false
+    }
     selectedMemoryId.value = firstMemory.id
     replaceMemoryQuery(firstMemory.id)
   }
-  nextTick(() => memoryMap.value?.focusPoints(day.memories.map((memory) => memory.id)))
-}
-
-function selectDateValue(event) {
-  const day = dayOptions.value.find(item => item.date === event.target.value)
-  if (day) selectDay(day)
+  nextTick(syncActiveDayButton)
 }
 
 function fitAllMemories() {
+  if (selectedMemoryId.value != null) mapCardReady.value = false
   memoryMap.value?.fitAll()
 }
 
@@ -182,19 +225,6 @@ function formatTime(value) {
   return rawValue.length >= 16 ? rawValue.slice(11, 16) : '时间未记录'
 }
 
-function formatDateTime(value) {
-  const rawValue = String(value || '')
-  if (rawValue.length >= 16) return `${rawValue.slice(0, 10).replaceAll('-', '.')} ${rawValue.slice(11, 16)}`
-  return rawValue || '时间未记录'
-}
-
-function coordinateLabel(memory) {
-  if (!hasValidCoordinates(memory)) return ''
-  const latitude = Number(memory.latitude)
-  const longitude = Number(memory.longitude)
-  return `${Math.abs(latitude).toFixed(4)}° ${latitude >= 0 ? 'N' : 'S'} · ${Math.abs(longitude).toFixed(4)}° ${longitude >= 0 ? 'E' : 'W'}`
-}
-
 async function loadPage() {
   loading.value = true
   error.value = ''
@@ -209,8 +239,11 @@ async function loadPage() {
     await nextTick()
     const requestedMemory = points.value.find((item) => memoryIdKey(item.id) === memoryIdKey(route.query.memoryId))
     const initialMemory = requestedMemory || points.value[0] || null
+    mapCardReady.value = false
     selectedMemoryId.value = initialMemory?.id ?? null
     activeDate.value = initialMemory?.mapDate || ''
+    await nextTick()
+    syncActiveDayButton()
   } catch (err) {
     error.value = err.message || '地图暂时没有加载成功，请稍后再试。'
   } finally {
@@ -222,6 +255,7 @@ watch(() => props.id, loadPage, { immediate: true })
 watch(() => route.query.memoryId, (memoryId) => {
   if (loading.value) return
   if (memoryId == null) {
+    mapCardReady.value = false
     selectedMemoryId.value = null
     return
   }
@@ -232,7 +266,7 @@ watch(() => route.query.memoryId, (memoryId) => {
 <template>
   <section class="trip-map-page">
     <MobilePageHeader title="地图" back-to="/trips" />
-    <TripContextCard v-if="!loading && trip" :trip="trip" variant="compact" />
+    <TripContextCard v-if="!loading && trip" :trip="trip" :memories="memories" variant="compact" />
 
     <TripViewNav v-if="!loading && trip" :trip-id="id" active="map" />
 
@@ -267,29 +301,23 @@ watch(() => route.query.memoryId, (memoryId) => {
           :fallback-longitude="trip.destinationLongitude"
           :fallback-label="trip.destination || '目的城市'"
           @select="selectMemory"
+          @selection-positioned="revealMemoryCard"
         />
 
-        <button type="button" class="trip-map-fit-all" aria-label="显示全部地图记忆" title="显示全部记忆" @click="fitAllMemories">
-          <Maximize2 :size="18" :stroke-width="1.8" aria-hidden="true" />
+        <button type="button" class="trip-map-fit-all" aria-label="恢复完整旅行路线" title="恢复完整旅行路线" @click="fitAllMemories">
+          <LocateFixed :size="19" :stroke-width="1.8" aria-hidden="true" />
         </button>
 
-        <article v-if="selectedMemory" class="map-memory-card">
+        <article v-if="selectedMemory && mapCardReady" class="map-memory-card">
           <header class="map-memory-card-head">
-            <p><span aria-hidden="true"></span>第 {{ selectedMemory.dayNumber }} 天 · 第 {{ selectedMemory.stopNumber }} 站</p>
+            <div class="map-memory-title">
+              <span class="map-memory-sequence">{{ selectedMemory.sequenceNumber }}</span>
+              <h2>{{ selectedMemory.locationName || '已记录位置' }}</h2>
+            </div>
             <button type="button" class="map-memory-close" aria-label="关闭记忆详情" @click="closeMemoryCard">
               <X :size="18" :stroke-width="1.8" aria-hidden="true" />
             </button>
           </header>
-
-          <div class="map-memory-heading">
-            <h2>{{ selectedMemory.locationName || '已记录位置' }}</h2>
-            <p>{{ coordinateLabel(selectedMemory) }}</p>
-          </div>
-
-          <div class="map-memory-facts">
-            <span>{{ formatTime(selectedMemory.recordTime) }}</span>
-            <span v-if="selectedPhotoCount">共 {{ selectedPhotoCount }} 张照片</span>
-          </div>
 
           <MemoryPhotoGallery
             v-if="hasMemoryPhoto(selectedMemory)"
@@ -300,44 +328,41 @@ watch(() => route.query.memoryId, (memoryId) => {
             alt="地图记忆照片"
           />
 
+          <div class="map-memory-facts">
+            <p>
+              <Clock3 :size="16" :stroke-width="1.7" aria-hidden="true" />
+              <span>{{ formatTime(selectedMemory.recordTime) }}</span>
+            </p>
+            <p>
+              <MapPin :size="16" :stroke-width="1.7" aria-hidden="true" />
+              <span>{{ selectedLocationLabel }}</span>
+            </p>
+          </div>
+
           <div class="map-memory-body">
             <p :class="['map-memory-quote', { muted: !selectedMemory.content }]">
-              “{{ selectedMemory.content || '这一刻没有留下文字。' }}”
+              {{ selectedMemory.content || '这一刻没有留下文字。' }}
             </p>
-            <p v-if="selectedMemory.companions?.length" class="map-memory-companions">
-              和 {{ selectedMemory.companions.map(item => item.name).join('、') }} 一起
-            </p>
-            <p class="map-memory-recorded">记录于 {{ formatDateTime(selectedMemory.recordTime) }}</p>
-            <RouterLink class="map-memory-detail-link" :to="`/trips/${id}/memories/${selectedMemory.id}`">
-              查看记忆详情 <span aria-hidden="true">→</span>
-            </RouterLink>
           </div>
         </article>
+      </div>
 
-        <nav v-if="dayOptions.length" class="map-day-navigation" aria-label="地图自然日导航">
+      <nav v-if="dayOptions.length" class="map-day-navigation" aria-label="地图自然日导航">
+        <div class="map-day-navigation-track">
           <button
             v-for="day in dayOptions"
             :key="day.date"
+            :ref="element => setDayButtonRef(day.date, element)"
             type="button"
-            :class="{ active: activeDate === day.date }"
+            :class="['map-day-button', { active: activeDate === day.date }]"
             :aria-current="activeDate === day.date ? 'date' : undefined"
             @click="selectDay(day)"
           >
             <strong>第 {{ day.dayNumber }} 天</strong>
             <span>{{ formatDate(day.date) }}</span>
           </button>
-          <label class="map-day-calendar" aria-label="按日期选择地图记忆">
-            <CalendarDays :size="19" :stroke-width="1.7" aria-hidden="true" />
-            <input
-              type="date"
-              :value="activeDate"
-              :min="dayOptions[0]?.date"
-              :max="dayOptions[dayOptions.length - 1]?.date"
-              @change="selectDateValue"
-            />
-          </label>
-        </nav>
-      </div>
+        </div>
+      </nav>
     </template>
   </section>
 </template>

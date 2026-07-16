@@ -52,7 +52,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleOutsideP
 </script>
 
 <template>
-  <div v-if="currentUser" ref="menuRef" class="user-menu">
+  <div v-if="currentUser" ref="menuRef" :class="['user-menu', { 'is-open': menuOpen }]">
     <button
       class="user-trigger"
       type="button"

@@ -1,11 +1,13 @@
 <script setup>
 import { ArrowLeft } from '@lucide/vue'
 import { useRouter } from 'vue-router'
+import UserMenu from './UserMenu.vue'
 
 const props = defineProps({
   title: { type: String, required: true },
   backTo: { type: [String, Object], default: '' },
   backLabel: { type: String, default: '返回' },
+  showUserMenu: { type: Boolean, default: true },
 })
 
 const router = useRouter()
@@ -27,6 +29,7 @@ function goBack() {
     <strong>{{ title }}</strong>
     <div class="mobile-page-header-actions">
       <slot name="actions" />
+      <UserMenu v-if="showUserMenu" class="mobile-page-user-menu" />
     </div>
   </header>
 </template>
@@ -80,6 +83,39 @@ function goBack() {
     min-width: 44px;
     align-items: center;
     justify-content: flex-end;
+    gap: 2px;
+  }
+
+  .mobile-page-header-actions :deep(.mobile-page-user-menu) {
+    min-width: 40px;
+    margin-left: 0;
+  }
+
+  .mobile-page-header-actions :deep(.mobile-page-user-menu .user-trigger) {
+    width: 40px;
+    height: 40px;
+    padding: 3px;
+  }
+
+  .mobile-page-header-actions :deep(.mobile-page-user-menu .user-avatar) {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mobile-page-header-actions :deep(.mobile-page-user-menu .user-trigger-name),
+  .mobile-page-header-actions :deep(.mobile-page-user-menu .user-trigger-caret) {
+    display: none;
+  }
+
+  .mobile-page-header-actions :deep(.mobile-page-user-menu .user-popover a),
+  .mobile-page-header-actions :deep(.mobile-page-user-menu .user-popover button) {
+    display: flex;
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    justify-content: flex-start;
+    padding: 9px;
+    border-radius: 8px;
   }
 
   .mobile-page-header-actions :deep(.trip-draft-header-action) {

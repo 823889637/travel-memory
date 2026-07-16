@@ -19,6 +19,7 @@ import {
 import { deleteMemory, favoriteMemory, getMemory, getTimeline } from '../api/memory'
 import { getTrip } from '../api/trip'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
+import UserMenu from '../components/UserMenu.vue'
 import { getChronologicalTripDayNumber } from '../utils/tripDay'
 
 const props = defineProps({
@@ -293,6 +294,7 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </div>
+          <UserMenu class="memory-detail-user-menu" />
         </div>
       </header>
 
@@ -437,6 +439,7 @@ onBeforeUnmount(() => {
 .memory-detail-topbar { position: sticky; z-index: 24; top: 64px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 56px; margin-bottom: 20px; border-bottom: 1px solid rgba(226, 214, 201, .82); background: rgba(255, 253, 249, .94); backdrop-filter: blur(14px); }
 .memory-detail-topbar-title { color: var(--tm-text-muted); font-size: 13px; font-weight: 700; }
 .memory-detail-topbar-actions { display: flex; justify-self: end; gap: 5px; }
+.memory-detail-topbar-actions .memory-detail-user-menu { display: none; margin-left: 2px; }
 .memory-detail-topbar-button { display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--tm-text-muted); }
 .memory-detail-topbar-button:hover, .memory-detail-topbar-button:focus-visible, .memory-detail-topbar-button.active { background: var(--tm-accent-soft); color: var(--tm-accent); }
 .memory-detail-content { display: grid; grid-template-columns: minmax(0, 1.52fr) minmax(330px, 1fr); gap: clamp(28px, 4vw, 54px); align-items: start; }
@@ -511,6 +514,9 @@ onBeforeUnmount(() => {
     padding: env(safe-area-inset-top) 14px 0;
     border-bottom: 0;
     background: rgba(255, 252, 247, .96);
+  }
+  .memory-detail-topbar-actions .memory-detail-user-menu {
+    display: flex;
   }
   .memory-detail-topbar-title {
     color: var(--tm-text);

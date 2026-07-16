@@ -1,12 +1,14 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { Clock3, MapPin } from '@lucide/vue'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { getChronologicalTripDayNumber } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import TripViewNav from '../components/TripViewNav.vue'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
+import TripContextCard from '../components/TripContextCard.vue'
 
 const props = defineProps({
   id: {
@@ -59,13 +61,6 @@ const dayGroups = computed(() => {
   })
 })
 
-const tripDateRange = computed(() => {
-  if (!trip.value) return ''
-  const start = trip.value.startDate || '未填写开始日期'
-  const end = trip.value.endDate || '未填写结束日期'
-  return `${start} — ${end}`
-})
-
 const visibleDayGroups = computed(() => {
   const activeGroup = dayGroups.value.find(group => group.date === activeDate.value)
   return activeGroup ? [activeGroup] : dayGroups.value.slice(0, 1)
@@ -104,6 +99,11 @@ function formatTime(value) {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return '--:--'
   return parsed.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function formatShortDate(value) {
+  const match = String(value || '').match(/^\d{4}-(\d{2})-(\d{2})/)
+  return match ? `${match[1]}.${match[2]}` : value
 }
 
 function memoryPhotos(memory) {
@@ -162,17 +162,7 @@ onMounted(loadPage)
 <template>
   <section class="journey-page journey-reader-page">
     <MobilePageHeader title="旅程回放" back-to="/trips" />
-    <header v-if="!loading && trip" class="journey-trip-summary">
-      <RouterLink class="journey-back-link" :to="`/trips/${id}`" aria-label="返回时间线">←</RouterLink>
-      <div class="journey-trip-summary-copy">
-        <h1>{{ trip.title || '这段旅行' }}</h1>
-        <p class="journey-trip-meta">
-          <span>{{ tripDateRange }}</span>
-          <span v-if="trip.destination">{{ trip.destination }}</span>
-        </p>
-        <p v-if="trip.description" class="journey-trip-description">{{ trip.description }}</p>
-      </div>
-    </header>
+    <TripContextCard v-if="!loading && trip" :trip="trip" :memories="memories" variant="compact" />
 
     <TripViewNav v-if="!loading && trip" :trip-id="id" active="journey" />
 
@@ -201,7 +191,7 @@ onMounted(loadPage)
             @click="selectDay(group.date)"
           >
             <span>Day {{ group.dayNumber }}</span>
-            <small>{{ group.date }}</small>
+            <small>{{ formatShortDate(group.date) }}</small>
           </button>
         </div>
       </nav>
@@ -222,7 +212,7 @@ onMounted(loadPage)
             <template v-for="(memory, memoryIndex) in group.memories" :key="memory.id">
               <article :class="['journey-memory-section', { 'is-text-only': !hasPhotos(memory) }]">
                 <div class="journey-memory-copy-panel">
-                  <p class="journey-memory-meta">第 {{ memoryIndex + 1 }} 站 · {{ formatTime(memory.recordTime) }}</p>
+                  <p class="journey-memory-station">第 {{ memoryIndex + 1 }} 站</p>
                   <RouterLink
                     v-if="memory.locationName"
                     class="journey-memory-location"
@@ -231,6 +221,10 @@ onMounted(loadPage)
                     {{ memory.locationName }}
                   </RouterLink>
                   <p v-else class="journey-memory-location muted">地点还没有补充</p>
+                  <p class="journey-memory-time">
+                    <Clock3 :size="14" :stroke-width="1.7" aria-hidden="true" />
+                    {{ formatTime(memory.recordTime) }}
+                  </p>
                   <RouterLink class="journey-memory-detail-link" :to="`/trips/${id}/memories/${memory.id}`">
                     <span v-if="memory.content">“{{ memory.content }}”</span>
                     <span v-else class="muted">这一刻没有留下文字。</span>
@@ -254,7 +248,7 @@ onMounted(loadPage)
               </article>
 
               <div v-if="memoryIndex < group.memories.length - 1" class="journey-next-memory" aria-hidden="true">
-                <span>下一站</span>
+                <span><MapPin :size="14" :stroke-width="1.6" />下一站</span>
               </div>
             </template>
           </div>

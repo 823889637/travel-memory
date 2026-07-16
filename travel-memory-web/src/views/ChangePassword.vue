@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { changePassword } from '../api/auth'
 import { currentUser, prepareCsrf } from '../auth'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const router = useRouter()
 const currentPassword = ref('')
@@ -32,7 +33,8 @@ async function submit () {
 </script>
 
 <template>
-  <section class="auth-page">
+  <section class="auth-page change-password-page">
+    <MobilePageHeader title="修改密码" back-to="/trips" />
     <div class="auth-brand-panel" aria-hidden="true">
       <span class="auth-brand-mark">◇</span>
       <p>Travel Memory</p>

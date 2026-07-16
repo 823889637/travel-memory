@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="trip-form-page trip-create-mobile-page">
-    <MobilePageHeader title="创建旅行" back-to="/trips">
+    <MobilePageHeader title="创建旅行" back-to="/trips" :show-user-menu="false">
       <template #actions>
         <button class="trip-draft-header-action" type="button" :disabled="draftSaving" aria-label="保存旅行草稿" @click="saveDraft()">
           <LoaderCircle v-if="draftSaving" :size="17" class="spin" aria-hidden="true" />

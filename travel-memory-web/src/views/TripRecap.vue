@@ -6,6 +6,7 @@ import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { resolveTripCoverUrl } from '../utils/tripCover'
 import TripViewNav from '../components/TripViewNav.vue'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
+import TripContextCard from '../components/TripContextCard.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const trip = ref(null)
@@ -87,6 +88,8 @@ watch(() => props.id, loadPage, { immediate: true })
 <template>
   <section class="recap-page">
     <MobilePageHeader title="旅行回顾" back-to="/trips" />
+    <TripContextCard v-if="!loading && trip" :trip="trip" :memories="memories" variant="compact" />
+    <TripViewNav v-if="!loading && !error && trip" :trip-id="id" active="recap" />
     <p v-if="loading" class="recap-status">正在把这趟旅行慢慢整理回来...</p>
     <p v-if="error" class="error recap-status">{{ error }}</p>
 
@@ -119,8 +122,6 @@ watch(() => props.id, loadPage, { immediate: true })
           </div>
         </section>
       </header>
-
-      <TripViewNav :trip-id="id" active="recap" />
 
       <section v-if="recap.days.length" class="recap-section">
         <div class="recap-section-head">

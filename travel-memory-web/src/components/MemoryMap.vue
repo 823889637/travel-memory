@@ -12,7 +12,7 @@ const props = defineProps({
   fallbackLongitude: { type: [Number, String], default: null },
   fallbackLabel: { type: String, default: '' },
 })
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'selection-positioned'])
 
 const mapElement = ref(null)
 const state = ref('idle')
@@ -35,11 +35,14 @@ let map = null
 let AMap = null
 let resizeObserver = null
 let routeAnimationFrame = null
+let selectionPlacementTimer = null
+let fitPlacementTimer = null
+let selectionPanId = ''
+let positionSelectedAfterFit = false
 let destroyed = false
 let destinationMarker = null
 const markers = new Map()
-const MARKER_SIZE = 32
-const OVERLAP_DISTANCE = 34
+const OVERLAP_DISTANCE = 42
 
 function idKey(value) {
   return value == null ? '' : String(value)
@@ -55,7 +58,10 @@ function markerElement(point, selected) {
   const element = document.createElement('button')
   element.type = 'button'
   element.className = 'memory-map-marker'
-  element.textContent = Number.isInteger(Number(point.sequenceNumber)) ? String(point.sequenceNumber) : '•'
+  const number = document.createElement('span')
+  number.className = 'memory-map-marker-number'
+  number.textContent = Number.isInteger(Number(point.sequenceNumber)) ? String(point.sequenceNumber) : '•'
+  element.appendChild(number)
   element.classList.toggle('is-selected', selected)
   element.classList.toggle('is-day-muted', Boolean(props.activeDate && point.mapDate !== props.activeDate))
   element.setAttribute('aria-label', markerLabel(point))
@@ -170,7 +176,7 @@ function spreadOverlappingMarkers() {
   groups.forEach((group) => {
     group.forEach((entry, index) => {
       if (group.length === 1) {
-        entry.marker.setOffset(new AMap.Pixel(-MARKER_SIZE / 2, -MARKER_SIZE / 2))
+        entry.marker.setOffset(new AMap.Pixel(0, 0))
         entry.visualDelta = { x: 0, y: 0 }
         return
       }
@@ -181,8 +187,8 @@ function spreadOverlappingMarkers() {
         y: Math.round(Math.sin(angle) * radius),
       }
       entry.marker.setOffset(new AMap.Pixel(
-        visualDelta.x - MARKER_SIZE / 2,
-        visualDelta.y - MARKER_SIZE / 2,
+        visualDelta.x,
+        visualDelta.y,
       ))
       entry.visualDelta = visualDelta
     })
@@ -211,30 +217,65 @@ function fitEntries(entries, maxZoom = 13) {
   try {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     map.setFitView(entries.map((entry) => entry.marker), reduceMotion, stagePadding(), maxZoom)
+    if (props.selectedId != null) {
+      positionSelectedAfterFit = true
+      if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
+      fitPlacementTimer = window.setTimeout(() => {
+        if (!positionSelectedAfterFit) return
+        positionSelectedAfterFit = false
+        positionSelected()
+      }, reduceMotion ? 40 : 420)
+    }
   } catch (error) {
     console.error('Failed to fit map markers.', error)
   }
 }
 
-function focusSelected() {
+function finishSelectedPlacement(expectedId) {
+  if (selectionPlacementTimer != null) window.clearTimeout(selectionPlacementTimer)
+  selectionPlacementTimer = null
+  selectionPanId = ''
+  if (expectedId && expectedId === idKey(props.selectedId)) {
+    emit('selection-positioned', props.selectedId)
+  }
+}
+
+function positionSelected() {
   const selected = markers.get(idKey(props.selectedId))
-  if (!map || !selected) return
-  map.setCenter([selected.point.longitude, selected.point.latitude])
+  if (!map || !selected || !mapElement.value) return
+
+  const mapRect = mapElement.value.getBoundingClientRect()
+  const current = map.lngLatToContainer([selected.point.longitude, selected.point.latitude])
+  const currentX = current.x + (selected.visualDelta?.x || 0)
+  const currentY = current.y + (selected.visualDelta?.y || 0)
+  const mobile = mapRect.width <= 640
+  const targetX = Math.min(mapRect.width - 48, mapRect.width * (mobile ? 0.74 : 0.68))
+  const targetY = mobile
+    ? Math.max(58, mapRect.height * 0.28)
+    : Math.min(mapRect.height - 58, Math.max(72, mapRect.height * 0.5))
+  const deltaX = targetX - currentX
+  const deltaY = targetY - currentY
+  const expectedId = idKey(props.selectedId)
+  positionSelectedAfterFit = false
+  if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
+  fitPlacementTimer = null
+  if (Math.abs(deltaX) < 4 && Math.abs(deltaY) < 4) {
+    finishSelectedPlacement(expectedId)
+    return
+  }
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  selectionPanId = expectedId
+  map.panBy(deltaX, deltaY, reduceMotion ? 0 : 180)
+  selectionPlacementTimer = window.setTimeout(
+    () => finishSelectedPlacement(expectedId),
+    reduceMotion ? 40 : 260,
+  )
   scheduleRouteOverlayUpdate()
 }
 
-function focusPoints(memoryIds = []) {
-  const keys = new Set(memoryIds.map(idKey))
-  const entries = [...markers.entries()]
-    .filter(([key]) => keys.has(key))
-    .map(([, entry]) => entry)
-  if (!map || entries.length === 0) return
-  const center = entries.reduce((result, entry) => ({
-    longitude: result.longitude + entry.point.longitude / entries.length,
-    latitude: result.latitude + entry.point.latitude / entries.length,
-  }), { longitude: 0, latitude: 0 })
-  map.setCenter([center.longitude, center.latitude])
-  scheduleRouteOverlayUpdate()
+function focusSelected() {
+  positionSelected()
 }
 
 function fitAll() {
@@ -256,8 +297,8 @@ function renderMarkers(shouldFit = false) {
       const marker = new AMap.Marker({
         position: [point.longitude, point.latitude],
         content: element,
-        offset: new AMap.Pixel(-MARKER_SIZE / 2, -MARKER_SIZE / 2),
-        anchor: 'center',
+        offset: new AMap.Pixel(0, 0),
+        anchor: 'bottom-center',
         zIndex: selected ? 120 : 80,
       })
       marker.setMap(map)
@@ -271,28 +312,15 @@ function renderMarkers(shouldFit = false) {
   if (shouldFit) fitAll()
 }
 
-function addMapControls() {
-  if (!map || !AMap) return
-  try {
-    map.addControl(new AMap.ToolBar({ position: 'RB', offset: [18, 126] }))
-    map.addControl(new AMap.Geolocation({
-      position: 'RB',
-      offset: [18, 184],
-      enableHighAccuracy: true,
-      timeout: 8000,
-      showMarker: true,
-      showCircle: false,
-      panToLocation: false,
-      zoomToAccuracy: false,
-    }))
-  } catch (error) {
-    console.warn('AMap controls could not be initialized.', error)
-  }
-}
-
 function cleanUpMap() {
   if (routeAnimationFrame != null) window.cancelAnimationFrame(routeAnimationFrame)
+  if (selectionPlacementTimer != null) window.clearTimeout(selectionPlacementTimer)
+  if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
   routeAnimationFrame = null
+  selectionPlacementTimer = null
+  fitPlacementTimer = null
+  selectionPanId = ''
+  positionSelectedAfterFit = false
   resizeObserver?.disconnect()
   resizeObserver = null
   clearRouteLines()
@@ -337,7 +365,6 @@ async function initializeMap() {
     const loadedAMap = await AMapLoader.load({
       key,
       version: '2.0',
-      plugins: ['AMap.ToolBar', 'AMap.Geolocation'],
     })
     if (destroyed || !mapElement.value) return
     AMap = loadedAMap
@@ -356,12 +383,21 @@ async function initializeMap() {
     })
     resizeObserver.observe(mapElement.value)
     map.on('zoomend', spreadOverlappingMarkers)
-    map.on('moveend', spreadOverlappingMarkers)
+    map.on('moveend', () => {
+      spreadOverlappingMarkers()
+      if (selectionPanId) {
+        finishSelectedPlacement(selectionPanId)
+        return
+      }
+      if (positionSelectedAfterFit) {
+        positionSelectedAfterFit = false
+        positionSelected()
+      }
+    })
     map.on('mapmove', scheduleRouteOverlayUpdate)
     map.on('zoomchange', scheduleRouteOverlayUpdate)
     renderMarkers(!props.focusSelectedOnReady)
     if (props.focusSelectedOnReady) focusSelected()
-    addMapControls()
     state.value = 'ready'
   } catch (error) {
     cleanUpMap()
@@ -381,7 +417,16 @@ watch(mapSignature, (next, previous) => {
 })
 watch(() => props.selectedId, () => {
   updateMarkerSelection()
-  if (props.selectedId != null) focusSelected()
+  if (props.selectedId != null) {
+    focusSelected()
+  } else {
+    if (selectionPlacementTimer != null) window.clearTimeout(selectionPlacementTimer)
+    if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
+    selectionPlacementTimer = null
+    fitPlacementTimer = null
+    selectionPanId = ''
+    positionSelectedAfterFit = false
+  }
 })
 watch(() => props.activeDate, updateMarkerSelection)
 onMounted(initializeMap)
@@ -390,7 +435,7 @@ onBeforeUnmount(() => {
   cleanUpMap()
 })
 
-defineExpose({ focusSelected, focusPoints, fitAll })
+defineExpose({ focusSelected, fitAll })
 </script>
 
 <template>

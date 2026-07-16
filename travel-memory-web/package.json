@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
+    "@fontsource/noto-serif-sc": "^5.2.9",
     "@lucide/vue": "^1.24.0",
     "@vitejs/plugin-vue": "^5.2.4",
     "axios": "^1.7.9",

@@ -28,19 +28,29 @@ const routes = [
   { path: '/trips/:id/journey', component: TripJourney, props: true, meta: { mobileHeader: 'page' } },
   { path: '/trips/:id/recap', component: TripRecap, props: true, meta: { mobileHeader: 'page' } },
   { path: '/trips/:id/companions', component: TripCompanions, props: true, meta: { mobileHeader: 'page' } },
-  { path: '/trips/:id/favorites', component: TripTimeline, props: (route) => ({ id: route.params.id, favoriteOnly: true }), meta: { mobileHeader: 'page' } },
+  {
+    path: '/trips/:id/favorites',
+    redirect: route => ({ path: `/trips/${route.params.id}`, query: { ...route.query, favorite: 'true' } }),
+  },
   { path: '/trips/:id', component: TripTimeline, props: true, meta: { mobileHeader: 'page' } },
   { path: '/trips/:id/memories/new', component: MemoryCreate, props: true, meta: { mobileHeader: 'page' } },
   { path: '/trips/:tripId/memories/:memoryId', component: MemoryDetail, props: true, meta: { mobileHeader: 'page' } },
   { path: '/trips/:tripId/memories/:memoryId/edit', component: MemoryEdit, props: true, meta: { mobileHeader: 'page' } },
-  { path: '/trips/:id/map', component: TripMap, props: true, meta: { mobileHeader: 'page' } },
+  {
+    path: '/trips/:id/map',
+    component: TripMap,
+    props: true,
+    meta: { mobileHeader: 'page', preserveQueryScroll: true },
+  },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior(to, from, savedPosition) {
-    return savedPosition || { top: 0 }
+    if (savedPosition) return savedPosition
+    if (to.path === from.path && to.meta.preserveQueryScroll) return false
+    return { top: 0 }
   },
 })
 router.beforeEach(async (to) => {

@@ -1,31 +1,49 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { CalendarDays, MapPin } from '@lucide/vue'
+import { CalendarDays } from '@lucide/vue'
 import { resolveTripCoverUrl } from '../utils/tripCover'
 
 const props = defineProps({
   trip: { type: Object, required: true },
+  memories: { type: Array, default: () => [] },
   variant: { type: String, default: 'compact' },
 })
 
 const coverFailed = ref(false)
-const coverUrl = computed(() => coverFailed.value ? '' : resolveTripCoverUrl(props.trip))
+const coverUrl = computed(() => coverFailed.value ? '' : resolveTripCoverUrl(props.trip, props.memories))
+const fallbackCoverUrl = computed(() => (
+  props.memories.find(memory => String(memory?.photoUrl || '').trim())?.photoUrl || ''
+))
+
+const headline = computed(() => {
+  const destination = String(props.trip?.destination || '').trim()
+  const title = String(props.trip?.title || '').trim()
+  const parts = [destination, title].filter(Boolean)
+  return parts.join(' · ') || '这次旅行'
+})
 
 const dateRange = computed(() => {
-  const start = props.trip?.startDate || '日期待补充'
-  const end = props.trip?.endDate || props.trip?.startDate || '日期待补充'
-  return `${start} — ${end}`
+  const start = formatDate(props.trip?.startDate)
+  const end = formatDate(props.trip?.endDate || props.trip?.startDate)
+  if (!start && !end) return '日期待补充'
+  if (!start) return end
+  if (!end || end === start) return start
+  return `${start} – ${end}`
 })
 
-const duration = computed(() => {
-  if (!props.trip?.startDate || !props.trip?.endDate) return ''
-  const start = new Date(`${props.trip.startDate}T00:00:00`)
-  const end = new Date(`${props.trip.endDate}T00:00:00`)
-  const days = Math.floor((end - start) / 86400000) + 1
-  return Number.isFinite(days) && days > 0 ? `${days} 天 ${Math.max(0, days - 1)} 晚` : ''
-})
+function formatDate(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : ''
+}
 
-watch(() => props.trip?.id, () => { coverFailed.value = false })
+watch(() => [
+  props.trip?.id,
+  props.trip?.coverPhotoUrl,
+  props.trip?.effectiveCoverPhotoUrl,
+  fallbackCoverUrl.value,
+], () => {
+  coverFailed.value = false
+})
 </script>
 
 <template>
@@ -35,9 +53,8 @@ watch(() => props.trip?.id, () => { coverFailed.value = false })
       <span v-else>{{ (trip.destination || trip.title || '旅').slice(0, 1) }}</span>
     </div>
     <div class="trip-context-copy">
-      <h1>{{ trip.title || '这次旅行' }}</h1>
-      <p v-if="variant === 'favorite' && trip.destination"><MapPin :size="15" aria-hidden="true" />{{ trip.destination }}</p>
-      <p><CalendarDays :size="15" aria-hidden="true" />{{ dateRange }}<span v-if="duration"> · {{ duration }}</span></p>
+      <h1>{{ headline }}</h1>
+      <p><CalendarDays :size="17" :stroke-width="1.7" aria-hidden="true" />{{ dateRange }}</p>
     </div>
     <div class="trip-context-actions"><slot name="actions" /></div>
   </article>
@@ -46,92 +63,119 @@ watch(() => props.trip?.id, () => { coverFailed.value = false })
 <style scoped>
 .trip-context-card {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 15px;
+  gap: 18px;
   min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--tm-border);
-  border-radius: 12px;
-  background: rgba(255, 253, 249, .9);
-  box-shadow: 0 8px 22px rgba(69, 51, 39, .05);
+  padding: 10px 2px 14px;
+  background: transparent;
 }
 
 .trip-context-cover {
   display: grid;
-  width: 72px;
+  width: 78px;
   aspect-ratio: 1;
   place-items: center;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: 16px;
   background: var(--tm-accent-soft);
   color: var(--tm-accent);
-  font-family: Georgia, "Microsoft YaHei", serif;
-  font-size: 24px;
-  font-weight: 800;
+  font-family: var(--tm-font-serif);
+  font-size: 25px;
+  font-weight: 700;
+  box-shadow: 0 7px 18px rgba(69, 51, 39, .11);
 }
 
-.trip-context-cover img { width: 100%; height: 100%; object-fit: cover; }
-.trip-context-copy { display: grid; min-width: 0; gap: 6px; }
+.trip-context-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trip-context-copy {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
 .trip-context-copy h1,
-.trip-context-copy p { margin: 0; }
+.trip-context-copy p {
+  margin: 0;
+}
+
 .trip-context-copy h1 {
   overflow: hidden;
-  font-family: Georgia, "Microsoft YaHei", serif;
-  font-size: 24px;
-  line-height: 1.2;
+  color: var(--tm-text);
+  font-family: var(--tm-font-serif);
+  font-size: clamp(22px, 2.2vw, 29px);
+  font-weight: 700;
+  line-height: 1.28;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .trip-context-copy p {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--tm-text-muted);
-  font-size: 13px;
+  font-family: var(--tm-font-sans);
+  font-size: 14px;
+  line-height: 1.4;
 }
-.trip-context-copy p span { white-space: nowrap; }
-.trip-context-actions { display: flex; align-items: center; gap: 6px; }
 
-.trip-context-card--favorite {
-  grid-template-columns: minmax(116px, 30%) minmax(0, 1fr) auto;
-  padding: 14px;
-}
-.trip-context-card--favorite .trip-context-cover {
-  width: 100%;
-  max-width: 190px;
-  aspect-ratio: 16 / 9;
+.trip-context-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 @media (max-width: 760px) {
   .trip-context-card {
-    grid-template-columns: 64px minmax(0, 1fr) auto;
-    gap: 13px;
-    padding: 10px 4px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 8px 10px 13px;
   }
-  .trip-context-cover { width: 64px; border-radius: 14px; }
-  .trip-context-copy h1 { font-size: 21px; }
-  .trip-context-copy p { font-size: 12px; }
-  .trip-context-card--favorite {
-    grid-template-columns: 112px minmax(0, 1fr) auto;
-    padding: 12px;
-    border: 1px solid var(--tm-border);
-    border-radius: 18px;
-    background: rgba(255, 253, 249, .92);
-    box-shadow: 0 8px 24px rgba(69, 51, 39, .06);
+
+  .trip-context-cover {
+    width: 72px;
+    border-radius: 15px;
+    font-size: 23px;
   }
-  .trip-context-card--favorite .trip-context-cover { width: 112px; border-radius: 14px; }
-  .trip-context-card--favorite .trip-context-copy h1 { font-size: 19px; }
-  .trip-context-card--favorite .trip-context-copy p:first-of-type { display: none; }
+
+  .trip-context-copy {
+    gap: 9px;
+  }
+
+  .trip-context-copy h1 {
+    font-size: clamp(20px, 5.6vw, 24px);
+  }
+
+  .trip-context-copy p {
+    gap: 7px;
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 370px) {
-  .trip-context-card--favorite { grid-template-columns: 96px minmax(0, 1fr); }
-  .trip-context-card--favorite .trip-context-cover { width: 96px; }
+  .trip-context-card {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+    padding-inline: 6px;
+  }
+
+  .trip-context-cover {
+    width: 64px;
+    border-radius: 13px;
+  }
+
+  .trip-context-copy h1 {
+    font-size: 19px;
+  }
+
+  .trip-context-actions {
+    display: none;
+  }
 }
 </style>

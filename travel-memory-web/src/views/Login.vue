@@ -37,7 +37,7 @@ async function submit () {
 </script>
 
 <template>
-  <section class="auth-page">
+  <section class="auth-page auth-login-page">
     <div class="auth-brand-panel" aria-hidden="true">
       <span class="auth-brand-mark">◇</span>
       <p>Travel Memory</p>
