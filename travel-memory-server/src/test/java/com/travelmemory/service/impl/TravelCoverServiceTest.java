@@ -18,6 +18,7 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.FileStorageService;
+import com.travelmemory.service.ProtectedUploadReferenceService;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.util.ImageMetadataExtractor;
@@ -184,7 +185,8 @@ class TravelCoverServiceTest {
         TravelTripServiceImpl service = new TravelTripServiceImpl(
                 tripMapper, memoryMapper, photoMapper,
                 mock(com.travelmemory.mapper.TripCompanionMapper.class),
-                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser());
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(),
+                mock(ProtectedUploadReferenceService.class));
 
         var result = service.listForHome();
 
@@ -259,7 +261,8 @@ class TravelCoverServiceTest {
     private TravelTripServiceImpl tripService(TravelTripMapper tripMapper, TravelMemoryMapper memoryMapper) {
         return new TravelTripServiceImpl(tripMapper, memoryMapper, mock(MemoryPhotoMapper.class),
                 mock(com.travelmemory.mapper.TripCompanionMapper.class),
-                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser());
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(),
+                mock(ProtectedUploadReferenceService.class));
     }
 
     private CurrentUser currentUser() {

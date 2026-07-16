@@ -1030,3 +1030,284 @@
     grid-template-columns: minmax(104px, 40%) minmax(0, 60%);
   }
 }
+
+/* 2026-07-16: final mobile reference alignment for the ten baseline screens. */
+.trip-cover-photo-count {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(48, 40, 35, .68);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  backdrop-filter: blur(8px);
+}
+
+.trip-cover-photo-count::before {
+  content: "▧";
+  margin-right: 5px;
+  font-size: 10px;
+}
+
+@media (max-width: 760px) {
+  .trip-list-page,
+  .timeline-page,
+  .trip-map-page,
+  .recap-page,
+  .companions-page,
+  .journey-reader-page {
+    --tm-mobile-card-radius: 18px;
+  }
+
+  .trip-list-page {
+    gap: 14px;
+  }
+
+  .trip-list-hero {
+    min-height: 118px;
+    padding-top: 18px;
+  }
+
+  .trip-list-hero h1 {
+    font-family: Georgia, "Microsoft YaHei", serif;
+    font-size: 34px;
+    line-height: 1.15;
+  }
+
+  .trip-list-hero .muted {
+    color: #9b654b;
+    font-size: 14px;
+  }
+
+  .trip-card {
+    overflow: hidden;
+    border-color: rgba(218, 198, 181, .78);
+    border-radius: 18px;
+    background: rgba(255, 253, 249, .96);
+    box-shadow: 0 10px 26px rgba(72, 53, 40, .08);
+  }
+
+  .trip-cover {
+    aspect-ratio: 16 / 9;
+  }
+
+  .trip-cover-destination {
+    right: auto;
+    left: 11px;
+    max-width: calc(100% - 100px);
+    border-radius: 999px;
+  }
+
+  .trip-cover-photo-count {
+    top: 10px;
+    right: 10px;
+  }
+
+  .trip-card-body {
+    padding: 15px 15px 12px;
+  }
+
+  .trip-card-title-row h2 {
+    font-size: 24px;
+  }
+
+  .trip-meta {
+    gap: 4px 8px;
+  }
+
+  .trip-date,
+  .trip-destination,
+  .trip-description {
+    font-size: 12px;
+  }
+
+  .trip-bookmark-button {
+    margin-top: -4px;
+  }
+
+  .trip-main-actions button {
+    border-radius: 11px;
+    font-size: 12px;
+  }
+
+  .trip-card-view-links {
+    padding-top: 7px;
+  }
+
+  .trip-create-mobile-page .trip-form-card {
+    gap: 15px;
+    padding: 12px 0 calc(92px + env(safe-area-inset-bottom));
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .trip-create-mobile-page .trip-create-cover-field,
+  .trip-create-mobile-page .field,
+  .trip-create-mobile-page .trip-form-date-grid,
+  .trip-create-mobile-page > .trip-form-card > .error,
+  .trip-create-mobile-page .trip-draft-message {
+    margin-inline: 0;
+  }
+
+  .trip-create-mobile-page .trip-create-cover-preview,
+  .trip-create-mobile-page .trip-create-cover-placeholder {
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    border-radius: 18px;
+  }
+
+  .trip-create-mobile-page .trip-create-cover-placeholder {
+    margin: 0;
+  }
+
+  .trip-create-mobile-page .field,
+  .trip-create-mobile-page .trip-form-date-grid {
+    padding: 0 3px;
+  }
+
+  .trip-create-mobile-page .field textarea {
+    min-height: 96px;
+  }
+
+  .trip-create-mobile-page .trip-form-actions button:first-child {
+    border-radius: 13px;
+  }
+
+  .timeline-page .trip-memory-hero,
+  .timeline-page .trip-memory-cover,
+  .timeline-page .trip-memory-hero-content {
+    min-height: 210px;
+  }
+
+  .timeline-page .trip-memory-hero-content {
+    justify-content: end;
+    padding: 19px 17px 15px;
+  }
+
+  .timeline-page .trip-view-nav {
+    margin-top: -4px;
+  }
+
+  .timeline-page .day-header {
+    min-height: 48px;
+    border-radius: 999px;
+    padding: 8px 13px;
+  }
+
+  .timeline-page .memory-item {
+    grid-template-columns: 48px 14px minmax(0, 1fr);
+  }
+
+  .timeline-page .memory-card,
+  .timeline-page .memory-card.has-photo {
+    border-radius: 17px;
+  }
+
+  .favorite-timeline-page .trip-memory-hero {
+    min-height: 132px;
+    background: transparent;
+  }
+
+  .favorite-timeline-page .trip-memory-hero-content {
+    min-height: 132px;
+    padding: 14px 4px;
+    background: transparent;
+    color: var(--tm-text);
+  }
+
+  .favorite-timeline-page .trip-memory-cover,
+  .favorite-timeline-page .trip-memory-stats,
+  .favorite-timeline-page .trip-memory-info {
+    display: none;
+  }
+
+  .favorite-timeline-page .trip-memory-hero-content h1 {
+    font-family: Georgia, "Microsoft YaHei", serif;
+    font-size: 34px;
+  }
+
+  .favorite-timeline-page .memory-card.has-photo.favorite-preview-card {
+    grid-template-columns: 126px minmax(0, 1fr);
+    min-height: 148px;
+  }
+
+  .favorite-timeline-page .memory-card.has-photo.favorite-preview-card .memory-main,
+  .favorite-timeline-page .memory-card.has-photo.favorite-preview-card .gallery-favorite-preview {
+    height: 148px;
+  }
+
+  .favorite-timeline-page .memory-card.has-photo.favorite-preview-card .memory-details {
+    min-height: 148px;
+  }
+
+  .journey-record-day-section {
+    border-radius: 20px;
+  }
+
+  .trip-map-stage {
+    height: min(128vw, 540px);
+    min-height: 500px;
+    border-radius: 20px;
+  }
+
+  .map-memory-card {
+    bottom: 78px;
+    left: 12px;
+    width: min(276px, calc(100% - 76px));
+    max-height: 260px;
+    border-radius: 17px;
+  }
+
+  .map-memory-card .map-memory-photo,
+  .map-memory-card .gallery-favorite-preview {
+    height: 96px;
+    min-height: 96px;
+  }
+
+  .recap-page .recap-cover,
+  .recap-page .recap-cover img {
+    border-radius: 18px;
+  }
+
+  .recap-page .recap-summary-grid > div {
+    border-radius: 16px;
+  }
+
+  .recap-page .recap-day-card,
+  .recap-page .recap-place-panel,
+  .recap-page .recap-favorites {
+    border-radius: 18px;
+  }
+
+  .companion-manager {
+    border-radius: 18px;
+  }
+
+  .companion-add {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .companion-add .companion-avatar-picker,
+  .companion-add .companion-self-toggle {
+    min-height: 34px;
+  }
+
+  .companion-add .companion-avatar-picker {
+    grid-column: 1;
+  }
+
+  .companion-add .companion-self-toggle {
+    grid-column: 2;
+  }
+
+  .companion-avatar {
+    flex-basis: 42px;
+    height: 42px;
+  }
+}

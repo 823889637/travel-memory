@@ -14,6 +14,7 @@ import com.travelmemory.entity.TripCompanion;
 import com.travelmemory.exception.BusinessException;
 import com.travelmemory.mapper.MemoryCompanionMapper;
 import com.travelmemory.mapper.TripCompanionMapper;
+import com.travelmemory.service.ProtectedUploadReferenceService;
 import com.travelmemory.service.TravelTripService;
 import java.util.List;
 import java.util.Map;
@@ -107,7 +108,8 @@ class TripCompanionServiceImplTest {
 
     private TripCompanionServiceImpl service(TripCompanionMapper companions,
             MemoryCompanionMapper relations, TravelTripService trips) {
-        return new TripCompanionServiceImpl(companions, relations, trips);
+        return new TripCompanionServiceImpl(companions, relations, trips,
+                mock(ProtectedUploadReferenceService.class));
     }
 
     private TripCompanion companion(Long id, Long tripId, String name, boolean active) {

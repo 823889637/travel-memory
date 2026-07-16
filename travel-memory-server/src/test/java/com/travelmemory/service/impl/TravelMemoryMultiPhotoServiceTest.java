@@ -18,6 +18,7 @@ import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.FileStorageService;
+import com.travelmemory.service.ProtectedUploadReferenceService;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.util.ImageMetadataExtractor;
@@ -215,7 +216,8 @@ class TravelMemoryMultiPhotoServiceTest {
         when(memoryMapper.selectList(any())).thenReturn(List.of(memory(10L, "/uploads/one.jpg")));
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper, photoMapper,
                 mock(com.travelmemory.mapper.TripCompanionMapper.class),
-                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser());
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(),
+                mock(ProtectedUploadReferenceService.class));
 
         service.delete(1L);
 

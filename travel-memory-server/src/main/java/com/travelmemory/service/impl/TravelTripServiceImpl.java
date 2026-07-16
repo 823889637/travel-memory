@@ -15,6 +15,7 @@ import com.travelmemory.mapper.MemoryCompanionMapper;
 import com.travelmemory.mapper.TripCompanionMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.TravelTripService;
+import com.travelmemory.service.ProtectedUploadReferenceService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.vo.TravelTripListVO;
 import java.util.HashMap;
@@ -35,17 +36,20 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     private final TripCompanionMapper tripCompanionMapper;
     private final MemoryCompanionMapper memoryCompanionMapper;
     private final CurrentUser currentUser;
+    private final ProtectedUploadReferenceService uploadReferences;
 
     @Autowired
     public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper,
             MemoryPhotoMapper memoryPhotoMapper, TripCompanionMapper tripCompanionMapper,
-            MemoryCompanionMapper memoryCompanionMapper, CurrentUser currentUser) {
+            MemoryCompanionMapper memoryCompanionMapper, CurrentUser currentUser,
+            ProtectedUploadReferenceService uploadReferences) {
         this.travelTripMapper = travelTripMapper;
         this.travelMemoryMapper = travelMemoryMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
         this.tripCompanionMapper = tripCompanionMapper;
         this.memoryCompanionMapper = memoryCompanionMapper;
         this.currentUser = currentUser;
+        this.uploadReferences = uploadReferences;
     }
 
     @Override
@@ -132,7 +136,8 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         validateTripFields(travelTrip);
         validateDateRange(travelTrip);
         travelTrip.setUserId(currentUser.requireId());
-        travelTrip.setCoverPhotoUrl(null);
+        travelTrip.setCoverPhotoUrl(normalizeOwnedCover(travelTrip.getCoverPhotoUrl()));
+        travelTrip.setIsFavorite(false);
         travelTrip.setCreateTime(null);
         travelTrip.setUpdateTime(null);
         travelTrip.setDeleted(null);
@@ -149,6 +154,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         travelTrip.setId(id);
         travelTrip.setUserId(existing.getUserId());
         travelTrip.setCoverPhotoUrl(existing.getCoverPhotoUrl());
+        travelTrip.setIsFavorite(existing.getIsFavorite());
         travelTrip.setCreateTime(existing.getCreateTime());
         travelTrip.setUpdateTime(null);
         travelTrip.setDeleted(existing.getDeleted());
@@ -178,6 +184,24 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         }
 
         travelTrip.setCoverPhotoUrl(photoUrl);
+        travelTripMapper.updateById(travelTrip);
+        return getById(tripId);
+    }
+
+    @Override
+    @Transactional
+    public TravelTrip setCoverUrl(Long tripId, String photoUrl) {
+        TravelTrip travelTrip = getById(tripId);
+        travelTrip.setCoverPhotoUrl(uploadReferences.requireOwnedImage(photoUrl));
+        travelTripMapper.updateById(travelTrip);
+        return getById(tripId);
+    }
+
+    @Override
+    @Transactional
+    public TravelTrip setFavorite(Long tripId, boolean favorite) {
+        TravelTrip travelTrip = getById(tripId);
+        travelTrip.setIsFavorite(favorite);
         travelTripMapper.updateById(travelTrip);
         return getById(tripId);
     }
@@ -276,6 +300,9 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         if (travelTrip.getDescription() != null && travelTrip.getDescription().length() > 500) {
             throw new BusinessException(400, "Description must not exceed 500 characters");
         }
+        if (travelTrip.getNotes() != null && travelTrip.getNotes().length() > 1000) {
+            throw new BusinessException(400, "Notes must not exceed 1000 characters");
+        }
     }
 
     private void requirePositiveId(Long id, String fieldName) {
@@ -321,6 +348,12 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         vo.setMemoryCount(memoryCount == null ? 0L : memoryCount);
         vo.setPhotoCount(photoCount == null ? 0L : photoCount);
         vo.setLocationCount(locations == null ? 0L : (long) locations.size());
+        vo.setIsFavorite(Boolean.TRUE.equals(trip.getIsFavorite()));
         return vo;
+    }
+
+    private String normalizeOwnedCover(String photoUrl) {
+        String normalized = normalizePhotoUrl(photoUrl);
+        return normalized == null ? null : uploadReferences.requireOwnedImage(normalized);
     }
 }

@@ -11,6 +11,7 @@ public class AppUser {
     private Long id;
     private String username;
     private String displayName;
+    private String avatarUrl;
     private String passwordHash;
     private String role;
     private Boolean enabled;
@@ -27,6 +28,8 @@ public class AppUser {
     public void setUsername(String username) { this.username = username; }
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public String getRole() { return role; }

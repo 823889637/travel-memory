@@ -9,6 +9,8 @@ import com.travelmemory.mapper.MemoryCompanionMapper;
 import com.travelmemory.mapper.TripCompanionMapper;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.service.TripCompanionService;
+import com.travelmemory.service.ProtectedUploadReferenceService;
+import com.travelmemory.vo.TripCompanionVO;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -27,12 +29,15 @@ public class TripCompanionServiceImpl implements TripCompanionService {
     private final TripCompanionMapper tripCompanionMapper;
     private final MemoryCompanionMapper memoryCompanionMapper;
     private final TravelTripService travelTripService;
+    private final ProtectedUploadReferenceService uploadReferences;
 
     public TripCompanionServiceImpl(TripCompanionMapper tripCompanionMapper,
-            MemoryCompanionMapper memoryCompanionMapper, TravelTripService travelTripService) {
+            MemoryCompanionMapper memoryCompanionMapper, TravelTripService travelTripService,
+            ProtectedUploadReferenceService uploadReferences) {
         this.tripCompanionMapper = tripCompanionMapper;
         this.memoryCompanionMapper = memoryCompanionMapper;
         this.travelTripService = travelTripService;
+        this.uploadReferences = uploadReferences;
     }
 
     @Override
@@ -48,6 +53,12 @@ public class TripCompanionServiceImpl implements TripCompanionService {
     @Override
     @Transactional
     public TripCompanion create(Long tripId, String name) {
+        return create(tripId, name, null, false);
+    }
+
+    @Override
+    @Transactional
+    public TripCompanion create(Long tripId, String name, String avatarUrl, boolean isSelf) {
         travelTripService.getById(tripId);
         String normalizedName = normalizeName(name);
         ensureUniqueName(tripId, normalizedName, null);
@@ -61,21 +72,51 @@ public class TripCompanionServiceImpl implements TripCompanionService {
         TripCompanion companion = new TripCompanion();
         companion.setTripId(tripId);
         companion.setName(normalizedName);
+        companion.setAvatarUrl(normalizeAvatar(avatarUrl));
+        companion.setIsSelf(isSelf);
         companion.setSortOrder((int) activeCount);
         companion.setActive(true);
         tripCompanionMapper.insert(companion);
+        if (isSelf) clearOtherSelfMarkers(tripId, companion.getId());
         return requireOwnedCompanion(tripId, companion.getId());
     }
 
     @Override
     @Transactional
     public TripCompanion update(Long tripId, Long companionId, String name) {
+        TripCompanion existing = requireOwnedCompanion(tripId, companionId);
+        return update(tripId, companionId, name, existing.getAvatarUrl(), Boolean.TRUE.equals(existing.getIsSelf()));
+    }
+
+    @Override
+    @Transactional
+    public TripCompanion update(Long tripId, Long companionId, String name, String avatarUrl, boolean isSelf) {
         TripCompanion companion = requireOwnedCompanion(tripId, companionId);
         String normalizedName = normalizeName(name);
         ensureUniqueName(tripId, normalizedName, companionId);
         companion.setName(normalizedName);
+        companion.setAvatarUrl(normalizeAvatar(avatarUrl));
+        companion.setIsSelf(isSelf);
         tripCompanionMapper.updateById(companion);
+        if (isSelf) clearOtherSelfMarkers(tripId, companionId);
         return requireOwnedCompanion(tripId, companionId);
+    }
+
+    @Override
+    public TripCompanion get(Long tripId, Long companionId) {
+        return requireOwnedCompanion(tripId, companionId);
+    }
+
+    @Override
+    public List<TripCompanionVO> listWithStats(Long tripId) {
+        List<TripCompanion> companions = list(tripId);
+        if (companions.isEmpty()) return List.of();
+        Set<Long> ids = companions.stream().map(TripCompanion::getId).collect(java.util.stream.Collectors.toSet());
+        Map<Long, Long> counts = new HashMap<>();
+        memoryCompanionMapper.selectList(new LambdaQueryWrapper<MemoryCompanion>()
+                .in(MemoryCompanion::getCompanionId, ids))
+                .forEach(relation -> counts.merge(relation.getCompanionId(), 1L, Long::sum));
+        return companions.stream().map(item -> TripCompanionVO.from(item, counts.getOrDefault(item.getId(), 0L))).toList();
     }
 
     @Override
@@ -157,7 +198,8 @@ public class TripCompanionServiceImpl implements TripCompanionService {
         grouped.forEach((memoryId, companions) -> {
             companions.sort(order);
             result.put(memoryId, companions.stream()
-                    .map(companion -> new CompanionSummary(companion.getId(), companion.getName()))
+                    .map(companion -> new CompanionSummary(companion.getId(), companion.getName(),
+                            companion.getAvatarUrl(), companion.getIsSelf()))
                     .toList());
         });
         return result;
@@ -198,6 +240,22 @@ public class TripCompanionServiceImpl implements TripCompanionService {
         }
         if (tripCompanionMapper.selectCount(query) > 0) {
             throw new BusinessException(400, "Companion name already exists");
+        }
+    }
+
+    private String normalizeAvatar(String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank()) return null;
+        return uploadReferences.requireOwnedImage(avatarUrl);
+    }
+
+    private void clearOtherSelfMarkers(Long tripId, Long selectedId) {
+        List<TripCompanion> others = tripCompanionMapper.selectList(new LambdaQueryWrapper<TripCompanion>()
+                .eq(TripCompanion::getTripId, tripId)
+                .eq(TripCompanion::getIsSelf, true)
+                .ne(TripCompanion::getId, selectedId));
+        for (TripCompanion other : others) {
+            other.setIsSelf(false);
+            tripCompanionMapper.updateById(other);
         }
     }
 }

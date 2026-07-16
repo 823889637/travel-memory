@@ -16,6 +16,7 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.service.FileStorageService;
+import com.travelmemory.service.ProtectedUploadReferenceService;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.util.ImageMetadataExtractor;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,8 @@ class UserOwnershipServiceTest {
         when(tripMapper.selectById(20L)).thenReturn(otherUsersTrip);
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class),
                 mock(MemoryPhotoMapper.class), mock(com.travelmemory.mapper.TripCompanionMapper.class),
-                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(1L));
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(1L),
+                mock(ProtectedUploadReferenceService.class));
 
         assertNotFound(() -> service.getById(20L));
         assertNotFound(() -> service.update(20L, trip(null, null)));
@@ -65,7 +67,8 @@ class UserOwnershipServiceTest {
         when(memoryMapper.selectById(30L)).thenReturn(memory(30L, 20L));
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper,
                 mock(MemoryPhotoMapper.class), mock(com.travelmemory.mapper.TripCompanionMapper.class),
-                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(1L));
+                mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(1L),
+                mock(ProtectedUploadReferenceService.class));
 
         assertNotFound(() -> service.setCover(10L, 30L));
         verify(tripMapper, never()).updateById(any(TravelTrip.class));

@@ -1,30 +1,27 @@
 package com.travelmemory.dto;
 
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
-public class TripCreateRequest {
-
-    @NotBlank(message = "title is required")
+public class TripDraftRequest {
     @Size(max = 100, message = "title must not exceed 100 characters")
     private String title;
-
     @Size(max = 100, message = "destination must not exceed 100 characters")
     private String destination;
-
     private LocalDate startDate;
     private LocalDate endDate;
-
     @Size(max = 500, message = "description must not exceed 500 characters")
     private String description;
-
     @Size(max = 1000, message = "notes must not exceed 1000 characters")
     private String notes;
-
     @Size(max = 255, message = "coverPhotoUrl must not exceed 255 characters")
     private String coverPhotoUrl;
+
+    @AssertTrue(message = "endDate must not be before startDate")
+    public boolean isDateRangeValid() {
+        return startDate == null || endDate == null || !endDate.isBefore(startDate);
+    }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -40,9 +37,4 @@ public class TripCreateRequest {
     public void setNotes(String notes) { this.notes = notes; }
     public String getCoverPhotoUrl() { return coverPhotoUrl; }
     public void setCoverPhotoUrl(String coverPhotoUrl) { this.coverPhotoUrl = coverPhotoUrl; }
-
-    @AssertTrue(message = "endDate must not be before startDate")
-    public boolean isDateRangeValid() {
-        return startDate == null || endDate == null || !endDate.isBefore(startDate);
-    }
 }

@@ -300,8 +300,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
             <h2>同行的人</h2>
             <div class="memory-companion-list">
               <span v-for="companion in memory.companions" :key="companion.id || companion.name" class="memory-companion">
-                <span class="memory-companion-avatar" aria-hidden="true">{{ companionInitial(companion) }}</span>
-                <span>{{ companion.name }}</span>
+                <span class="memory-companion-avatar" aria-hidden="true"><img v-if="companion.avatarUrl" :src="companion.avatarUrl" alt="" /><template v-else>{{ companionInitial(companion) }}</template></span>
+                <span>{{ companion.name }}<small v-if="companion.isSelf">（你）</small></span>
               </span>
             </div>
           </section>
@@ -406,7 +406,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 .memory-companion-section h2, .memory-trip-source h2 { margin: 0; color: var(--tm-text-muted); font-size: 12px; font-weight: 650; }
 .memory-companion-list { display: flex; flex-wrap: wrap; gap: 10px 15px; }
 .memory-companion { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
-.memory-companion-avatar { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid #e1cbb9; border-radius: 50%; background: #f3e5da; color: #8d4d31; font-size: 12px; font-weight: 800; }
+.memory-companion-avatar { display: grid; width: 30px; height: 30px; place-items: center; overflow: hidden; border: 1px solid #e1cbb9; border-radius: 50%; background: #f3e5da; color: #8d4d31; font-size: 12px; font-weight: 800; }
+.memory-companion-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .memory-trip-card { display: grid; grid-template-columns: 66px minmax(0, 1fr) auto; gap: 11px; align-items: center; min-width: 0; padding: 9px; border: 1px solid var(--tm-border); border-radius: 9px; background: rgba(255, 253, 249, .74); color: var(--tm-text); }
 .memory-trip-card:hover { border-color: #d2ad95; }
 .memory-trip-cover { display: grid; width: 66px; height: 48px; place-items: center; overflow: hidden; border-radius: 6px; background: linear-gradient(145deg, #ead7c7, #f6eee5); color: var(--tm-accent); font-weight: 800; }

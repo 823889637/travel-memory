@@ -10,6 +10,9 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.MemoryDraftMapper;
 import com.travelmemory.mapper.TravelTripMapper;
+import com.travelmemory.mapper.AppUserMapper;
+import com.travelmemory.mapper.TripCompanionMapper;
+import com.travelmemory.mapper.TripDraftMapper;
 import com.travelmemory.service.OrphanUploadCleanupService;
 import java.io.IOException;
 import java.net.URI;
@@ -43,6 +46,9 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
     private final MemoryPhotoMapper memoryPhotoMapper;
     private final MemoryDraftMapper memoryDraftMapper;
     private final UploadCleanupProperties cleanupProperties;
+    private final AppUserMapper appUserMapper;
+    private final TripCompanionMapper tripCompanionMapper;
+    private final TripDraftMapper tripDraftMapper;
 
     @Value("${app.upload.dir:../uploads}")
     private String uploadDir;
@@ -53,12 +59,18 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
             TravelTripMapper travelTripMapper,
             MemoryPhotoMapper memoryPhotoMapper,
             MemoryDraftMapper memoryDraftMapper,
+            AppUserMapper appUserMapper,
+            TripCompanionMapper tripCompanionMapper,
+            TripDraftMapper tripDraftMapper,
             UploadCleanupProperties cleanupProperties
     ) {
         this.travelMemoryMapper = travelMemoryMapper;
         this.travelTripMapper = travelTripMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
         this.memoryDraftMapper = memoryDraftMapper;
+        this.appUserMapper = appUserMapper;
+        this.tripCompanionMapper = tripCompanionMapper;
+        this.tripDraftMapper = tripDraftMapper;
         this.cleanupProperties = cleanupProperties;
     }
 
@@ -120,6 +132,18 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
                 new QueryWrapper<com.travelmemory.entity.MemoryDraft>()
                         .select("photo_urls")
                         .isNotNull("photo_urls")));
+        addReferencedUrls(referencedPaths, uploadRoot, appUserMapper.selectObjs(
+                new QueryWrapper<com.travelmemory.entity.AppUser>()
+                        .select("avatar_url")
+                        .isNotNull("avatar_url")));
+        addReferencedUrls(referencedPaths, uploadRoot, tripCompanionMapper.selectObjs(
+                new QueryWrapper<com.travelmemory.entity.TripCompanion>()
+                        .select("avatar_url")
+                        .isNotNull("avatar_url")));
+        addReferencedUrls(referencedPaths, uploadRoot, tripDraftMapper.selectObjs(
+                new QueryWrapper<com.travelmemory.entity.TripDraft>()
+                        .select("cover_photo_url")
+                        .isNotNull("cover_photo_url")));
         return referencedPaths;
     }
 

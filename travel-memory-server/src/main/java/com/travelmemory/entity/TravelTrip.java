@@ -20,10 +20,12 @@ public class TravelTrip {
     private String title;
 
     private String description;
+    private String notes;
     private String destination;
     private LocalDate startDate;
     private LocalDate endDate;
     private String coverPhotoUrl;
+    private Boolean isFavorite;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     @TableLogic
@@ -56,6 +58,9 @@ public class TravelTrip {
         this.description = description;
     }
 
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
+
     public String getDestination() {
         return destination;
     }
@@ -87,6 +92,9 @@ public class TravelTrip {
     public void setCoverPhotoUrl(String coverPhotoUrl) {
         this.coverPhotoUrl = coverPhotoUrl;
     }
+
+    public Boolean getIsFavorite() { return isFavorite; }
+    public void setIsFavorite(Boolean isFavorite) { this.isFavorite = isFavorite; }
 
     public LocalDateTime getCreateTime() {
         return createTime;

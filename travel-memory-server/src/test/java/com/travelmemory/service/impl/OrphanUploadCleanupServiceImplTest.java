@@ -11,6 +11,9 @@ import static org.mockito.Mockito.when;
 
 import com.travelmemory.config.UploadCleanupProperties;
 import com.travelmemory.dto.CleanupResult;
+import com.travelmemory.mapper.AppUserMapper;
+import com.travelmemory.mapper.TripCompanionMapper;
+import com.travelmemory.mapper.TripDraftMapper;
 import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.MemoryPhotoMapper;
 import com.travelmemory.mapper.MemoryDraftMapper;
@@ -165,6 +168,44 @@ class OrphanUploadCleanupServiceImplTest {
         assertEquals(1, result.getReferencedCount());
     }
 
+    @Test
+    void preservesProfileCompanionAndTripDraftImages() throws IOException {
+        Path profile = oldFile("profile.jpg");
+        Path companion = oldFile("companion.jpg");
+        Path tripDraft = oldFile("trip-draft.jpg");
+        Path orphan = oldFile("orphan.jpg");
+        TravelMemoryMapper memoryMapper = mock(TravelMemoryMapper.class);
+        TravelTripMapper tripMapper = mock(TravelTripMapper.class);
+        MemoryPhotoMapper photoMapper = mock(MemoryPhotoMapper.class);
+        MemoryDraftMapper memoryDraftMapper = mock(MemoryDraftMapper.class);
+        AppUserMapper userMapper = mock(AppUserMapper.class);
+        TripCompanionMapper companionMapper = mock(TripCompanionMapper.class);
+        TripDraftMapper tripDraftMapper = mock(TripDraftMapper.class);
+        when(memoryMapper.selectObjs(any())).thenReturn(List.of());
+        when(tripMapper.selectObjs(any())).thenReturn(List.of());
+        when(photoMapper.selectObjs(any())).thenReturn(List.of());
+        when(memoryDraftMapper.selectObjs(any())).thenReturn(List.of());
+        when(userMapper.selectObjs(any())).thenReturn(List.of("/uploads/profile.jpg"));
+        when(companionMapper.selectObjs(any())).thenReturn(List.of("/uploads/companion.jpg"));
+        when(tripDraftMapper.selectObjs(any())).thenReturn(List.of("/uploads/trip-draft.jpg"));
+        UploadCleanupProperties properties = new UploadCleanupProperties();
+        properties.setEnabled(true);
+        properties.setDryRun(false);
+        properties.setRetentionHours(24);
+        OrphanUploadCleanupServiceImpl service = new OrphanUploadCleanupServiceImpl(
+                memoryMapper, tripMapper, photoMapper, memoryDraftMapper,
+                userMapper, companionMapper, tripDraftMapper, properties);
+        ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
+
+        CleanupResult result = service.cleanupOrphans();
+
+        assertTrue(Files.exists(profile));
+        assertTrue(Files.exists(companion));
+        assertTrue(Files.exists(tripDraft));
+        assertFalse(Files.exists(orphan));
+        assertEquals(3, result.getReferencedCount());
+    }
+
     private OrphanUploadCleanupService service(
             boolean enabled,
             boolean dryRun,
@@ -204,8 +245,15 @@ class OrphanUploadCleanupServiceImplTest {
         properties.setEnabled(enabled);
         properties.setDryRun(dryRun);
         properties.setRetentionHours(24);
+        AppUserMapper appUserMapper = mock(AppUserMapper.class);
+        TripCompanionMapper companionMapper = mock(TripCompanionMapper.class);
+        TripDraftMapper tripDraftMapper = mock(TripDraftMapper.class);
+        when(appUserMapper.selectObjs(any())).thenReturn(List.of());
+        when(companionMapper.selectObjs(any())).thenReturn(List.of());
+        when(tripDraftMapper.selectObjs(any())).thenReturn(List.of());
         OrphanUploadCleanupServiceImpl service = new OrphanUploadCleanupServiceImpl(
-                memoryMapper, tripMapper, photoMapper, draftMapper, properties);
+                memoryMapper, tripMapper, photoMapper, draftMapper,
+                appUserMapper, companionMapper, tripDraftMapper, properties);
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
         return service;
     }

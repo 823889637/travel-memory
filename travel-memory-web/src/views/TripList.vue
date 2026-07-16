@@ -1,19 +1,28 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { BookOpen, Compass, List, Map } from '@lucide/vue'
-import { deleteTrip, getTrips } from '../api/trip'
+import { BookOpen, Bookmark, Compass, List, Map } from '@lucide/vue'
+import { deleteTrip, favoriteTrip, getTrips } from '../api/trip'
 import { resolveTripCoverUrl } from '../utils/tripCover'
 
 const trips = ref([])
 const loading = ref(false)
 const error = ref('')
 const failedCoverIds = ref(new Set())
+const favoriteSavingIds = ref(new Set())
 
 function formatDateRange(trip) {
   const start = trip.startDate || '未知日期'
   const end = trip.endDate || '未知日期'
   return `${start} - ${end}`
+}
+
+function tripDuration(trip) {
+  if (!trip.startDate || !trip.endDate) return ''
+  const start = new Date(`${trip.startDate}T00:00:00`)
+  const end = new Date(`${trip.endDate}T00:00:00`)
+  const days = Math.floor((end - start) / 86400000) + 1
+  return Number.isFinite(days) && days > 0 ? `${days} 天 ${Math.max(0, days - 1)} 晚` : ''
 }
 
 async function loadTrips() {
@@ -46,6 +55,21 @@ async function removeTrip(id) {
     await loadTrips()
   } catch (err) {
     window.alert(err.message || '删除失败')
+  }
+}
+
+async function toggleTripFavorite(trip) {
+  if (favoriteSavingIds.value.has(trip.id)) return
+  favoriteSavingIds.value = new Set([...favoriteSavingIds.value, trip.id])
+  try {
+    const updated = await favoriteTrip(trip.id, !trip.isFavorite)
+    trip.isFavorite = Boolean(updated.isFavorite)
+  } catch (err) {
+    error.value = err.message || '旅行收藏状态暂时没有更新成功。'
+  } finally {
+    const next = new Set(favoriteSavingIds.value)
+    next.delete(trip.id)
+    favoriteSavingIds.value = next
   }
 }
 
@@ -89,15 +113,26 @@ onMounted(loadTrips)
             <span>{{ trip.destination || '一段旅程' }}</span>
           </div>
           <span v-if="trip.destination" class="trip-cover-destination">{{ trip.destination }}</span>
+          <span v-if="trip.photoCount" class="trip-cover-photo-count">{{ trip.photoCount }}</span>
         </div>
 
         <div class="trip-card-body">
           <div class="trip-card-title-row">
             <h2>{{ trip.title }}</h2>
+            <button
+              type="button"
+              :class="['trip-bookmark-button', { active: trip.isFavorite }]"
+              :disabled="favoriteSavingIds.has(trip.id)"
+              :aria-label="trip.isFavorite ? '取消收藏旅行' : '收藏旅行'"
+              :aria-pressed="Boolean(trip.isFavorite)"
+              @click="toggleTripFavorite(trip)"
+            >
+              <Bookmark :size="19" :fill="trip.isFavorite ? 'currentColor' : 'none'" aria-hidden="true" />
+            </button>
           </div>
           <div class="trip-meta">
             <p class="trip-destination">{{ trip.destination || '目的地还没有补充' }}</p>
-            <p class="trip-date">{{ formatDateRange(trip) }}</p>
+            <p class="trip-date">{{ formatDateRange(trip) }}<span v-if="tripDuration(trip)"> · {{ tripDuration(trip) }}</span></p>
           </div>
           <div class="trip-card-summary">
             <p v-if="trip.description" class="trip-description">{{ trip.description }}</p>
@@ -109,11 +144,11 @@ onMounted(loadTrips)
           </div>
 
           <div class="trip-main-actions">
-            <RouterLink :to="`/trips/${trip.id}`">
-              <button><List :size="16" aria-hidden="true" />进入时间线</button>
-            </RouterLink>
             <RouterLink :to="`/trips/${trip.id}/journey`">
-              <button class="ghost"><Compass :size="16" aria-hidden="true" />旅程回放</button>
+              <button><Compass :size="16" aria-hidden="true" />进入 Journey</button>
+            </RouterLink>
+            <RouterLink :to="`/trips/${trip.id}`">
+              <button class="ghost"><List :size="16" aria-hidden="true" />查看 Timeline</button>
             </RouterLink>
             <details class="trip-card-more">
               <summary aria-label="更多旅行操作" title="更多旅行操作">更多</summary>

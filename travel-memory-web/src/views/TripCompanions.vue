@@ -1,9 +1,9 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { createTripCompanion, getTripCompanions, setTripCompanionActive, updateTripCompanion } from '../api/companion'
+import { createTripCompanion, getCompanionMemories, getTripCompanions, setTripCompanionActive, updateTripCompanion } from '../api/companion'
 import { getTimeline } from '../api/memory'
-import { getTrip } from '../api/trip'
+import { getTrip, uploadImage } from '../api/trip'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTripDayNumber } from '../utils/tripDay'
 import TripViewNav from '../components/TripViewNav.vue'
@@ -17,6 +17,10 @@ const loading = ref(false)
 const error = ref('')
 const actionError = ref('')
 const draftName = ref('')
+const draftAvatarUrl = ref('')
+const draftIsSelf = ref(false)
+const avatarUploading = ref(false)
+const relatedMemories = ref([])
 const saving = ref(false)
 const editingId = ref(null)
 const editingName = ref('')
@@ -29,12 +33,12 @@ const selectedCompanion = computed(() => companions.value.find(
 ) || null)
 const filteredMemories = computed(() => {
   if (!selectedCompanion.value) return memories.value
-  return memories.value.filter(memory => memory.companions?.some(
-    companion => String(companion.id) === String(selectedCompanion.value.id),
-  ))
+  return relatedMemories.value
 })
 
 function companionMemoryCount(companionId) {
+  const summary = companions.value.find(item => String(item.id) === String(companionId))
+  if (summary?.memoryCount != null) return summary.memoryCount
   return memories.value.filter(memory =>
     memory.companions?.some(companion => String(companion.id) === String(companionId)),
   ).length
@@ -59,10 +63,38 @@ function formatTime(value) {
   return value ? String(value).slice(11, 16) : '--:--'
 }
 
-function selectCompanion(companion) {
-  selectedCompanionId.value = String(selectedCompanionId.value) === String(companion.id)
-    ? null
-    : companion.id
+async function selectCompanion(companion) {
+  if (String(selectedCompanionId.value) === String(companion.id)) {
+    selectedCompanionId.value = null
+    relatedMemories.value = []
+    return
+  }
+  selectedCompanionId.value = companion.id
+  actionError.value = ''
+  try {
+    relatedMemories.value = await getCompanionMemories(props.id, companion.id)
+  } catch (err) {
+    selectedCompanionId.value = null
+    relatedMemories.value = []
+    actionError.value = err.message || '同行者的相关记忆暂时没有加载成功。'
+  }
+}
+
+async function uploadCompanionAvatar(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  avatarUploading.value = true
+  actionError.value = ''
+  try {
+    const data = new FormData()
+    data.append('photo', file)
+    draftAvatarUrl.value = (await uploadImage(data)).photoUrl
+  } catch (err) {
+    actionError.value = err.message || '头像上传失败。'
+  } finally {
+    avatarUploading.value = false
+  }
 }
 
 async function loadPage() {
@@ -90,8 +122,14 @@ async function addCompanion() {
   saving.value = true
   actionError.value = ''
   try {
-    await createTripCompanion(props.id, name)
+    await createTripCompanion(props.id, {
+      name,
+      avatarUrl: draftAvatarUrl.value || null,
+      isSelf: draftIsSelf.value,
+    })
     draftName.value = ''
+    draftAvatarUrl.value = ''
+    draftIsSelf.value = false
     companions.value = await getTripCompanions(props.id)
   } catch (err) {
     actionError.value = err.message || '添加同行者失败。'
@@ -112,7 +150,11 @@ async function saveEdit(companion) {
   saving.value = true
   actionError.value = ''
   try {
-    await updateTripCompanion(props.id, companion.id, name)
+    await updateTripCompanion(props.id, companion.id, {
+      name,
+      avatarUrl: companion.avatarUrl || null,
+      isSelf: Boolean(companion.isSelf),
+    })
     editingId.value = null
     companions.value = await getTripCompanions(props.id)
     memories.value = await getTimeline(props.id)
@@ -168,7 +210,7 @@ watch(() => props.id, loadPage, { immediate: true })
             <p class="trip-list-kicker">相关记忆</p>
             <h2>{{ selectedCompanion ? selectedCompanion.name : '全部同行记忆' }}</h2>
           </div>
-          <button v-if="selectedCompanion" type="button" class="companion-text-btn" @click="selectedCompanionId = null">查看全部</button>
+          <button v-if="selectedCompanion" type="button" class="companion-text-btn" @click="selectedCompanionId = null; relatedMemories = []">查看全部</button>
         </div>
         <div v-if="dayGroups.length === 0" class="companions-empty">
           <h2>{{ selectedCompanion ? `还没有和${selectedCompanion.name}一起的记忆。` : '还没有可以一起回看的片段。' }}</h2>
@@ -217,6 +259,11 @@ watch(() => props.id, loadPage, { immediate: true })
         <form class="companion-add" @submit.prevent="addCompanion">
           <input v-model="draftName" maxlength="50" placeholder="输入名字或称呼" />
           <button :disabled="saving || !draftName.trim()">添加</button>
+          <label class="companion-avatar-picker">
+            <span>{{ avatarUploading ? '上传中…' : (draftAvatarUrl ? '已选择头像' : '添加头像') }}</span>
+            <input class="visually-hidden" type="file" accept="image/*" :disabled="avatarUploading" @change="uploadCompanionAvatar" />
+          </label>
+          <label class="companion-self-toggle"><input v-model="draftIsSelf" type="checkbox" /> 这是我</label>
         </form>
         <p v-if="actionError" class="error companion-action-error">{{ actionError }}</p>
 
@@ -234,9 +281,12 @@ watch(() => props.id, loadPage, { immediate: true })
                 :aria-pressed="String(selectedCompanionId) === String(companion.id)"
                 @click="selectCompanion(companion)"
               >
-                <span class="companion-avatar" aria-hidden="true">{{ companion.name.slice(0, 1) }}</span>
+                <span class="companion-avatar" aria-hidden="true">
+                  <img v-if="companion.avatarUrl" :src="companion.avatarUrl" alt="" />
+                  <template v-else>{{ companion.name.slice(0, 1) }}</template>
+                </span>
                 <span class="companion-row-copy">
-                  <strong>{{ companion.name }}</strong>
+                  <strong>{{ companion.name }} <small v-if="companion.isSelf" class="companion-self-badge">你</small></strong>
                   <small>出现在 {{ companionMemoryCount(companion.id) }} 段记忆中</small>
                 </span>
               </button>
@@ -250,7 +300,7 @@ watch(() => props.id, loadPage, { immediate: true })
           <summary>已停用 {{ inactiveCompanions.length }} 人</summary>
           <div class="companion-list">
             <article v-for="companion in inactiveCompanions" :key="companion.id" class="companion-row inactive">
-              <span class="companion-avatar" aria-hidden="true">{{ companion.name.slice(0, 1) }}</span>
+              <span class="companion-avatar" aria-hidden="true"><img v-if="companion.avatarUrl" :src="companion.avatarUrl" alt="" /><template v-else>{{ companion.name.slice(0, 1) }}</template></span>
               <span class="companion-row-copy">
                 <strong>{{ companion.name }}</strong>
                 <small>已停用 · 出现在 {{ companionMemoryCount(companion.id) }} 段记忆中</small>

@@ -16,4 +16,5 @@ public interface AppUserService {
  UserResponse setEnabled(Long actorId,Long userId,boolean enabled);
  UserResponse resetPassword(Long userId,String temporaryPassword);
  void bootstrapInitialAdmin(String username,String password);
+ UserPrincipal updateAvatar(Long userId,String avatarUrl);
 }

@@ -12,6 +12,8 @@ public class TripCompanion {
     private Long id;
     private Long tripId;
     private String name;
+    private String avatarUrl;
+    private Boolean isSelf;
     private Integer sortOrder;
     private Boolean active;
     private LocalDateTime createTime;
@@ -23,6 +25,10 @@ public class TripCompanion {
     public void setTripId(Long tripId) { this.tripId = tripId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+    public Boolean getIsSelf() { return isSelf; }
+    public void setIsSelf(Boolean isSelf) { this.isSelf = isSelf; }
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     public Boolean getActive() { return active; }

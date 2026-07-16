@@ -15,6 +15,7 @@ public class TravelTripListVO {
     private Long memoryCount;
     private Long photoCount;
     private Long locationCount;
+    private Boolean isFavorite;
 
     public Long getId() {
         return id;
@@ -103,4 +104,7 @@ public class TravelTripListVO {
     public void setLocationCount(Long locationCount) {
         this.locationCount = locationCount;
     }
+
+    public Boolean getIsFavorite() { return isFavorite; }
+    public void setIsFavorite(Boolean isFavorite) { this.isFavorite = isFavorite; }
 }

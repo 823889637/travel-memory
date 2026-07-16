@@ -1,31 +1,30 @@
-package com.travelmemory.dto;
+package com.travelmemory.entity;
 
-import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-public class TripCreateRequest {
-
-    @NotBlank(message = "title is required")
-    @Size(max = 100, message = "title must not exceed 100 characters")
+@TableName("trip_draft")
+public class TripDraft {
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    private Long userId;
     private String title;
-
-    @Size(max = 100, message = "destination must not exceed 100 characters")
     private String destination;
-
     private LocalDate startDate;
     private LocalDate endDate;
-
-    @Size(max = 500, message = "description must not exceed 500 characters")
     private String description;
-
-    @Size(max = 1000, message = "notes must not exceed 1000 characters")
     private String notes;
-
-    @Size(max = 255, message = "coverPhotoUrl must not exceed 255 characters")
     private String coverPhotoUrl;
+    private LocalDateTime createTime;
+    private LocalDateTime updateTime;
 
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDestination() { return destination; }
@@ -40,9 +39,8 @@ public class TripCreateRequest {
     public void setNotes(String notes) { this.notes = notes; }
     public String getCoverPhotoUrl() { return coverPhotoUrl; }
     public void setCoverPhotoUrl(String coverPhotoUrl) { this.coverPhotoUrl = coverPhotoUrl; }
-
-    @AssertTrue(message = "endDate must not be before startDate")
-    public boolean isDateRangeValid() {
-        return startDate == null || endDate == null || !endDate.isBefore(startDate);
-    }
+    public LocalDateTime getCreateTime() { return createTime; }
+    public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+    public LocalDateTime getUpdateTime() { return updateTime; }
+    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
 }

@@ -1226,6 +1226,14 @@ textarea {
   color: var(--tm-accent);
   font-size: 13px;
   font-weight: 800;
+  overflow: hidden;
+}
+
+.user-avatar img,
+.user-popover-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-trigger-name {
@@ -1289,7 +1297,81 @@ textarea {
   background: var(--tm-accent-soft);
   color: var(--tm-accent);
   font-weight: 800;
+  overflow: hidden;
 }
+
+.trip-bookmark-button {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tm-text-muted);
+}
+
+.trip-bookmark-button.active,
+.trip-bookmark-button:hover {
+  color: var(--tm-accent);
+  background: var(--tm-accent-soft);
+}
+
+.trip-create-cover-field {
+  position: relative;
+  display: grid;
+}
+
+.trip-create-cover-preview {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--tm-accent-soft);
+}
+
+.trip-create-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trip-cover-picker {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 999px;
+  background: rgba(255, 253, 249, .92);
+  color: var(--tm-accent);
+  box-shadow: 0 7px 18px rgba(58, 44, 34, .12);
+}
+
+.trip-draft-message {
+  margin: 0;
+  color: #5f7c56;
+  font-size: 12px;
+}
+
+.spin { animation: tm-spin .8s linear infinite; }
+@keyframes tm-spin { to { transform: rotate(360deg); } }
+
+.companion-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.companion-avatar { overflow: hidden; }
+.companion-self-badge { margin-left: 5px; color: var(--tm-accent); font-size: 10px; }
+.companion-avatar-picker,
+.companion-self-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--tm-text-muted); font-size: 12px; cursor: pointer; }
 
 .user-popover a,
 .user-popover button {
@@ -4605,4 +4687,13 @@ textarea {
   .journey-memory-section.is-text-only .journey-memory-detail-link {
     font-size: 12px;
   }
+}
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
 }

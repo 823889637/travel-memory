@@ -1,10 +1,8 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { getTimeline } from '../api/memory'
-import { getTrip } from '../api/trip'
+import { getTripRecap } from '../api/trip'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
-import { buildTripRecap } from '../utils/tripRecap'
 import { resolveTripCoverUrl } from '../utils/tripCover'
 import TripViewNav from '../components/TripViewNav.vue'
 import MobilePageHeader from '../components/MobilePageHeader.vue'
@@ -12,11 +10,33 @@ import MobilePageHeader from '../components/MobilePageHeader.vue'
 const props = defineProps({ id: { type: String, required: true } })
 const trip = ref(null)
 const memories = ref([])
+const recapData = ref(null)
 const loading = ref(false)
 const error = ref('')
 const coverFailed = ref(false)
 
-const recap = computed(() => buildTripRecap(trip.value, memories.value))
+const recap = computed(() => {
+  const data = recapData.value
+  if (!data) return {
+    durationDays: 0, memoryCount: 0, photoCount: 0, favoriteCount: 0,
+    recordedDayCount: 0, locatedCount: 0, placeCount: 0, days: [], places: [], favorites: [],
+  }
+  return {
+    durationDays: data.tripDays,
+    memoryCount: data.memoryCount,
+    photoCount: data.photoCount,
+    favoriteCount: data.favoriteCount,
+    recordedDayCount: data.days?.length || 0,
+    locatedCount: data.locatedMemoryCount,
+    placeCount: data.locationCount,
+    days: (data.days || []).map(day => ({
+      ...day,
+      locations: day.locationSummary ? day.locationSummary.split(' · ') : [],
+    })),
+    places: (data.topLocations || []).map(place => ({ name: place.name, count: place.memoryCount })),
+    favorites: data.favoriteMemories || [],
+  }
+})
 const coverPhotoUrl = computed(() => coverFailed.value ? '' : resolveTripCoverUrl(trip.value, memories.value))
 const dateRange = computed(() => {
   if (!trip.value) return ''
@@ -24,7 +44,9 @@ const dateRange = computed(() => {
 })
 
 function formatTime(value) {
-  return value ? String(value).slice(11, 16) : '--:--'
+  if (!value) return '--:--'
+  const raw = String(value)
+  return raw.includes('T') || raw.includes(' ') ? raw.slice(11, 16) : raw.slice(0, 5)
 }
 
 function formatDate(value) {
@@ -44,9 +66,13 @@ async function loadPage() {
   loading.value = true
   error.value = ''
   try {
-    const [tripData, memoryData] = await Promise.all([getTrip(props.id), getTimeline(props.id)])
-    trip.value = tripData
-    memories.value = memoryData
+    const data = await getTripRecap(props.id)
+    recapData.value = data
+    trip.value = data.trip
+    memories.value = [
+      ...(data.days || []).map((day) => day.representative).filter(Boolean),
+      ...(data.favoriteMemories || []),
+    ]
     coverFailed.value = false
   } catch (err) {
     error.value = err.message || '旅行回顾暂时没有整理成功，请稍后再试。'

@@ -6,6 +6,7 @@ USE travel_memory;
 
 DROP TABLE IF EXISTS memory_companion;
 DROP TABLE IF EXISTS memory_draft;
+DROP TABLE IF EXISTS trip_draft;
 DROP TABLE IF EXISTS memory_photo;
 DROP TABLE IF EXISTS trip_companion;
 DROP TABLE IF EXISTS travel_memory;
@@ -16,6 +17,7 @@ CREATE TABLE app_user (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
   username VARCHAR(64) DEFAULT NULL COMMENT 'Lowercase username',
   display_name VARCHAR(100) NOT NULL COMMENT 'Display name',
+  avatar_url VARCHAR(255) DEFAULT NULL COMMENT 'Protected avatar URL',
   password_hash VARCHAR(100) NOT NULL COMMENT 'BCrypt password hash',
   role VARCHAR(16) NOT NULL COMMENT 'ADMIN or USER',
   enabled TINYINT NOT NULL DEFAULT 1 COMMENT 'Enabled flag',
@@ -38,10 +40,12 @@ CREATE TABLE travel_trip (
   user_id BIGINT NOT NULL COMMENT 'Owner user ID',
   title VARCHAR(100) NOT NULL COMMENT 'Trip title',
   description VARCHAR(500) DEFAULT NULL COMMENT 'Trip description',
+  notes VARCHAR(1000) DEFAULT NULL COMMENT 'Private trip notes',
   destination VARCHAR(100) DEFAULT NULL COMMENT 'Destination',
   start_date DATE DEFAULT NULL COMMENT 'Start date',
   end_date DATE DEFAULT NULL COMMENT 'End date',
   cover_photo_url VARCHAR(255) DEFAULT NULL COMMENT 'Cover photo URL',
+  is_favorite TINYINT NOT NULL DEFAULT 0 COMMENT 'Trip favorite flag',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'Deleted flag: 0 no, 1 yes',
@@ -80,6 +84,8 @@ CREATE TABLE trip_companion (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
   trip_id BIGINT NOT NULL COMMENT 'Trip ID',
   name VARCHAR(50) NOT NULL COMMENT 'Companion display name',
+  avatar_url VARCHAR(255) DEFAULT NULL COMMENT 'Protected companion avatar URL',
+  is_self TINYINT NOT NULL DEFAULT 0 COMMENT 'Current user marker',
   sort_order INT NOT NULL DEFAULT 0 COMMENT 'Display order',
   active TINYINT NOT NULL DEFAULT 1 COMMENT 'Available for new memories',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
@@ -91,6 +97,23 @@ CREATE TABLE trip_companion (
     FOREIGN KEY (trip_id) REFERENCES travel_trip (id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='People travelling together';
+
+CREATE TABLE trip_draft (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+  user_id BIGINT NOT NULL COMMENT 'Draft owner user ID',
+  title VARCHAR(100) DEFAULT NULL COMMENT 'Draft trip title',
+  destination VARCHAR(100) DEFAULT NULL COMMENT 'Draft destination',
+  start_date DATE DEFAULT NULL COMMENT 'Draft start date',
+  end_date DATE DEFAULT NULL COMMENT 'Draft end date',
+  description VARCHAR(500) DEFAULT NULL COMMENT 'Draft description',
+  notes VARCHAR(1000) DEFAULT NULL COMMENT 'Draft private notes',
+  cover_photo_url VARCHAR(255) DEFAULT NULL COMMENT 'Protected draft cover URL',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_trip_draft_user (user_id),
+  CONSTRAINT fk_trip_draft_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Trip creation draft';
 
 CREATE TABLE memory_photo (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',

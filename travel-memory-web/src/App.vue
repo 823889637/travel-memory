@@ -18,18 +18,26 @@
           :aria-expanded="userMenuOpen"
           @click="toggleUserMenu"
         >
-          <span class="user-avatar" aria-hidden="true">{{ userInitial }}</span>
+          <span class="user-avatar" aria-hidden="true">
+            <img v-if="currentUser.avatarUrl" :src="currentUser.avatarUrl" alt="" />
+            <template v-else>{{ userInitial }}</template>
+          </span>
           <span class="user-trigger-name">{{ currentUser.displayName || currentUser.username }}</span>
           <span class="user-trigger-caret" aria-hidden="true">⌄</span>
         </button>
           <div v-if="userMenuOpen" class="user-popover" role="menu">
             <div class="user-popover-identity">
-              <span class="user-popover-avatar" aria-hidden="true">{{ userInitial }}</span>
+              <span class="user-popover-avatar" aria-hidden="true">
+                <img v-if="currentUser.avatarUrl" :src="currentUser.avatarUrl" alt="" />
+                <template v-else>{{ userInitial }}</template>
+              </span>
               <span>
                 <strong>{{ currentUser.displayName || currentUser.username }}</strong>
                 <small v-if="currentUser.username">{{ currentUser.username }}</small>
               </span>
             </div>
+            <button type="button" @click="avatarInput?.click()">更换头像</button>
+            <input ref="avatarInput" class="visually-hidden" type="file" accept="image/*" @change="handleAvatarChange" />
             <RouterLink v-if="currentUser.role === 'ADMIN'" to="/admin/users" @click="closeUserMenu">账号管理</RouterLink>
             <RouterLink to="/change-password" @click="closeUserMenu">修改密码</RouterLink>
             <button class="user-logout" type="button" @click="logout">退出登录</button>
@@ -48,11 +56,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { currentUser, signOut } from './auth'
+import { uploadAvatar } from './api/auth'
 
 const router = useRouter()
 const route = useRoute()
 const userMenuOpen = ref(false)
 const userMenuRef = ref(null)
+const avatarInput = ref(null)
 
 const userInitial = computed(() => {
   const name = (currentUser.value?.displayName || currentUser.value?.username || '?').trim()
@@ -77,6 +87,19 @@ async function logout () {
   closeUserMenu()
   await signOut()
   router.push('/login')
+}
+
+async function handleAvatarChange (event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  const data = new FormData()
+  data.append('photo', file)
+  try {
+    currentUser.value = await uploadAvatar(data)
+  } catch (error) {
+    window.alert(error.message || '头像暂时没有更新成功。')
+  }
 }
 
 watch(() => route.fullPath, closeUserMenu)

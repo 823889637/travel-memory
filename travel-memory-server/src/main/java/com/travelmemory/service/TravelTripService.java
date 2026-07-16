@@ -16,6 +16,10 @@ public interface TravelTripService {
 
     TravelTrip setCover(Long tripId, Long memoryId);
 
+    TravelTrip setCoverUrl(Long tripId, String photoUrl);
+
+    TravelTrip setFavorite(Long tripId, boolean favorite);
+
     TravelTrip clearCover(Long tripId);
 
     void clearCoverIfMatches(Long tripId, String photoUrl);

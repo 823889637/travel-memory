@@ -28,6 +28,7 @@ const form = reactive({
   startDate: '',
   endDate: '',
   description: '',
+  notes: '',
 })
 
 const dateError = computed(() => {
@@ -65,6 +66,7 @@ function normalizeForm(source) {
     startDate: normalizeDate(source.startDate),
     endDate: normalizeDate(source.endDate),
     description: normalizeText(source.description),
+    notes: normalizeText(source.notes),
   }
 }
 
@@ -307,6 +309,12 @@ onBeforeUnmount(() => {
           maxlength="500"
           placeholder="简单写一点这趟旅行的背景"
         ></textarea>
+      </div>
+
+      <div class="field">
+        <label for="trip-notes">旅行笔记 <span class="muted">（可选）</span></label>
+        <textarea id="trip-notes" v-model="form.notes" maxlength="1000" placeholder="只属于你的旅行灵感、期待或补充内容…"></textarea>
+        <small>{{ form.notes.length }}/1000</small>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
