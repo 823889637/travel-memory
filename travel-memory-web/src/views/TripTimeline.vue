@@ -1,12 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { ChevronDown } from '@lucide/vue'
 import { clearTripCover, getTrip, setTripCover } from '../api/trip'
 import { deleteMemory, favoriteMemory, getTimeline, searchMemories } from '../api/memory'
 import { hasExplicitTripCover, normalizePhotoUrl, resolveTripCoverUrl } from '../utils/tripCover'
 import { getChronologicalTripDayNumber } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import TripViewNav from '../components/TripViewNav.vue'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const props = defineProps({
   id: {
@@ -34,6 +36,7 @@ const coverActionId = ref(null)
 const coverMessage = ref('')
 const coverError = ref('')
 const coverImageFailed = ref(false)
+const collapsedDates = ref(new Set())
 
 const baseMemories = computed(() => (
   props.favoriteOnly
@@ -139,6 +142,17 @@ function formatTime(value) {
     minute: '2-digit',
     hour12: false,
   })
+}
+
+function isDayCollapsed(date) {
+  return collapsedDates.value.has(date)
+}
+
+function toggleDay(date) {
+  const next = new Set(collapsedDates.value)
+  if (next.has(date)) next.delete(date)
+  else next.add(date)
+  collapsedDates.value = next
 }
 
 function openMemory(memory) {
@@ -275,6 +289,7 @@ onMounted(loadPage)
 
 <template>
   <section :class="['timeline-page', { 'favorite-timeline-page': favoriteOnly }]">
+    <MobilePageHeader :title="favoriteOnly ? '收藏回看' : '时间线'" back-to="/trips" />
     <header v-if="!loading && trip" :class="['trip-memory-hero', { 'has-cover': coverPhotoUrl }]">
       <img
         v-if="coverPhotoUrl"
@@ -357,14 +372,20 @@ onMounted(loadPage)
 
     <div v-if="!loading && !searchLoading && trip && displayedMemories.length > 0" class="day-timeline">
       <section v-for="group in dayGroups" :key="group.date" class="day-section">
-        <div class="day-header">
+        <button
+          type="button"
+          class="day-header"
+          :aria-expanded="!isDayCollapsed(group.date)"
+          @click="toggleDay(group.date)"
+        >
           <div>
             <h2>{{ group.dayLabel }} · {{ group.date }}</h2>
             <p>这一天留下了 {{ group.memories.length }} 段记忆</p>
           </div>
-        </div>
+          <ChevronDown :size="18" :class="{ collapsed: isDayCollapsed(group.date) }" aria-hidden="true" />
+        </button>
 
-        <div class="timeline-list">
+        <div v-if="!isDayCollapsed(group.date)" class="timeline-list">
           <article v-for="memory in group.memories" :key="memory.id" class="memory-item">
             <div class="memory-time">{{ formatTime(memory.recordTime) }}</div>
             <div class="timeline-marker" aria-hidden="true">

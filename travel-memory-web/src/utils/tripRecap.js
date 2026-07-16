@@ -53,6 +53,8 @@ export function buildTripRecap(trip, sourceMemories = []) {
       memories: dayMemories,
       memoryCount: dayMemories.length,
       photoCount: dayMemories.reduce((total, memory) => total + photoCount(memory), 0),
+      earliestTime: dayMemories[0]?.recordTime || null,
+      latestTime: dayMemories[dayMemories.length - 1]?.recordTime || null,
       locations,
       representative: selectRepresentative(dayMemories),
     }

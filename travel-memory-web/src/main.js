@@ -4,6 +4,7 @@ import router from './router'
 import { setUnauthorizedHandler } from './api/request'
 import { authResolved, currentUser } from './auth'
 import './styles/main.css'
+import './styles/mobile-baseline.css'
 
 let redirectingForUnauthorized = false
 setUnauthorizedHandler(() => {

@@ -7,6 +7,7 @@ import { getTrip } from '../api/trip'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTripDayNumber } from '../utils/tripDay'
 import TripViewNav from '../components/TripViewNav.vue'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const trip = ref(null)
@@ -19,12 +20,29 @@ const draftName = ref('')
 const saving = ref(false)
 const editingId = ref(null)
 const editingName = ref('')
+const selectedCompanionId = ref(null)
 
 const activeCompanions = computed(() => companions.value.filter(item => item.active))
 const inactiveCompanions = computed(() => companions.value.filter(item => !item.active))
+const selectedCompanion = computed(() => companions.value.find(
+  item => String(item.id) === String(selectedCompanionId.value),
+) || null)
+const filteredMemories = computed(() => {
+  if (!selectedCompanion.value) return memories.value
+  return memories.value.filter(memory => memory.companions?.some(
+    companion => String(companion.id) === String(selectedCompanion.value.id),
+  ))
+})
+
+function companionMemoryCount(companionId) {
+  return memories.value.filter(memory =>
+    memory.companions?.some(companion => String(companion.id) === String(companionId)),
+  ).length
+}
+
 const dayGroups = computed(() => {
   const groups = new Map()
-  const sorted = [...memories.value].sort((left, right) => String(left.recordTime || '').localeCompare(String(right.recordTime || '')))
+  const sorted = [...filteredMemories.value].sort((left, right) => String(left.recordTime || '').localeCompare(String(right.recordTime || '')))
   sorted.forEach((memory) => {
     const date = memory.recordTime ? String(memory.recordTime).slice(0, 10) : '未知日期'
     if (!groups.has(date)) groups.set(date, [])
@@ -39,6 +57,12 @@ const dayGroups = computed(() => {
 
 function formatTime(value) {
   return value ? String(value).slice(11, 16) : '--:--'
+}
+
+function selectCompanion(companion) {
+  selectedCompanionId.value = String(selectedCompanionId.value) === String(companion.id)
+    ? null
+    : companion.id
 }
 
 async function loadPage() {
@@ -122,6 +146,7 @@ watch(() => props.id, loadPage, { immediate: true })
 
 <template>
   <section class="companions-page">
+    <MobilePageHeader title="同行的人" back-to="/trips" />
     <header v-if="!loading && trip" class="companions-head">
       <div>
         <p class="trip-list-kicker">同行的人</p>
@@ -138,9 +163,16 @@ watch(() => props.id, loadPage, { immediate: true })
 
     <div v-if="!loading && !error && trip" class="companions-layout">
       <div class="companions-memories">
+        <div class="companions-related-head">
+          <div>
+            <p class="trip-list-kicker">相关记忆</p>
+            <h2>{{ selectedCompanion ? selectedCompanion.name : '全部同行记忆' }}</h2>
+          </div>
+          <button v-if="selectedCompanion" type="button" class="companion-text-btn" @click="selectedCompanionId = null">查看全部</button>
+        </div>
         <div v-if="dayGroups.length === 0" class="companions-empty">
-          <h2>还没有可以一起回看的片段。</h2>
-          <p>创建 Memory 后，可以标记这一刻有哪些同行者在场。</p>
+          <h2>{{ selectedCompanion ? `还没有和${selectedCompanion.name}一起的记忆。` : '还没有可以一起回看的片段。' }}</h2>
+          <p>{{ selectedCompanion ? '之后编辑 Memory 时，可以把这位同行者补充进去。' : '创建 Memory 后，可以标记这一刻有哪些同行者在场。' }}</p>
         </div>
 
         <section v-for="group in dayGroups" :key="group.date" class="companions-day">
@@ -196,8 +228,18 @@ watch(() => props.id, loadPage, { immediate: true })
               <button class="ghost" @click="editingId = null">取消</button>
             </template>
             <template v-else>
-              <span class="companion-avatar" aria-hidden="true">{{ companion.name.slice(0, 1) }}</span>
-              <strong>{{ companion.name }}</strong>
+              <button
+                type="button"
+                :class="['companion-select', { active: String(selectedCompanionId) === String(companion.id) }]"
+                :aria-pressed="String(selectedCompanionId) === String(companion.id)"
+                @click="selectCompanion(companion)"
+              >
+                <span class="companion-avatar" aria-hidden="true">{{ companion.name.slice(0, 1) }}</span>
+                <span class="companion-row-copy">
+                  <strong>{{ companion.name }}</strong>
+                  <small>出现在 {{ companionMemoryCount(companion.id) }} 段记忆中</small>
+                </span>
+              </button>
               <button class="companion-text-btn" @click="beginEdit(companion)">改名</button>
               <button class="companion-text-btn" @click="toggleActive(companion)">停用</button>
             </template>
@@ -209,7 +251,10 @@ watch(() => props.id, loadPage, { immediate: true })
           <div class="companion-list">
             <article v-for="companion in inactiveCompanions" :key="companion.id" class="companion-row inactive">
               <span class="companion-avatar" aria-hidden="true">{{ companion.name.slice(0, 1) }}</span>
-              <strong>{{ companion.name }}</strong>
+              <span class="companion-row-copy">
+                <strong>{{ companion.name }}</strong>
+                <small>已停用 · 出现在 {{ companionMemoryCount(companion.id) }} 段记忆中</small>
+              </span>
               <button class="companion-text-btn" @click="toggleActive(companion)">重新启用</button>
             </article>
           </div>
@@ -258,7 +303,9 @@ watch(() => props.id, loadPage, { immediate: true })
 .companion-add { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
 .companion-list { display: grid; }
 .companion-row { display: flex; align-items: center; gap: 8px; min-width: 0; border-top: 1px solid var(--tm-border); padding: 11px 0; }
-.companion-row strong { min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; }
+.companion-row-copy { display: grid; min-width: 0; margin-right: auto; gap: 3px; }
+.companion-row-copy strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.companion-row-copy small { color: var(--tm-text-muted); font-size: 11px; }
 .companion-row input { min-width: 0; }
 .companion-avatar { display: grid; flex: 0 0 34px; height: 34px; place-items: center; border-radius: 50%; background: var(--tm-accent-soft); color: var(--tm-accent); font-weight: 800; }
 .companion-text-btn { padding: 3px; background: transparent; color: var(--tm-text-muted); font-size: 12px; }
@@ -273,5 +320,5 @@ watch(() => props.id, loadPage, { immediate: true })
 .companions-empty h2, .companions-empty p { margin: 0; }
 .companions-empty p { margin-top: 8px; color: var(--tm-text-muted); }
 @media (max-width: 820px) { .companions-layout { grid-template-columns: 1fr; } .companion-manager { position: static; order: -1; } }
-@media (max-width: 640px) { .companions-head { align-items: start; flex-direction: column; } .companions-memory-card { grid-template-columns: 45px minmax(0, 1fr); } .companions-memory-card :deep(.gallery), .companions-photo-empty { grid-column: 2; } .companions-memory-copy { grid-column: 2; } .companions-edit-link { grid-column: 2; } }
+@media (max-width: 640px) { .companions-head { align-items: start; flex-direction: column; } .companions-memory-card { grid-template-columns: 45px minmax(0, 1fr); } .companions-memory-card :deep(.gallery), .companions-photo-empty { grid-column: 2; } .companions-memory-copy { grid-column: 2; } .companions-edit-link { grid-column: 2; } .companion-list { gap: 8px; } .companion-row { flex-wrap: wrap; border: 1px solid var(--tm-border); border-radius: 12px; background: var(--tm-surface); padding: 11px; } }
 </style>

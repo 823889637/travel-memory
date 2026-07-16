@@ -7,6 +7,7 @@ import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { buildTripRecap } from '../utils/tripRecap'
 import { resolveTripCoverUrl } from '../utils/tripCover'
 import TripViewNav from '../components/TripViewNav.vue'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const trip = ref(null)
@@ -59,6 +60,7 @@ watch(() => props.id, loadPage, { immediate: true })
 
 <template>
   <section class="recap-page">
+    <MobilePageHeader title="旅行回顾" back-to="/trips" />
     <p v-if="loading" class="recap-status">正在把这趟旅行慢慢整理回来...</p>
     <p v-if="error" class="error recap-status">{{ error }}</p>
 
@@ -122,6 +124,8 @@ watch(() => props.id, loadPage, { immediate: true })
               和 {{ day.representative.companions.map(item => item.name).join('、') }} 一起
             </p>
             <div class="recap-day-foot">
+              <span v-if="day.earliestTime">最早 {{ formatTime(day.earliestTime) }}</span>
+              <span v-if="day.latestTime && day.latestTime !== day.earliestTime">最晚 {{ formatTime(day.latestTime) }}</span>
               <span>{{ day.memoryCount }} 段记忆</span>
               <span>{{ day.photoCount }} 张照片</span>
             </div>

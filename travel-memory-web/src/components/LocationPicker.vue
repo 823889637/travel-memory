@@ -240,7 +240,7 @@ function confirm() {
 @media (max-width: 700px) {
   .location-picker-backdrop { padding: 0; align-items: end; }
   .location-picker { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
-  .location-picker-header { padding: 13px 16px; }
+  .location-picker-header { min-height: calc(56px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 16px 0; }
   .location-picker-search { grid-template-columns: minmax(0, 1fr) auto; padding: 10px 16px; }
   .location-picker-locate { grid-column: 1 / -1; height: 34px; }
   .location-picker-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(220px, 1fr); min-height: 0; }

@@ -1,11 +1,12 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { getChronologicalTripDayNumber } from '../utils/tripDay'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import TripViewNav from '../components/TripViewNav.vue'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const props = defineProps({
   id: {
@@ -19,10 +20,7 @@ const memories = ref([])
 const loading = ref(false)
 const error = ref('')
 const activeDate = ref('')
-const daySectionElements = new Map()
 const dayButtonElements = new Map()
-const visibleSections = new Map()
-let dayObserver = null
 
 const dayGroups = computed(() => {
   const groups = []
@@ -68,6 +66,11 @@ const tripDateRange = computed(() => {
   return `${start} — ${end}`
 })
 
+const visibleDayGroups = computed(() => {
+  const activeGroup = dayGroups.value.find(group => group.date === activeDate.value)
+  return activeGroup ? [activeGroup] : dayGroups.value.slice(0, 1)
+})
+
 function timeValue(value) {
   if (!value) return Number.MAX_SAFE_INTEGER
   const parsed = new Date(value).getTime()
@@ -111,11 +114,6 @@ function hasPhotos(memory) {
   return memoryPhotos(memory).some(photo => photo?.photoUrl)
 }
 
-function setDaySectionRef(date, element) {
-  if (element) daySectionElements.set(date, element)
-  else daySectionElements.delete(date)
-}
-
 function setDayButtonRef(date, element) {
   if (element) dayButtonElements.set(date, element)
   else dayButtonElements.delete(date)
@@ -126,10 +124,8 @@ function prefersReducedMotion() {
 }
 
 function selectDay(date) {
-  const target = daySectionElements.get(date)
-  if (!target) return
   activeDate.value = date
-  target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+  syncActiveDayButton()
 }
 
 function syncActiveDayButton() {
@@ -140,35 +136,9 @@ function syncActiveDayButton() {
   })
 }
 
-function setupDayObserver() {
-  dayObserver?.disconnect()
-  visibleSections.clear()
-  if (!('IntersectionObserver' in window)) return
-
-  dayObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      const date = entry.target.dataset.journeyDate
-      if (entry.isIntersecting) visibleSections.set(date, entry)
-      else visibleSections.delete(date)
-    })
-    const closest = [...visibleSections.values()]
-      .sort((left, right) => Math.abs(left.boundingClientRect.top - 150) - Math.abs(right.boundingClientRect.top - 150))[0]
-    if (closest?.target?.dataset?.journeyDate) {
-      activeDate.value = closest.target.dataset.journeyDate
-      syncActiveDayButton()
-    }
-  }, {
-    rootMargin: '-132px 0px -56% 0px',
-    threshold: [0, 0.15, 0.4],
-  })
-
-  daySectionElements.forEach(element => dayObserver.observe(element))
-}
-
 async function loadPage() {
   loading.value = true
   error.value = ''
-  let loaded = false
   try {
     const [tripData, timelineData] = await Promise.all([
       getTrip(props.id),
@@ -177,31 +147,21 @@ async function loadPage() {
     trip.value = tripData
     memories.value = Array.isArray(timelineData) ? timelineData : []
     activeDate.value = dayGroups.value[0]?.date || ''
-    loaded = true
   } catch (err) {
     error.value = err.message || '旅程回放暂时没有加载成功，请稍后再试。'
   } finally {
     loading.value = false
   }
 
-  if (loaded) {
-    await nextTick()
-    setupDayObserver()
-  }
 }
 
 watch(() => props.id, loadPage)
 onMounted(loadPage)
-onBeforeUnmount(() => {
-  dayObserver?.disconnect()
-  visibleSections.clear()
-  daySectionElements.clear()
-  dayButtonElements.clear()
-})
 </script>
 
 <template>
   <section class="journey-page journey-reader-page">
+    <MobilePageHeader title="旅程回放" back-to="/trips" />
     <header v-if="!loading && trip" class="journey-trip-summary">
       <RouterLink class="journey-back-link" :to="`/trips/${id}`" aria-label="返回时间线">←</RouterLink>
       <div class="journey-trip-summary-copy">
@@ -248,9 +208,8 @@ onBeforeUnmount(() => {
 
       <div class="journey-record-days">
         <section
-          v-for="group in dayGroups"
+          v-for="group in visibleDayGroups"
           :key="group.date"
-          :ref="element => setDaySectionRef(group.date, element)"
           :data-journey-date="group.date"
           class="journey-record-day-section"
         >
@@ -294,8 +253,7 @@ onBeforeUnmount(() => {
               </article>
 
               <div v-if="memoryIndex < group.memories.length - 1" class="journey-next-memory" aria-hidden="true">
-                <span>继续浏览下一站</span>
-                <span>↓</span>
+                <span>下一站</span>
               </div>
             </template>
           </div>

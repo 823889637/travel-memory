@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { BookOpen, Compass, List, Map } from '@lucide/vue'
 import { deleteTrip, getTrips } from '../api/trip'
 import { resolveTripCoverUrl } from '../utils/tripCover'
 
@@ -109,10 +110,10 @@ onMounted(loadTrips)
 
           <div class="trip-main-actions">
             <RouterLink :to="`/trips/${trip.id}`">
-              <button>进入旅行</button>
+              <button><List :size="16" aria-hidden="true" />进入时间线</button>
             </RouterLink>
             <RouterLink :to="`/trips/${trip.id}/journey`">
-              <button class="ghost">旅程回放</button>
+              <button class="ghost"><Compass :size="16" aria-hidden="true" />旅程回放</button>
             </RouterLink>
             <details class="trip-card-more">
               <summary aria-label="更多旅行操作" title="更多旅行操作">更多</summary>
@@ -123,6 +124,10 @@ onMounted(loadTrips)
               </div>
             </details>
           </div>
+          <nav class="trip-card-view-links" aria-label="旅行浏览入口">
+            <RouterLink :to="`/trips/${trip.id}/map`"><Map :size="16" aria-hidden="true" />地图</RouterLink>
+            <RouterLink :to="`/trips/${trip.id}/recap`"><BookOpen :size="16" aria-hidden="true" />旅行回顾</RouterLink>
+          </nav>
         </div>
       </article>
     </div>

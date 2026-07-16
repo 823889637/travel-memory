@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createTrip } from '../api/trip'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const router = useRouter()
 const saving = ref(false)
@@ -51,16 +52,21 @@ async function submit() {
 
 <template>
   <section class="trip-form-page">
+    <MobilePageHeader title="创建旅行" back-to="/trips" />
     <RouterLink class="trip-form-back" to="/trips">← 返回旅行列表</RouterLink>
     <div class="page-header trip-form-header">
       <div>
         <p class="trip-form-kicker">新的旅程</p>
-        <h1>创建旅行</h1>
+        <h1>先留下旅行轮廓</h1>
         <p class="muted">先留下旅行的基本轮廓，照片和 Memory 可以慢慢补充。</p>
       </div>
     </div>
 
     <form class="form card trip-form-card" @submit.prevent="submit">
+      <div class="trip-create-cover-placeholder" aria-label="旅行封面说明">
+        <span>旅行封面</span>
+        <small>保存第一段 Memory 后，可以从真实照片中选择封面。</small>
+      </div>
       <div class="trip-form-section-head">
         <span>01</span>
         <div><strong>基本信息</strong><p>标题会成为这次旅行最主要的名字。</p></div>
@@ -91,11 +97,6 @@ async function submit() {
       <div class="field">
         <label for="create-trip-description">旅行描述</label>
         <textarea id="create-trip-description" v-model="form.description" maxlength="500" placeholder="例如：第一次和小雨一起去京都，想慢慢看看春天。"></textarea>
-      </div>
-
-      <div class="trip-cover-guidance">
-        <span aria-hidden="true">▧</span>
-        <p><strong>旅行封面稍后设置</strong><small>新增 Memory 后，可以从时间线中选择一张照片作为封面。</small></p>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>

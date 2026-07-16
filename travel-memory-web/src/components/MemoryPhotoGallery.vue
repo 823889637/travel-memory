@@ -21,6 +21,7 @@ const selectedIndex = ref(0)
 const primaryOrientation = ref('landscape')
 const primaryRatio = ref(1)
 const failedPhotoUrls = ref(new Set())
+const touchStart = ref(null)
 const items = computed(() => {
   const normalizeItems = (source) => {
     const seenUrls = new Set()
@@ -81,6 +82,22 @@ function showPrevious() {
 function showNext() {
   selectedIndex.value = (selectedIndex.value + 1) % items.value.length
 }
+function handleTouchStart(event) {
+  const touch = event.changedTouches?.[0]
+  touchStart.value = touch ? { x: touch.clientX, y: touch.clientY } : null
+}
+function handleTouchEnd(event) {
+  const touch = event.changedTouches?.[0]
+  const start = touchStart.value
+  touchStart.value = null
+  if (!touch || !start || items.value.length < 2) return
+
+  const deltaX = touch.clientX - start.x
+  const deltaY = touch.clientY - start.y
+  if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) return
+  if (deltaX > 0) showPrevious()
+  else showNext()
+}
 function handleGalleryKeydown(event) {
   if (!open.value) return
   if (event.key === 'Escape') closeGallery()
@@ -112,6 +129,7 @@ watch(open, (isOpen) => {
 onBeforeUnmount(() => {
   open.value = false
   selectedIndex.value = 0
+  touchStart.value = null
   failedPhotoUrls.value = new Set()
   document.body.style.overflow = ''
   window.removeEventListener('keydown', handleGalleryKeydown)
@@ -188,10 +206,20 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
-    <div v-if="open" class="gallery-dialog" role="dialog" aria-modal="true" aria-label="照片浏览" @click.self="closeGallery">
+    <div
+      v-if="open"
+      class="gallery-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="照片浏览"
+      @click.self="closeGallery"
+      @touchstart.passive="handleTouchStart"
+      @touchend="handleTouchEnd"
+    >
       <div class="gallery-dialog-bar">
-        <span>{{ selectedIndex + 1 }} / {{ items.length }}</span>
         <button type="button" class="gallery-close" aria-label="关闭照片浏览" @click="closeGallery">×</button>
+        <span>{{ selectedIndex + 1 }} / {{ items.length }}</span>
+        <span class="gallery-dialog-bar-spacer" aria-hidden="true"></span>
       </div>
       <button v-if="items.length > 1" type="button" class="gallery-arrow gallery-arrow-previous" aria-label="上一张照片" @click="showPrevious">‹</button>
       <span v-if="hasPhotoFailed(selected)" class="gallery-full-error">这张照片暂时无法显示</span>
@@ -263,7 +291,8 @@ onBeforeUnmount(() => {
 .gallery-thumbs img, .gallery-dialog-thumbs img { width: 100%; height: 100%; object-fit: cover; }
 .gallery-thumbs img.gallery-thumb-image-contain { object-fit: contain; }
 .gallery-dialog { position: fixed; z-index: 1000; inset: 0; display: grid; grid-template-columns: minmax(48px, 1fr) minmax(0, 1080px) minmax(48px, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 14px 18px; padding: 20px 24px 18px; background: rgba(19, 17, 15, .96); color: #fff; }
-.gallery-dialog-bar { grid-column: 1 / -1; display: flex; min-height: 42px; align-items: center; justify-content: space-between; color: rgba(255,255,255,.76); font-size: 13px; }
+.gallery-dialog-bar { grid-column: 1 / -1; display: grid; min-height: 42px; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; color: rgba(255,255,255,.76); font-size: 13px; text-align: center; }
+.gallery-dialog-bar-spacer { width: 44px; }
 .gallery-full { grid-column: 2; grid-row: 2; align-self: center; justify-self: center; max-width: 100%; max-height: 76vh; object-fit: contain; }
 .gallery-full-error { grid-column: 2; grid-row: 2; align-self: center; justify-self: center; padding: 22px; color: rgba(255,255,255,.74); text-align: center; }
 .gallery-close { display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.28); border-radius: 50%; background: rgba(255,255,255,.08); color: #fff; font-size: 25px; line-height: 1; }
@@ -275,7 +304,7 @@ onBeforeUnmount(() => {
 .gallery-dialog-thumbs button.active { outline: 2px solid #fff; opacity: 1; }
 @media (max-width: 640px) {
   .gallery-timeline-preview { border-radius: 0 7px 7px 0; }
-  .gallery-favorite-preview { height: 118px; }
+  .gallery-favorite-preview { height: min(52vw, 210px); border-radius: 0; }
   .gallery-layout-journey.gallery-orientation-landscape .gallery-image-contain { max-height: min(58vh, 340px); }
   .gallery-layout-journey.gallery-orientation-portrait .gallery-image-contain { width: min(360px, 100%); max-height: 68vh; }
   .gallery-layout-journey.gallery-orientation-square .gallery-image-contain { width: 78%; max-height: min(58vh, 360px); }

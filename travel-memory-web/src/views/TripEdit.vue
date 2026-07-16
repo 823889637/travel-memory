@@ -4,6 +4,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { clearTripCover, getTrip, updateTrip } from '../api/trip'
 import { getTimeline } from '../api/memory'
 import { hasExplicitTripCover, resolveTripCoverUrl } from '../utils/tripCover'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -226,6 +227,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="trip-form-page">
+    <MobilePageHeader title="编辑旅行" :back-to="`/trips/${route.params.id}`" />
     <RouterLink class="trip-form-back" :to="`/trips/${route.params.id}`">← 返回时间线</RouterLink>
     <div class="page-header trip-form-header">
       <div>

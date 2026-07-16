@@ -1,14 +1,15 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Maximize2, X } from '@lucide/vue'
+import { CalendarDays, Heart, Maximize2, X } from '@lucide/vue'
 import MemoryMap from '../components/MemoryMap.vue'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTrip } from '../api/trip'
-import { getTimeline } from '../api/memory'
+import { favoriteMemory, getTimeline } from '../api/memory'
 import { isValidWgs84Coordinate } from '../utils/coordinates'
 import { getTripDayNumber } from '../utils/tripDay'
 import TripViewNav from '../components/TripViewNav.vue'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const props = defineProps({
   id: {
@@ -26,6 +27,8 @@ const error = ref('')
 const selectedMemoryId = ref(null)
 const activeDate = ref('')
 const memoryMap = ref(null)
+const favoriteSaving = ref(false)
+const actionError = ref('')
 
 const points = computed(() => {
   const fallbackDays = new Map()
@@ -127,6 +130,27 @@ function selectDay(day) {
   nextTick(() => memoryMap.value?.focusPoints(day.memories.map((memory) => memory.id)))
 }
 
+function selectDateValue(event) {
+  const day = dayOptions.value.find(item => item.date === event.target.value)
+  if (day) selectDay(day)
+}
+
+async function toggleFavorite() {
+  if (!selectedMemory.value || favoriteSaving.value) return
+  favoriteSaving.value = true
+  actionError.value = ''
+  const nextFavorite = selectedMemory.value.isFavorite !== 1
+  try {
+    await favoriteMemory(selectedMemory.value.id, nextFavorite)
+    const target = memories.value.find(item => memoryIdKey(item.id) === memoryIdKey(selectedMemory.value.id))
+    if (target) target.isFavorite = nextFavorite ? 1 : 0
+  } catch (err) {
+    actionError.value = err.message || '收藏状态暂时没有更新成功。'
+  } finally {
+    favoriteSaving.value = false
+  }
+}
+
 function fitAllMemories() {
   memoryMap.value?.fitAll()
 }
@@ -220,10 +244,20 @@ watch(() => route.query.memoryId, (memoryId) => {
 
 <template>
   <section class="trip-map-page">
+    <MobilePageHeader title="地图" back-to="/trips" />
     <header v-if="!loading && trip" class="trip-map-head">
+      <div class="trip-map-cover" aria-hidden="true">
+        <img v-if="trip.coverPhotoUrl" :src="trip.coverPhotoUrl" alt="" />
+        <span v-else>{{ (trip.destination || trip.title || '旅').slice(0, 1) }}</span>
+      </div>
       <div class="trip-map-title-line">
         <h1>{{ trip.title || '这次旅行' }}</h1>
-        <span v-if="trip.destination">{{ trip.destination }}</span>
+        <p>
+          <span v-if="trip.destination">{{ trip.destination }}</span>
+          <span v-if="trip.startDate || trip.endDate">
+            {{ formatDate(trip.startDate) }} — {{ formatDate(trip.endDate) }}
+          </span>
+        </p>
       </div>
     </header>
 
@@ -265,9 +299,21 @@ watch(() => route.query.memoryId, (memoryId) => {
         <article v-if="selectedMemory" class="map-memory-card">
           <header class="map-memory-card-head">
             <p><span aria-hidden="true"></span>第 {{ selectedMemory.dayNumber }} 天 · 第 {{ selectedMemory.stopNumber }} 站</p>
-            <button type="button" class="map-memory-close" aria-label="关闭记忆详情" @click="closeMemoryCard">
-              <X :size="18" :stroke-width="1.8" aria-hidden="true" />
-            </button>
+            <div class="map-memory-card-actions">
+              <button
+                type="button"
+                :class="['map-memory-favorite', { active: selectedMemory.isFavorite === 1 }]"
+                :aria-label="selectedMemory.isFavorite === 1 ? '取消收藏' : '收藏这段记忆'"
+                :aria-pressed="selectedMemory.isFavorite === 1"
+                :disabled="favoriteSaving"
+                @click="toggleFavorite"
+              >
+                <Heart :size="17" :fill="selectedMemory.isFavorite === 1 ? 'currentColor' : 'none'" aria-hidden="true" />
+              </button>
+              <button type="button" class="map-memory-close" aria-label="关闭记忆详情" @click="closeMemoryCard">
+                <X :size="18" :stroke-width="1.8" aria-hidden="true" />
+              </button>
+            </div>
           </header>
 
           <div class="map-memory-heading">
@@ -300,6 +346,7 @@ watch(() => route.query.memoryId, (memoryId) => {
             <RouterLink class="map-memory-detail-link" :to="`/trips/${id}/memories/${selectedMemory.id}`">
               查看记忆详情 <span aria-hidden="true">→</span>
             </RouterLink>
+            <p v-if="actionError" class="error map-memory-action-error">{{ actionError }}</p>
           </div>
         </article>
 
@@ -315,6 +362,16 @@ watch(() => route.query.memoryId, (memoryId) => {
             <strong>第 {{ day.dayNumber }} 天</strong>
             <span>{{ formatDate(day.date) }}</span>
           </button>
+          <label class="map-day-calendar" aria-label="按日期选择地图记忆">
+            <CalendarDays :size="19" :stroke-width="1.7" aria-hidden="true" />
+            <input
+              type="date"
+              :value="activeDate"
+              :min="dayOptions[0]?.date"
+              :max="dayOptions[dayOptions.length - 1]?.date"
+              @change="selectDateValue"
+            />
+          </label>
         </nav>
       </div>
     </template>

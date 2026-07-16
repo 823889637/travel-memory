@@ -1,14 +1,19 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { Plus } from '@lucide/vue'
 import { createUser, getUsers, resetUserPassword, setUserEnabled } from '../api/auth'
 import { prepareCsrf } from '../auth'
+import MobilePageHeader from '../components/MobilePageHeader.vue'
 
 const users = ref([])
 const error = ref('')
 const creating = ref(false)
+const createExpanded = ref(false)
 const resetUserId = ref(null)
 const resetPassword = ref('')
 const form = reactive({ username: '', displayName: '', temporaryPassword: '' })
+const enabledCount = computed(() => users.value.filter(user => user.enabled).length)
+const mustChangeCount = computed(() => users.value.filter(user => user.mustChangePassword).length)
 
 async function load () {
   try {
@@ -25,6 +30,7 @@ async function create () {
     await prepareCsrf()
     await createUser(form)
     Object.assign(form, { username: '', displayName: '', temporaryPassword: '' })
+    createExpanded.value = false
     await load()
   } catch (requestError) {
     error.value = requestError.message || '创建账号失败。'
@@ -66,15 +72,28 @@ onMounted(load)
 
 <template>
   <section class="admin-users-page">
+    <MobilePageHeader title="账号管理" back-to="/trips">
+      <template #actions>
+        <button type="button" aria-label="创建账号" :aria-expanded="createExpanded" @click="createExpanded = !createExpanded">
+          <Plus :size="22" aria-hidden="true" />
+        </button>
+      </template>
+    </MobilePageHeader>
     <div class="page-header">
       <div>
-        <h1>账号管理</h1>
+        <h1>用户账号</h1>
         <p class="muted">管理员只管理账号，不自动拥有其他人的旅行访问权限。</p>
       </div>
     </div>
 
+    <section class="admin-account-summary" aria-label="账号摘要">
+      <div><strong>{{ users.length }}</strong><span>全部账号</span></div>
+      <div><strong>{{ enabledCount }}</strong><span>已启用</span></div>
+      <div><strong>{{ mustChangeCount }}</strong><span>待改密</span></div>
+    </section>
+
     <div class="admin-users-layout">
-    <form class="form card admin-create-card" @submit.prevent="create">
+    <form :class="['form card admin-create-card', { 'mobile-collapsed': !createExpanded }]" @submit.prevent="create">
       <h2>创建用户</h2>
       <p class="muted">新用户首次登录后需要修改临时密码。</p>
       <div class="field">

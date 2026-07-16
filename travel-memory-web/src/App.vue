@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell">
-    <header class="topbar">
+    <header :class="['topbar', { 'mobile-standalone-hidden': route.meta.mobileStandalone }]">
       <div class="topbar-inner">
         <RouterLink class="brand" to="/">
           <span class="brand-mark" aria-hidden="true">◇</span>
@@ -38,7 +38,7 @@
       </div>
     </header>
 
-    <main class="page">
+    <main :class="['page', { 'mobile-standalone-page': route.meta.mobileStandalone }]">
       <RouterView />
     </main>
   </div>
