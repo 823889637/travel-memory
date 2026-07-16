@@ -8,10 +8,11 @@ import LocationPicker from './LocationPicker.vue'
 const props = defineProps({
   id: { type: String, required: true },
   modelValue: { type: String, default: '' },
+  country: { type: String, default: '' },
   latitude: { type: [Number, String], default: null },
   longitude: { type: [Number, String], default: null },
 })
-const emit = defineEmits(['update:modelValue', 'update:latitude', 'update:longitude'])
+const emit = defineEmits(['update:modelValue', 'update:country', 'update:latitude', 'update:longitude'])
 
 const root = ref(null)
 const keyword = ref(props.modelValue || '')
@@ -32,6 +33,7 @@ function hasCoordinates() {
 
 function clearCoordinates() {
   selectedName.value = ''
+  emit('update:country', '')
   emit('update:latitude', null)
   emit('update:longitude', null)
 }
@@ -77,6 +79,7 @@ function selectCity(city) {
   keyword.value = name
   selectedName.value = name
   emit('update:modelValue', name)
+  emit('update:country', city.countryName || '')
   emit('update:latitude', Number(city.latitude))
   emit('update:longitude', Number(city.longitude))
   results.value = []
@@ -89,6 +92,7 @@ function applyMapSelection(selection) {
   keyword.value = name
   selectedName.value = isValidWgs84Coordinate(selection?.latitude, selection?.longitude) ? name : ''
   emit('update:modelValue', name)
+  emit('update:country', selection?.countryName || '')
   emit('update:latitude', selection?.latitude ?? null)
   emit('update:longitude', selection?.longitude ?? null)
   results.value = []
@@ -99,6 +103,20 @@ function applyMapSelection(selection) {
 function levelLabel(level) {
   return ({ province: '省级行政区', city: '城市', district: '区县' })[level] || '城市或地区'
 }
+
+function cityContext(city) {
+  const names = [city?.countryName, city?.provinceName]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+  return [...new Set(names)].join(' · ') || levelLabel(city?.level)
+}
+
+const locatedLabel = computed(() => {
+  const names = [props.country, props.modelValue]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+  return [...new Set(names)].join(' · ') || '目的城市'
+})
 
 function closeResults(event) {
   if (!root.value?.contains(event.target)) {
@@ -146,14 +164,14 @@ onBeforeUnmount(() => {
 
     <div v-if="results.length || (searchAttempted && !searching && !searchError)" class="trip-city-results" role="listbox" aria-label="城市候选">
       <button v-for="city in results" :key="city.id" type="button" role="option" @click="selectCity(city)">
-        <span><strong>{{ city.name }}</strong><small>{{ levelLabel(city.level) }}</small></span>
+        <span><strong>{{ city.name }}</strong><small>{{ cityContext(city) }}</small></span>
         <MapPinned :size="16" :stroke-width="1.7" aria-hidden="true" />
       </button>
       <p v-if="!results.length">没有找到合适的城市，可以直接填写名称或用地图确认。</p>
     </div>
 
     <p v-if="located" class="trip-city-located">
-      已定位到 {{ modelValue || '目的城市' }}，没有带位置的 Memory 时地图会从这里开始。
+      已定位到 {{ locatedLabel }}，没有带位置的 Memory 时地图会从这里开始。
       <button type="button" aria-label="清除城市定位" title="清除城市定位" @click="clearCoordinates">
         <X :size="14" aria-hidden="true" />
       </button>
@@ -166,6 +184,7 @@ onBeforeUnmount(() => {
       v-if="pickerOpen"
       mode="city"
       :location-name="modelValue"
+      :country-name="country"
       :latitude="latitude"
       :longitude="longitude"
       @confirm="applyMapSelection"

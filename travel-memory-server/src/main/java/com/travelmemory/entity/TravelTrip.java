@@ -23,6 +23,7 @@ public class TravelTrip {
     private String description;
     private String notes;
     private String destination;
+    private String destinationCountry;
     private BigDecimal destinationLatitude;
     private BigDecimal destinationLongitude;
     private LocalDate startDate;
@@ -71,6 +72,9 @@ public class TravelTrip {
     public void setDestination(String destination) {
         this.destination = destination;
     }
+
+    public String getDestinationCountry() { return destinationCountry; }
+    public void setDestinationCountry(String destinationCountry) { this.destinationCountry = destinationCountry; }
 
     public BigDecimal getDestinationLatitude() { return destinationLatitude; }
     public void setDestinationLatitude(BigDecimal destinationLatitude) { this.destinationLatitude = destinationLatitude; }

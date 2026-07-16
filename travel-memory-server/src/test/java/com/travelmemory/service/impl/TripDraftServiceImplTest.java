@@ -37,6 +37,7 @@ class TripDraftServiceImplTest {
         assertEquals("天津之旅", result.title());
         assertEquals("/uploads/users/7/2026/07/cover.jpg", result.coverPhotoUrl());
         assertEquals(LocalDate.of(2026, 7, 14), result.startDate());
+        assertEquals("中国", result.destinationCountry());
         assertEquals(new BigDecimal("39.0851000"), result.destinationLatitude());
         assertEquals(new BigDecimal("117.1994000"), result.destinationLongitude());
         verify(mapper).insert(any(TripDraft.class));
@@ -74,6 +75,7 @@ class TripDraftServiceImplTest {
         TripDraftRequest request = new TripDraftRequest();
         request.setTitle(title);
         request.setDestination("天津");
+        request.setDestinationCountry("中国");
         request.setDestinationLatitude(new BigDecimal("39.0851000"));
         request.setDestinationLongitude(new BigDecimal("117.1994000"));
         request.setStartDate(LocalDate.of(2026, 7, 14));

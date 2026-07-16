@@ -8,6 +8,7 @@ public record TripDraftResponse(
         Long id,
         String title,
         String destination,
+        String destinationCountry,
         BigDecimal destinationLatitude,
         BigDecimal destinationLongitude,
         LocalDate startDate,

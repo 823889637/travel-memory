@@ -27,6 +27,7 @@ let draftTimer = null
 const form = reactive({
   title: '',
   destination: '',
+  destinationCountry: '',
   destinationLatitude: null,
   destinationLongitude: null,
   startDate: '',
@@ -47,6 +48,7 @@ function draftPayload() {
   return {
     title: form.title.trim() || null,
     destination: form.destination.trim() || null,
+    destinationCountry: form.destinationCountry.trim() || null,
     destinationLatitude: form.destinationLatitude,
     destinationLongitude: form.destinationLongitude,
     startDate: form.startDate || null,
@@ -94,6 +96,7 @@ async function loadDraft() {
     if (draft) {
       form.title = draft.title || ''
       form.destination = draft.destination || ''
+      form.destinationCountry = draft.destinationCountry || ''
       form.destinationLatitude = draft.destinationLatitude ?? null
       form.destinationLongitude = draft.destinationLongitude ?? null
       form.startDate = draft.startDate || ''
@@ -203,6 +206,7 @@ onBeforeUnmount(() => {
       <TripCityField
         id="create-trip-destination"
         v-model="form.destination"
+        v-model:country="form.destinationCountry"
         v-model:latitude="form.destinationLatitude"
         v-model:longitude="form.destinationLongitude"
       />

@@ -1,7 +1,20 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { BookOpen, Bookmark, Compass, List, Map } from '@lucide/vue'
+import {
+  BookOpen,
+  Bookmark,
+  CalendarDays,
+  Compass,
+  Image as ImageIcon,
+  List,
+  Luggage,
+  Map,
+  MapPin,
+  NotebookText,
+  Plus,
+  Stamp,
+} from '@lucide/vue'
 import { deleteTrip, favoriteTrip, getTrips } from '../api/trip'
 import { resolveTripCoverUrl } from '../utils/tripCover'
 import UserMenu from '../components/UserMenu.vue'
@@ -24,6 +37,13 @@ function tripDuration(trip) {
   const end = new Date(`${trip.endDate}T00:00:00`)
   const days = Math.floor((end - start) / 86400000) + 1
   return Number.isFinite(days) && days > 0 ? `${days} 天 ${Math.max(0, days - 1)} 晚` : ''
+}
+
+function tripPlaceLabel(trip) {
+  const names = [trip.destinationCountry, trip.destination]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+  return [...new Set(names)].join(' · ') || '目的地还没有补充'
 }
 
 async function loadTrips() {
@@ -82,23 +102,31 @@ onMounted(loadTrips)
     <div class="trip-list-hero">
       <div>
         <p class="trip-list-kicker">Travel Memory</p>
-        <h1>我的旅行</h1>
+        <h1>我的旅行记忆</h1>
         <p class="muted">把每一次旅行，留给未来重新经过。</p>
       </div>
+      <div class="trip-list-postmark" aria-hidden="true">
+        <Stamp :size="62" :stroke-width="1" />
+        <span></span><span></span><span></span>
+      </div>
       <UserMenu class="trip-list-user-menu" />
-      <RouterLink v-if="trips.length > 0" to="/trips/new">
-        <button class="trip-create-button"><span aria-hidden="true">+</span> 新建旅行</button>
+      <RouterLink v-if="trips.length > 0" class="trip-create-button" to="/trips/new">
+        <Plus :size="20" aria-hidden="true" />
+        新建一次旅行
       </RouterLink>
     </div>
 
     <p v-if="loading" class="trip-list-status">正在找回旅行记忆...</p>
     <p v-if="error" class="error">{{ error }}</p>
 
-    <div v-if="!loading && !error && trips.length === 0" class="trip-empty">
-      <h2>还没有旅行记忆。</h2>
-      <p>新建一次旅行，把第一段路留下来。</p>
-      <RouterLink to="/trips/new">
-        <button>新建旅行</button>
+    <div v-if="!loading && !error && trips.length === 0" class="trip-empty trip-continuation trip-continuation-empty">
+      <span class="trip-continuation-illustration" aria-hidden="true"><Luggage :size="48" :stroke-width="1.2" /></span>
+      <div>
+        <h2>第一段旅程，等你写下</h2>
+        <p>从一次真实发生过的旅行开始，把照片、原话、时间和地点留给未来。</p>
+      </div>
+      <RouterLink class="trip-continuation-action" to="/trips/new" aria-label="新建第一次旅行">
+        <Plus :size="22" aria-hidden="true" />
       </RouterLink>
     </div>
 
@@ -112,10 +140,10 @@ onMounted(loadTrips)
             @error="handleCoverError(trip.id)"
           />
           <div v-else class="trip-cover-empty">
-            <span>{{ trip.destination || '一段旅程' }}</span>
+            <span><MapPin :size="16" aria-hidden="true" />{{ tripPlaceLabel(trip) }}</span>
           </div>
-          <span v-if="trip.destination" class="trip-cover-destination">{{ trip.destination }}</span>
-          <span v-if="trip.photoCount" class="trip-cover-photo-count">{{ trip.photoCount }}</span>
+          <span v-if="trip.destination" class="trip-cover-destination"><MapPin :size="13" aria-hidden="true" />{{ tripPlaceLabel(trip) }}</span>
+          <span v-if="trip.photoCount" class="trip-cover-photo-count"><ImageIcon :size="13" aria-hidden="true" />{{ trip.photoCount }}</span>
         </div>
 
         <div class="trip-card-body">
@@ -143,15 +171,15 @@ onMounted(loadTrips)
             </div>
           </div>
           <div class="trip-meta">
-            <p class="trip-destination">{{ trip.destination || '目的地还没有补充' }}</p>
-            <p class="trip-date">{{ formatDateRange(trip) }}<span v-if="tripDuration(trip)"> · {{ tripDuration(trip) }}</span></p>
+            <p class="trip-destination"><MapPin :size="14" aria-hidden="true" />{{ tripPlaceLabel(trip) }}</p>
+            <p class="trip-date"><CalendarDays :size="14" aria-hidden="true" />{{ formatDateRange(trip) }}<span v-if="tripDuration(trip)"> · {{ tripDuration(trip) }}</span></p>
           </div>
           <div class="trip-card-summary">
             <p v-if="trip.description" class="trip-description">{{ trip.description }}</p>
             <div class="trip-stats" aria-label="旅行统计">
-              <span>{{ trip.memoryCount || 0 }} 段记忆</span>
-              <span>{{ trip.photoCount || 0 }} 张照片</span>
-              <span>{{ trip.locationCount || 0 }} 个地点</span>
+              <span><NotebookText :size="13" aria-hidden="true" />{{ trip.memoryCount || 0 }} 段记忆</span>
+              <span><ImageIcon :size="13" aria-hidden="true" />{{ trip.photoCount || 0 }} 张照片</span>
+              <span><MapPin :size="13" aria-hidden="true" />{{ trip.locationCount || 0 }} 个地点</span>
             </div>
           </div>
 
@@ -164,5 +192,14 @@ onMounted(loadTrips)
         </div>
       </article>
     </div>
+
+    <RouterLink v-if="trips.length > 0" class="trip-continuation" to="/trips/new">
+      <span class="trip-continuation-illustration" aria-hidden="true"><Luggage :size="52" :stroke-width="1.15" /></span>
+      <span class="trip-continuation-copy">
+        <strong>下一段旅程，正在路上</strong>
+        <small>记录更多美好瞬间，留给未来的自己。</small>
+      </span>
+      <span class="trip-continuation-action" aria-hidden="true"><Plus :size="23" /></span>
+    </RouterLink>
   </section>
 </template>

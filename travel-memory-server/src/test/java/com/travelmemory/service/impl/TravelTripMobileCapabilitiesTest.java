@@ -43,6 +43,7 @@ class TravelTripMobileCapabilitiesTest {
         TravelTrip request = new TravelTrip();
         request.setTitle("天津之旅");
         request.setDestination("天津市");
+        request.setDestinationCountry("中国");
         request.setDestinationLatitude(new BigDecimal("39.0851000"));
         request.setDestinationLongitude(new BigDecimal("117.1994000"));
         request.setCoverPhotoUrl("/uploads/users/7/cover.jpg");
@@ -53,6 +54,7 @@ class TravelTripMobileCapabilitiesTest {
         assertEquals(7L, result.getUserId());
         assertEquals("/uploads/users/7/cover.jpg", result.getCoverPhotoUrl());
         assertEquals(false, result.getIsFavorite());
+        assertEquals("中国", result.getDestinationCountry());
         assertEquals(new BigDecimal("39.0851000"), result.getDestinationLatitude());
         assertEquals(new BigDecimal("117.1994000"), result.getDestinationLongitude());
         verify(uploads).requireOwnedImage("/uploads/users/7/cover.jpg");

@@ -14,6 +14,7 @@ public class TripDraft {
     private Long userId;
     private String title;
     private String destination;
+    private String destinationCountry;
     private BigDecimal destinationLatitude;
     private BigDecimal destinationLongitude;
     private LocalDate startDate;
@@ -32,6 +33,8 @@ public class TripDraft {
     public void setTitle(String title) { this.title = title; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
+    public String getDestinationCountry() { return destinationCountry; }
+    public void setDestinationCountry(String destinationCountry) { this.destinationCountry = destinationCountry; }
     public BigDecimal getDestinationLatitude() { return destinationLatitude; }
     public void setDestinationLatitude(BigDecimal destinationLatitude) { this.destinationLatitude = destinationLatitude; }
     public BigDecimal getDestinationLongitude() { return destinationLongitude; }

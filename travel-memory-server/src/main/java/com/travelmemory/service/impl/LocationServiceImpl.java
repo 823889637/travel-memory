@@ -233,7 +233,7 @@ public class LocationServiceImpl implements LocationService {
                 + "&key=" + URLEncoder.encode(key, StandardCharsets.UTF_8);
     }
 
-    private List<CitySearchResult> parseDistrictSearchResponse(String body) throws Exception {
+    List<CitySearchResult> parseDistrictSearchResponse(String body) throws Exception {
         JsonNode root = objectMapper.readTree(body);
         if (!"1".equals(root.path("status").asText())) {
             throw new BusinessException(503, "城市搜索暂时不可用");
@@ -243,8 +243,8 @@ public class LocationServiceImpl implements LocationService {
             return List.of();
         }
 
-        java.util.ArrayList<JsonNode> candidates = new java.util.ArrayList<>();
-        collectDistricts(districts, candidates, 0);
+        java.util.ArrayList<DistrictCandidate> candidates = new java.util.ArrayList<>();
+        collectDistricts(districts, candidates, 0, null, null, null);
         java.util.Set<String> seen = new java.util.HashSet<>();
         return candidates.stream()
                 .map(this::toCitySearchResult)
@@ -254,17 +254,46 @@ public class LocationServiceImpl implements LocationService {
                 .toList();
     }
 
-    private void collectDistricts(JsonNode districts, List<JsonNode> output, int depth) {
+    private void collectDistricts(
+            JsonNode districts,
+            List<DistrictCandidate> output,
+            int depth,
+            String countryName,
+            String provinceName,
+            String cityName
+    ) {
         if (!districts.isArray() || depth > 2) {
             return;
         }
         districts.forEach(district -> {
-            output.add(district);
-            collectDistricts(district.path("districts"), output, depth + 1);
+            String name = textOrNull(district.path("name"));
+            String level = textOrNull(district.path("level"));
+            String nextCountry = countryName;
+            String nextProvince = provinceName;
+            String nextCity = cityName;
+            if ("country".equalsIgnoreCase(level)) {
+                nextCountry = normalizeCountryName(name);
+            } else {
+                if (!StringUtils.hasText(nextCountry)) {
+                    nextCountry = "中国";
+                }
+                if ("province".equalsIgnoreCase(level)) {
+                    nextProvince = name;
+                    if (StringUtils.hasText(name) && name.endsWith("市")) {
+                        nextCity = name;
+                    }
+                } else if ("city".equalsIgnoreCase(level)) {
+                    nextCity = name;
+                }
+            }
+            output.add(new DistrictCandidate(district, nextCountry, nextProvince, nextCity));
+            collectDistricts(district.path("districts"), output, depth + 1,
+                    nextCountry, nextProvince, nextCity);
         });
     }
 
-    private CitySearchResult toCitySearchResult(JsonNode district) {
+    private CitySearchResult toCitySearchResult(DistrictCandidate candidate) {
+        JsonNode district = candidate.district();
         String id = textOrNull(district.path("adcode"));
         String name = textOrNull(district.path("name"));
         String level = textOrNull(district.path("level"));
@@ -281,6 +310,10 @@ public class LocationServiceImpl implements LocationService {
                 id,
                 name,
                 level,
+                candidate.countryName(),
+                candidate.provinceName(),
+                candidate.cityName(),
+                "district".equalsIgnoreCase(level) ? name : null,
                 toCoordinateDecimal(wgs84.latitude()),
                 toCoordinateDecimal(wgs84.longitude())
         );
@@ -295,6 +328,7 @@ public class LocationServiceImpl implements LocationService {
         JsonNode regeocode = root.path("regeocode");
         String formattedAddress = textOrNull(regeocode.path("formatted_address"));
         JsonNode addressComponent = regeocode.path("addressComponent");
+        String countryName = normalizeCountryName(textOrNull(addressComponent.path("country")));
         String provinceName = textOrNull(addressComponent.path("province"));
         String cityName = textOrNull(addressComponent.path("city"));
         String districtName = textOrNull(addressComponent.path("district"));
@@ -310,6 +344,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseGet(() -> StringUtils.hasText(administrativeName)
                         ? ReverseGeocodeResult.success(administrativeName, formattedAddress, "amap")
                         : ReverseGeocodeResult.failure("暂时没有推荐出地点名称，你可以手动填写。"));
+        result.setCountryName(countryName);
         result.setProvinceName(provinceName);
         result.setCityName(cityName);
         result.setDistrictName(districtName);
@@ -426,5 +461,21 @@ public class LocationServiceImpl implements LocationService {
         }
         String value = node.asText();
         return StringUtils.hasText(value) ? value : null;
+    }
+
+    private String normalizeCountryName(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String normalized = value.trim();
+        return "中华人民共和国".equals(normalized) ? "中国" : normalized;
+    }
+
+    private record DistrictCandidate(
+            JsonNode district,
+            String countryName,
+            String provinceName,
+            String cityName
+    ) {
     }
 }

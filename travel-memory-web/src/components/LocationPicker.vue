@@ -5,6 +5,7 @@ import LocationPickerMap from './LocationPickerMap.vue'
 
 const props = defineProps({
   locationName: { type: String, default: '' },
+  countryName: { type: String, default: '' },
   latitude: { type: [Number, String], default: '' },
   longitude: { type: [Number, String], default: '' },
   mode: { type: String, default: 'place' },
@@ -18,6 +19,7 @@ const draft = reactive({
   latitude: props.latitude == null ? '' : String(props.latitude),
   longitude: props.longitude == null ? '' : String(props.longitude),
   locationName: props.locationName || '',
+  countryName: props.countryName || '',
   formattedAddress: '',
   candidates: [],
   reverseGeocoding: false,
@@ -94,6 +96,7 @@ async function selectSearchResult(result) {
   draft.latitude = String(result.latitude)
   draft.longitude = String(result.longitude)
   draft.locationName = result.name || ''
+  draft.countryName = isCityMode.value ? (result.countryName || '') : ''
   draft.formattedAddress = isCityMode.value
     ? cityLevelLabel(result.level)
     : [result.district, result.address].filter(Boolean).join('')
@@ -104,6 +107,7 @@ async function selectSearchResult(result) {
 
 async function selectMapPoint(point) {
   draft.error = ''
+  if (isCityMode.value) draft.countryName = ''
   try {
     const normalized = await normalizeCoordinate(point)
     draft.latitude = String(normalized.latitude)
@@ -122,6 +126,7 @@ async function refreshReverseGeocode() {
   try {
     const result = await reverseGeocode(draft.latitude, draft.longitude)
     if (!result?.success) return
+    draft.countryName = isCityMode.value ? (result.countryName || '') : draft.countryName
     draft.formattedAddress = result.formattedAddress || ''
     draft.candidates = isCityMode.value ? [] : (result.candidates || [])
     const suggestedName = isCityMode.value
@@ -158,6 +163,7 @@ function locateCurrentPosition() {
   }
   draft.locating = true
   draft.error = ''
+  if (isCityMode.value) draft.countryName = ''
   navigator.geolocation.getCurrentPosition(
     async (position) => {
       draft.latitude = position.coords.latitude.toFixed(7)
@@ -176,6 +182,7 @@ function locateCurrentPosition() {
 function confirm() {
   emit('confirm', {
     locationName: draft.locationName.trim(),
+    countryName: isCityMode.value ? draft.countryName.trim() : '',
     latitude: hasCoordinates.value ? Number(draft.latitude) : null,
     longitude: hasCoordinates.value ? Number(draft.longitude) : null,
   })

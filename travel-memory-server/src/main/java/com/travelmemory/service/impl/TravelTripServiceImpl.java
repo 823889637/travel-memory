@@ -134,6 +134,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Override
     @Transactional
     public TravelTrip create(TravelTrip travelTrip) {
+        normalizeDestinationCountry(travelTrip);
         validateTripFields(travelTrip);
         validateDateRange(travelTrip);
         travelTrip.setUserId(currentUser.requireId());
@@ -150,6 +151,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Transactional
     public TravelTrip update(Long id, TravelTrip travelTrip) {
         TravelTrip existing = getById(id);
+        normalizeDestinationCountry(travelTrip);
         validateTripFields(travelTrip);
         validateDateRange(travelTrip);
         travelTrip.setId(id);
@@ -162,6 +164,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         travelTripMapper.updateById(travelTrip);
         travelTripMapper.update(null, new UpdateWrapper<TravelTrip>()
                 .eq("id", id)
+                .set("destination_country", travelTrip.getDestinationCountry())
                 .set("destination_latitude", travelTrip.getDestinationLatitude())
                 .set("destination_longitude", travelTrip.getDestinationLongitude()));
         return getById(id);
@@ -302,6 +305,9 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         if (travelTrip.getDestination() != null && travelTrip.getDestination().length() > 100) {
             throw new BusinessException(400, "Destination must not exceed 100 characters");
         }
+        if (travelTrip.getDestinationCountry() != null && travelTrip.getDestinationCountry().length() > 100) {
+            throw new BusinessException(400, "Destination country must not exceed 100 characters");
+        }
         validateDestinationCoordinates(travelTrip.getDestinationLatitude(), travelTrip.getDestinationLongitude());
         if (travelTrip.getDestinationLatitude() != null
                 && (travelTrip.getDestination() == null || travelTrip.getDestination().trim().isEmpty())) {
@@ -364,6 +370,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         vo.setTitle(trip.getTitle());
         vo.setDescription(trip.getDescription());
         vo.setDestination(trip.getDestination());
+        vo.setDestinationCountry(trip.getDestinationCountry());
         vo.setStartDate(trip.getStartDate());
         vo.setEndDate(trip.getEndDate());
         String explicitCoverPhotoUrl = normalizePhotoUrl(trip.getCoverPhotoUrl());
@@ -379,5 +386,16 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     private String normalizeOwnedCover(String photoUrl) {
         String normalized = normalizePhotoUrl(photoUrl);
         return normalized == null ? null : uploadReferences.requireOwnedImage(normalized);
+    }
+
+    private void normalizeDestinationCountry(TravelTrip trip) {
+        if (trip.getDestination() == null || trip.getDestination().trim().isEmpty()) {
+            trip.setDestinationCountry(null);
+            return;
+        }
+        if (trip.getDestinationCountry() != null) {
+            String normalized = trip.getDestinationCountry().trim();
+            trip.setDestinationCountry(normalized.isEmpty() ? null : normalized);
+        }
     }
 }

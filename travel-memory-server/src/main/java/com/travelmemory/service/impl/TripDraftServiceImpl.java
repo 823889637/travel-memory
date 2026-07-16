@@ -48,7 +48,9 @@ public class TripDraftServiceImpl implements TripDraftService {
             draft.setUserId(userId);
         }
         draft.setTitle(normalize(request.getTitle()));
-        draft.setDestination(normalize(request.getDestination()));
+        String destination = normalize(request.getDestination());
+        draft.setDestination(destination);
+        draft.setDestinationCountry(destination == null ? null : normalize(request.getDestinationCountry()));
         draft.setDestinationLatitude(request.getDestinationLatitude());
         draft.setDestinationLongitude(request.getDestinationLongitude());
         draft.setStartDate(request.getStartDate());
@@ -63,6 +65,7 @@ public class TripDraftServiceImpl implements TripDraftService {
             tripDraftMapper.updateById(draft);
             tripDraftMapper.update(null, new UpdateWrapper<TripDraft>()
                     .eq("id", draft.getId())
+                    .set("destination_country", draft.getDestinationCountry())
                     .set("destination_latitude", draft.getDestinationLatitude())
                     .set("destination_longitude", draft.getDestinationLongitude()));
         }
@@ -107,6 +110,7 @@ public class TripDraftServiceImpl implements TripDraftService {
 
     private TripDraftResponse toResponse(TripDraft draft) {
         return new TripDraftResponse(draft.getId(), draft.getTitle(), draft.getDestination(),
+                draft.getDestinationCountry(),
                 draft.getDestinationLatitude(), draft.getDestinationLongitude(),
                 draft.getStartDate(), draft.getEndDate(), draft.getDescription(), draft.getNotes(),
                 draft.getCoverPhotoUrl(), draft.getUpdateTime());

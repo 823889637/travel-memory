@@ -26,6 +26,7 @@ let redirectTimer = null
 const form = reactive({
   title: '',
   destination: '',
+  destinationCountry: '',
   destinationLatitude: null,
   destinationLongitude: null,
   startDate: '',
@@ -72,6 +73,7 @@ function normalizeForm(source) {
   return {
     title: normalizeText(source.title),
     destination: normalizeText(source.destination),
+    destinationCountry: normalizeText(source.destinationCountry),
     destinationLatitude: normalizeCoordinate(source.destinationLatitude),
     destinationLongitude: normalizeCoordinate(source.destinationLongitude),
     startDate: normalizeDate(source.startDate),
@@ -287,6 +289,7 @@ onBeforeUnmount(() => {
       <TripCityField
         id="trip-destination"
         v-model="form.destination"
+        v-model:country="form.destinationCountry"
         v-model:latitude="form.destinationLatitude"
         v-model:longitude="form.destinationLongitude"
       />

@@ -12,6 +12,8 @@ public class TripDraftRequest {
     private String title;
     @Size(max = 100, message = "destination must not exceed 100 characters")
     private String destination;
+    @Size(max = 100, message = "destinationCountry must not exceed 100 characters")
+    private String destinationCountry;
     @DecimalMin(value = "-90", message = "destinationLatitude must be at least -90")
     @DecimalMax(value = "90", message = "destinationLatitude must not exceed 90")
     private BigDecimal destinationLatitude;
@@ -41,6 +43,8 @@ public class TripDraftRequest {
     public void setTitle(String title) { this.title = title; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
+    public String getDestinationCountry() { return destinationCountry; }
+    public void setDestinationCountry(String destinationCountry) { this.destinationCountry = destinationCountry; }
     public BigDecimal getDestinationLatitude() { return destinationLatitude; }
     public void setDestinationLatitude(BigDecimal destinationLatitude) { this.destinationLatitude = destinationLatitude; }
     public BigDecimal getDestinationLongitude() { return destinationLongitude; }

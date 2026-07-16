@@ -252,7 +252,11 @@ docker compose -f docker-compose.yml -f docker-compose.secure.yml ps
 ```text
 sql/upgrade_20260712_add_memory_photo.sql
 sql/upgrade_20260713_add_user_ownership.sql
+sql/upgrade_20260714_add_memory_draft.sql
 sql/upgrade_20260714_add_trip_companion.sql
+sql/upgrade_20260716_mobile_design_capabilities.sql
+sql/upgrade_20260716_add_trip_destination_coordinates.sql
+sql/upgrade_20260716_add_trip_destination_country.sql
 ```
 
 执行前先阅读 SQL、核对目标数据库当前状态，并完成第 6 节的异地验证备份。建议在短维护窗口执行：
@@ -284,7 +288,11 @@ apply_upgrade() {
 
 apply_upgrade sql/upgrade_20260712_add_memory_photo.sql
 apply_upgrade sql/upgrade_20260713_add_user_ownership.sql
+apply_upgrade sql/upgrade_20260714_add_memory_draft.sql
 apply_upgrade sql/upgrade_20260714_add_trip_companion.sql
+apply_upgrade sql/upgrade_20260716_mobile_design_capabilities.sql
+apply_upgrade sql/upgrade_20260716_add_trip_destination_coordinates.sql
+apply_upgrade sql/upgrade_20260716_add_trip_destination_country.sql
 
 docker compose -f docker-compose.yml -f docker-compose.secure.yml \
   up -d --build --no-deps backend frontend

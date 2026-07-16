@@ -8,6 +8,7 @@ public class TravelTripListVO {
     private String title;
     private String description;
     private String destination;
+    private String destinationCountry;
     private LocalDate startDate;
     private LocalDate endDate;
     private String coverPhotoUrl;
@@ -48,6 +49,9 @@ public class TravelTripListVO {
     public void setDestination(String destination) {
         this.destination = destination;
     }
+
+    public String getDestinationCountry() { return destinationCountry; }
+    public void setDestinationCountry(String destinationCountry) { this.destinationCountry = destinationCountry; }
 
     public LocalDate getStartDate() {
         return startDate;
