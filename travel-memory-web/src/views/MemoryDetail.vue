@@ -454,9 +454,9 @@ onBeforeUnmount(() => {
 .memory-day-chip { padding: 5px 9px; border-radius: 999px; background: var(--tm-accent-soft); }
 .memory-detail-favorite { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; padding: 0; border: 1px solid var(--tm-border); border-radius: 50%; background: transparent; color: #846f62; }
 .memory-detail-favorite:hover, .memory-detail-favorite:focus-visible, .memory-detail-favorite.active { border-color: #d8a88f; background: var(--tm-accent-soft); color: var(--tm-accent); }
-.memory-detail-title { margin: -2px 0 0; font-family: Georgia, "Microsoft YaHei", serif; font-size: clamp(27px, 3vw, 39px); line-height: 1.24; }
+.memory-detail-title { margin: -2px 0 0; font-family: var(--tm-font-serif); font-size: 26px; font-weight: 600; line-height: 34px; }
 .memory-detail-quote { position: relative; margin: 0; padding: 20px 34px 22px; border: 0; border-bottom: 1px solid rgba(226, 214, 201, .76); background: transparent; }
-.memory-detail-quote p { margin: 0; white-space: pre-wrap; font-size: 18px; line-height: 1.8; }
+.memory-detail-quote p { margin: 0; white-space: pre-wrap; font-family: var(--tm-font-serif); font-size: 17px; line-height: 30px; }
 .memory-detail-quote.is-empty p { color: var(--tm-text-muted); font-size: 15px; }
 .memory-quote-mark { position: absolute; top: 10px; left: 5px; color: #d7b89f; font-family: Georgia, serif; font-size: 36px; line-height: 1; }
 .memory-quote-mark-end { top: auto; right: 5px; bottom: 7px; left: auto; }
@@ -520,8 +520,10 @@ onBeforeUnmount(() => {
   }
   .memory-detail-topbar-title {
     color: var(--tm-text);
-    font-family: Georgia, "Songti SC", "Microsoft YaHei", serif;
-    font-size: 18px;
+    font-family: var(--tm-font-sans);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 22px;
   }
   .memory-detail-content {
     grid-template-columns: 1fr;
@@ -570,9 +572,9 @@ onBeforeUnmount(() => {
   .memory-detail-title { display: none; }
   .memory-detail-quote { padding: 20px 26px 24px; }
   .memory-detail-quote p {
-    font-family: Georgia, "Songti SC", "Microsoft YaHei", serif;
-    font-size: 18px;
-    line-height: 1.85;
+    font-family: var(--tm-font-serif);
+    font-size: 17px;
+    line-height: 30px;
   }
   .memory-detail-quote.is-empty p { font-size: 14px; }
   .memory-quote-mark { top: 12px; left: 0; }
@@ -597,9 +599,9 @@ onBeforeUnmount(() => {
   .memory-neighbor-card > img { width: 50px; height: 60px; border-radius: 8px; }
   .memory-neighbor-arrow { width: 16px; }
   .memory-neighbor-copy { gap: 3px; }
-  .memory-neighbor-copy small { font-size: 9px; }
-  .memory-neighbor-copy strong { font-size: 11px; }
-  .memory-neighbor-copy > span { font-size: 9px; }
+  .memory-neighbor-copy small { font-size: 12px; line-height: 18px; }
+  .memory-neighbor-copy strong { font-size: 13px; line-height: 20px; }
+  .memory-neighbor-copy > span { font-size: 12px; line-height: 18px; }
   .memory-neighbor-boundary { align-self: stretch; display: grid; min-height: 88px; place-items: center; padding: 8px; border: 1px solid var(--tm-border); border-radius: 14px; background: rgba(255, 253, 249, .65); font-size: 10px; }
   .memory-detail-action-error { margin: 18px 20px 0; }
   .memory-detail-action-message { bottom: max(22px, env(safe-area-inset-bottom)); }

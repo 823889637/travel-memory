@@ -57,8 +57,11 @@ function goBack() {
     align-self: center;
     overflow: hidden;
     color: var(--tm-text);
+    font-family: var(--tm-font-sans);
     font-size: 17px;
-    line-height: 44px;
+    font-weight: 600;
+    line-height: 22px;
+    letter-spacing: 0;
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;

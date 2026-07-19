@@ -186,7 +186,8 @@ class TravelCoverServiceTest {
                 tripMapper, memoryMapper, photoMapper,
                 mock(com.travelmemory.mapper.TripCompanionMapper.class),
                 mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(),
-                mock(ProtectedUploadReferenceService.class));
+                mock(ProtectedUploadReferenceService.class),
+                mock(com.travelmemory.service.OrphanUploadCleanupService.class));
 
         var result = service.listForHome();
 
@@ -262,7 +263,8 @@ class TravelCoverServiceTest {
         return new TravelTripServiceImpl(tripMapper, memoryMapper, mock(MemoryPhotoMapper.class),
                 mock(com.travelmemory.mapper.TripCompanionMapper.class),
                 mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(),
-                mock(ProtectedUploadReferenceService.class));
+                mock(ProtectedUploadReferenceService.class),
+                mock(com.travelmemory.service.OrphanUploadCleanupService.class));
     }
 
     private CurrentUser currentUser() {

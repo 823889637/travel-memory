@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.HashSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -114,6 +115,53 @@ public class OrphanUploadCleanupServiceImpl implements OrphanUploadCleanupServic
                 ? "DRY-RUN completed"
                 : "Upload cleanup completed";
         return finish(result, startedAt, message);
+    }
+
+    @Override
+    public void deleteUnreferencedUploads(Collection<String> photoUrls) {
+        if (photoUrls == null || photoUrls.isEmpty()) {
+            return;
+        }
+
+        Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+        if (!Files.isDirectory(uploadRoot, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(uploadRoot)) {
+            log.warn("Referenced upload deletion skipped because the upload directory is unavailable");
+            return;
+        }
+
+        Set<Path> referencedPaths;
+        try {
+            referencedPaths = findReferencedPaths(uploadRoot);
+        } catch (RuntimeException exception) {
+            log.warn("Referenced upload deletion skipped because database reference collection failed", exception);
+            return;
+        }
+
+        Set<Path> candidates = new HashSet<>();
+        for (String photoUrl : photoUrls) {
+            Path relativePath = normalizeReferencedUrl(photoUrl, uploadRoot);
+            if (relativePath != null) {
+                candidates.add(relativePath);
+            }
+        }
+
+        for (Path relativePath : candidates) {
+            if (referencedPaths.contains(relativePath)) {
+                continue;
+            }
+            Path candidate = uploadRoot.resolve(relativePath).normalize();
+            if (!candidate.startsWith(uploadRoot) || candidate.equals(uploadRoot)
+                    || Files.isSymbolicLink(candidate)
+                    || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) {
+                continue;
+            }
+            try {
+                Files.deleteIfExists(candidate);
+            } catch (IOException exception) {
+                log.warn("Failed to delete upload after its final database reference was removed: {}", relativePath,
+                        exception);
+            }
+        }
     }
 
     private Set<Path> findReferencedPaths(Path uploadRoot) {

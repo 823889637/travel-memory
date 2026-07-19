@@ -16,6 +16,7 @@ import com.travelmemory.mapper.TripCompanionMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.service.ProtectedUploadReferenceService;
+import com.travelmemory.service.OrphanUploadCleanupService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.vo.TravelTripListVO;
 import java.math.BigDecimal;
@@ -27,6 +28,8 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelTrip> implements TravelTripService {
@@ -38,12 +41,14 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     private final MemoryCompanionMapper memoryCompanionMapper;
     private final CurrentUser currentUser;
     private final ProtectedUploadReferenceService uploadReferences;
+    private final OrphanUploadCleanupService orphanUploadCleanupService;
 
     @Autowired
     public TravelTripServiceImpl(TravelTripMapper travelTripMapper, TravelMemoryMapper travelMemoryMapper,
             MemoryPhotoMapper memoryPhotoMapper, TripCompanionMapper tripCompanionMapper,
             MemoryCompanionMapper memoryCompanionMapper, CurrentUser currentUser,
-            ProtectedUploadReferenceService uploadReferences) {
+            ProtectedUploadReferenceService uploadReferences,
+            OrphanUploadCleanupService orphanUploadCleanupService) {
         this.travelTripMapper = travelTripMapper;
         this.travelMemoryMapper = travelMemoryMapper;
         this.memoryPhotoMapper = memoryPhotoMapper;
@@ -51,6 +56,7 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
         this.memoryCompanionMapper = memoryCompanionMapper;
         this.currentUser = currentUser;
         this.uploadReferences = uploadReferences;
+        this.orphanUploadCleanupService = orphanUploadCleanupService;
     }
 
     @Override
@@ -276,11 +282,17 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
     @Override
     @Transactional
     public void delete(Long id) {
-        getById(id);
+        TravelTrip trip = getById(id);
+        Set<String> removedPhotoUrls = new HashSet<>();
+        addPhotoUrl(removedPhotoUrls, trip.getCoverPhotoUrl());
         List<TravelMemory> memories = travelMemoryMapper.selectList(new LambdaQueryWrapper<TravelMemory>()
                 .eq(TravelMemory::getTripId, id));
         if (!memories.isEmpty()) {
             List<Long> memoryIds = memories.stream().map(TravelMemory::getId).toList();
+            memories.forEach(memory -> addPhotoUrl(removedPhotoUrls, memory.getPhotoUrl()));
+            List<MemoryPhoto> photos = memoryPhotoMapper.selectList(new LambdaQueryWrapper<MemoryPhoto>()
+                    .in(MemoryPhoto::getMemoryId, memoryIds));
+            photos.forEach(photo -> addPhotoUrl(removedPhotoUrls, photo.getPhotoUrl()));
             memoryCompanionMapper.delete(new LambdaQueryWrapper<MemoryCompanion>()
                     .in(MemoryCompanion::getMemoryId, memoryIds));
             memoryPhotoMapper.delete(new LambdaQueryWrapper<MemoryPhoto>().in(MemoryPhoto::getMemoryId, memoryIds));
@@ -296,6 +308,31 @@ public class TravelTripServiceImpl extends ServiceImpl<TravelTripMapper, TravelT
                     .in(TripCompanion::getId, companionIds));
         }
         travelTripMapper.deleteById(id);
+        deleteUploadsAfterCommit(removedPhotoUrls);
+    }
+
+    private void deleteUploadsAfterCommit(Set<String> photoUrls) {
+        if (photoUrls.isEmpty()) {
+            return;
+        }
+        Set<String> immutablePhotoUrls = Set.copyOf(photoUrls);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    orphanUploadCleanupService.deleteUnreferencedUploads(immutablePhotoUrls);
+                }
+            });
+            return;
+        }
+        orphanUploadCleanupService.deleteUnreferencedUploads(immutablePhotoUrls);
+    }
+
+    private void addPhotoUrl(Set<String> photoUrls, String photoUrl) {
+        String normalized = normalizePhotoUrl(photoUrl);
+        if (normalized != null) {
+            photoUrls.add(normalized);
+        }
     }
 
     private void validateDateRange(TravelTrip travelTrip) {

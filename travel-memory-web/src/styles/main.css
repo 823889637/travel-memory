@@ -71,7 +71,7 @@
 
 .journey-trip-summary h1 {
   color: var(--tm-text);
-  font-family: Georgia, "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: 27px;
   line-height: 1.2;
 }
@@ -500,7 +500,7 @@
   --tm-text: #28231f;
   --tm-text-muted: #786f67;
   --tm-font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, SimSun, serif;
-  --tm-font-sans: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --tm-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
   --tm-accent: #b45732;
   --tm-accent-strong: #934426;
   --tm-accent-soft: #f3e7dc;
@@ -620,7 +620,7 @@ textarea {
   color: var(--tm-text);
   font-size: 18px;
   font-weight: 800;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
 .brand-mark {
@@ -711,7 +711,7 @@ textarea {
 .trip-list-hero h1 {
   margin: 2px 0 6px;
   color: var(--tm-text);
-  font-family: Georgia, "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: clamp(34px, 4vw, 46px);
   line-height: 1.08;
   letter-spacing: 0;
@@ -742,7 +742,7 @@ textarea {
   color: var(--tm-accent);
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -873,7 +873,7 @@ textarea {
 
 .trip-card-body h2 {
   color: var(--tm-text);
-  font-family: Georgia, "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: 22px;
   line-height: 1.2;
 }
@@ -1205,9 +1205,9 @@ textarea {
 .trip-form-back:hover { color: var(--tm-accent); }
 
 .trip-form-header { margin-bottom: 20px; }
-.trip-form-header h1 { margin: 3px 0 7px; font-family: Georgia, "Microsoft YaHei", serif; font-size: 34px; }
+.trip-form-header h1 { margin: 3px 0 7px; font-family: var(--tm-font-serif); font-size: 34px; }
 .trip-form-header p { margin: 0; }
-.trip-form-kicker { color: var(--tm-accent); font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+.trip-form-kicker { color: var(--tm-accent); font-size: 12px; font-weight: 600; letter-spacing: 0; }
 
 .trip-form-card {
   max-width: none;
@@ -1596,13 +1596,13 @@ textarea {
   color: #fffaf4;
 }
 .auth-brand-mark { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; font-size: 24px; }
-.auth-brand-panel p { margin: 0; font-family: Georgia, "Microsoft YaHei", serif; font-size: 21px; }
-.auth-brand-panel strong { font-family: Georgia, "Microsoft YaHei", serif; font-size: 30px; line-height: 1.32; }
+.auth-brand-panel p { margin: 0; font-family: var(--tm-font-serif); font-size: 21px; }
+.auth-brand-panel strong { font-family: var(--tm-font-serif); font-size: 30px; line-height: 1.32; }
 .auth-brand-panel > span:last-child { max-width: 320px; color: rgba(255,250,244,.82); font-size: 13px; line-height: 1.7; }
 .auth-link { display: inline-block; justify-self: start; margin-top: 4px; color: var(--tm-accent); font-size: 14px; }
 .auth-card { align-content: center; width: 100%; max-width: none; border: 0; padding: 48px; box-shadow: none; }
-.auth-card h1 { margin: 0; font-family: Georgia, "Microsoft YaHei", serif; font-size: 28px; }
-.auth-kicker { margin: 0 0 -6px; color: var(--tm-accent); font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+.auth-card h1 { margin: 0; font-family: var(--tm-font-serif); font-size: 28px; }
+.auth-kicker { margin: 0 0 -6px; color: var(--tm-accent); font-size: 12px; font-weight: 600; letter-spacing: 0; }
 .admin-users-page { display: grid; gap: 22px; }
 .admin-account-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .admin-account-summary div { display: grid; justify-items: center; gap: 6px; padding: 16px 10px; border: 1px solid var(--tm-border); border-radius: var(--tm-radius-md); background: rgba(255,253,249,.72); }
@@ -1646,12 +1646,12 @@ textarea {
   color: var(--tm-accent);
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: .12em;
+  letter-spacing: 0;
 }
 
 .memory-edit-head h1 {
   margin: 0;
-  font-family: Georgia, "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: 31px;
   font-weight: 800;
   line-height: 1.2;
@@ -1969,7 +1969,7 @@ textarea {
 }
 
 .trip-memory-hero-content h1 {
-  font-family: Georgia, "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: clamp(27px, 3vw, 36px);
   line-height: 1.12;
 }
@@ -2591,7 +2591,7 @@ textarea {
   margin: 0;
   font-size: 30px;
   font-weight: 800;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
 }
 
@@ -2608,7 +2608,7 @@ textarea {
   color: #f0cbb4;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -2779,7 +2779,7 @@ textarea {
   color: var(--j-accent);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   width: 100%;
   height: 28px;
   margin: 18px 0 12px;
@@ -2838,7 +2838,7 @@ textarea {
 
 .journey-stop-header h3 {
   color: var(--j-ink);
-  font-family: Georgia, "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: 30px;
   font-weight: 800;
   line-height: 1.18;
@@ -2861,7 +2861,7 @@ textarea {
   color: var(--j-accent-deep);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   padding: 4px 12px;
 }
 
@@ -4294,7 +4294,7 @@ textarea {
     margin: 6px 4px 2px;
   }
 
-  .admin-users-page > .page-header h1 { margin: 0 0 5px; font-family: Georgia, "Microsoft YaHei", serif; font-size: 34px; }
+  .admin-users-page > .page-header h1 { margin: 0 0 5px; font-family: var(--tm-font-serif); font-size: 34px; }
   .admin-users-page > .page-header p { margin: 0; font-size: 13px; line-height: 1.55; }
   .admin-account-summary { gap: 8px; }
   .admin-account-summary div { padding: 14px 5px; border-radius: 14px; }
@@ -4497,34 +4497,6 @@ textarea {
   .map-memory-card { width: calc(100% - 24px); max-height: none; margin: -112px 12px 0; padding: 14px; }
   .map-memory-card-head p { color: var(--tm-accent); font-weight: 800; }
 
-  .recap-page { gap: 16px; }
-  .recap-page .recap-hero { display: grid; grid-template-columns: 1fr; gap: 14px; }
-  .recap-page .recap-cover,
-  .recap-page .recap-cover img { min-height: 0; aspect-ratio: 16 / 9; border-radius: var(--tm-mobile-card-radius); }
-  .recap-page .recap-intro { padding: 0 4px; }
-  .recap-page .recap-kicker { font-size: 12px; }
-  .recap-page .recap-title-line h1 { font-size: 34px; }
-  .recap-page .recap-summary { padding: 0; border: 0; background: transparent; }
-  .recap-page .recap-summary h2 { display: none; }
-  .recap-page .recap-summary-grid > div:nth-child(4),
-  .recap-page .recap-summary-grid > div:nth-child(5) { display: none; }
-  .recap-page .recap-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .recap-page .recap-summary-grid > div {
-    gap: 5px;
-    min-width: 0;
-    padding: 14px 4px;
-    border: 1px solid var(--tm-border) !important;
-    border-radius: 14px;
-    background: rgba(255, 253, 249, .84);
-  }
-  .recap-page .recap-summary-grid strong { font-size: 22px; }
-  .recap-page .recap-summary-grid span { font-size: 10px; }
-  .recap-page .recap-days { grid-auto-columns: min(78vw, 300px); }
-  .recap-page .recap-day-card { border-radius: var(--tm-mobile-card-radius); }
-  .recap-page .recap-lower-grid { gap: 14px; }
-  .recap-page .recap-place-panel,
-  .recap-page .recap-favorites { padding: 16px; border-radius: var(--tm-mobile-card-radius); }
-
   .companions-page { gap: 14px; }
   .companions-head { padding: 14px 4px 2px; }
   .companions-head .trip-list-kicker { display: block; }
@@ -4568,7 +4540,7 @@ textarea {
   border-radius: 12px;
   background: var(--tm-accent-soft);
   color: var(--tm-accent);
-  font-family: Georgia, "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: 22px;
   font-weight: 800;
 }
@@ -4621,7 +4593,7 @@ textarea {
   }
 
   .trip-map-title-line h1 {
-    font-family: Georgia, "Microsoft YaHei", serif;
+    font-family: var(--tm-font-serif);
     font-size: 20px;
   }
 
@@ -4693,7 +4665,7 @@ textarea {
   }
 
   .map-memory-heading h2 {
-    font-family: Georgia, "Microsoft YaHei", serif;
+    font-family: var(--tm-font-serif);
     font-size: 19px;
   }
 
@@ -4796,7 +4768,7 @@ textarea {
   }
 
   .journey-trip-summary h1 {
-    font-family: Georgia, "Microsoft YaHei", serif;
+    font-family: var(--tm-font-serif);
     font-size: 30px;
     letter-spacing: 0;
   }

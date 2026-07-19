@@ -1,0 +1,316 @@
+html,
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--tm-font-sans);
+  letter-spacing: 0;
+}
+
+body {
+  font-size: var(--tm-text-body);
+  font-weight: var(--tm-weight-regular);
+  line-height: var(--tm-leading-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  line-height: var(--tm-leading-body);
+}
+
+.trip-list-hero h1,
+.trip-card-body h2,
+.trip-form-header h1,
+.trip-memory-hero-content h1,
+.timeline-toolbar h2,
+.day-header h2,
+.journey-trip-summary h1,
+.journey-memory-location,
+.recap-title-line h1,
+.recap-section-head h2,
+.recap-place-panel h2,
+.recap-favorites h2,
+.auth-brand-panel p,
+.auth-brand-panel strong,
+.auth-card h1,
+.memory-edit-head h1 {
+  font-family: var(--tm-font-serif);
+  letter-spacing: 0;
+}
+
+.trip-list-hero h1,
+.trip-memory-hero-content h1,
+.journey-trip-summary h1 {
+  font-weight: var(--tm-weight-semibold);
+}
+
+.muted,
+.field-help,
+.field-error,
+.field-success,
+.trip-card-meta,
+.trip-stats,
+.trip-memory-info,
+.trip-memory-stats,
+.memory-location,
+.memory-time,
+.journey-memory-station,
+.journey-memory-time,
+.map-memory-facts,
+.map-memory-recorded,
+.recap-meta,
+.recap-summary-grid span,
+.recap-day-heading span,
+.recap-day-place,
+.recap-day-foot {
+  color: var(--tm-text-muted);
+}
+
+.trip-card-meta,
+.trip-stats,
+.trip-memory-info,
+.trip-memory-stats,
+.memory-location,
+.memory-time,
+.journey-memory-station,
+.journey-memory-time,
+.map-memory-facts,
+.map-memory-recorded,
+.recap-summary-grid span,
+.recap-day-heading span,
+.recap-day-place,
+.recap-day-foot {
+  font-size: var(--tm-text-caption);
+  line-height: var(--tm-leading-caption);
+}
+
+.memory-time,
+.trip-memory-info,
+.trip-memory-stats,
+.journey-memory-time,
+.map-memory-facts,
+.map-memory-recorded,
+.map-day-navigation,
+.recap-summary-grid strong,
+.recap-day-heading,
+.recap-day-foot,
+.memory-detail-time,
+.memory-neighbor-copy > span {
+  font-variant-numeric: tabular-nums;
+}
+
+.field label,
+.trip-form-card .field label {
+  font-size: 14px;
+  font-weight: var(--tm-weight-semibold);
+  line-height: 20px;
+}
+
+.field input,
+.field textarea,
+.field select,
+.trip-form-card .field input,
+.trip-form-card .field textarea,
+.trip-form-card .field select {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.field-help,
+.field-error,
+.field-success,
+.trip-cover-status,
+.trip-field-counter {
+  font-size: var(--tm-text-caption);
+  line-height: var(--tm-leading-caption);
+}
+
+.trip-form-kicker,
+.auth-kicker,
+.trip-list-kicker,
+.journey-kicker {
+  letter-spacing: 0;
+}
+
+@media (max-width: 760px) {
+  .trip-list-hero h1 {
+    font-size: var(--tm-text-display);
+    line-height: var(--tm-leading-display);
+  }
+
+  .trip-list-hero .muted {
+    font-size: var(--tm-text-body);
+    line-height: var(--tm-leading-body);
+  }
+
+  .trip-card-body h2 {
+    font-size: var(--tm-text-subtitle);
+    font-weight: var(--tm-weight-semibold);
+    line-height: var(--tm-leading-subtitle);
+  }
+
+  .trip-card-meta,
+  .trip-stats,
+  .trip-card-view-links a,
+  .trip-card-view-links a + a,
+  .trip-cover-photo-count {
+    font-size: var(--tm-text-caption);
+    line-height: var(--tm-leading-caption);
+  }
+
+  .trip-memory-hero-content h1 {
+    font-size: var(--tm-text-display);
+    line-height: var(--tm-leading-display);
+  }
+
+  .timeline-toolbar h2 {
+    font-size: var(--tm-text-title);
+    line-height: var(--tm-leading-title);
+  }
+
+  .timeline-toolbar p {
+    margin-top: 6px;
+    font-size: var(--tm-text-meta);
+    line-height: var(--tm-leading-meta);
+  }
+
+  .timeline-page .memory-search-field input {
+    font-size: var(--tm-text-body);
+    line-height: var(--tm-leading-body);
+  }
+
+  .timeline-page .day-header h2 {
+    font-size: var(--tm-text-subtitle);
+    line-height: var(--tm-leading-subtitle);
+  }
+
+  .timeline-page .memory-quote {
+    font-family: var(--tm-font-serif);
+    font-size: var(--tm-text-body);
+    font-weight: var(--tm-weight-regular);
+    line-height: var(--tm-leading-body);
+  }
+
+  .journey-record-day-button span {
+    font-family: var(--tm-font-sans);
+    font-size: 14px;
+    font-weight: var(--tm-weight-semibold);
+    line-height: 20px;
+  }
+
+  .journey-record-day-button small {
+    font-size: var(--tm-text-caption);
+    line-height: var(--tm-leading-caption);
+  }
+
+  .journey-memory-station,
+  .journey-memory-time {
+    font-family: var(--tm-font-sans);
+    font-size: var(--tm-text-caption);
+    line-height: var(--tm-leading-caption);
+  }
+
+  .journey-memory-location {
+    font-family: var(--tm-font-serif);
+    font-size: var(--tm-text-display);
+    font-weight: var(--tm-weight-semibold);
+    line-height: var(--tm-leading-display);
+  }
+
+  .journey-memory-detail-link,
+  .journey-memory-section.is-text-only .journey-memory-detail-link {
+    font-family: var(--tm-font-serif);
+    font-size: var(--tm-text-reading);
+    font-weight: var(--tm-weight-regular);
+    line-height: var(--tm-leading-reading);
+  }
+
+  .map-memory-heading h2 {
+    font-family: var(--tm-font-serif);
+    font-size: 19px;
+    font-weight: var(--tm-weight-semibold);
+    line-height: 27px;
+  }
+
+  .trip-map-summary {
+    font-size: var(--tm-text-meta);
+    line-height: var(--tm-leading-meta);
+  }
+
+  .map-memory-quote {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  .map-day-navigation button strong {
+    font-size: var(--tm-text-meta);
+    line-height: 19px;
+  }
+
+  .map-day-navigation button span {
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  .recap-title-line h1 {
+    font-size: var(--tm-text-display);
+    font-weight: var(--tm-weight-semibold);
+    line-height: var(--tm-leading-display);
+  }
+
+  .recap-summary h2,
+  .recap-section-head h2,
+  .recap-place-panel h2,
+  .recap-favorites h2 {
+    font-family: var(--tm-font-serif);
+    font-size: 20px;
+    font-weight: var(--tm-weight-semibold);
+    line-height: 28px;
+  }
+
+  .recap-summary-grid strong {
+    font-size: var(--tm-text-stat);
+    font-weight: var(--tm-weight-semibold);
+    line-height: var(--tm-leading-stat);
+  }
+
+  .recap-section-head p,
+  .recap-day-quote,
+  .recap-favorite-grid p {
+    font-size: var(--tm-text-body);
+    line-height: var(--tm-leading-body);
+  }
+
+  .auth-card h1 {
+    font-size: var(--tm-text-title);
+    font-weight: var(--tm-weight-semibold);
+    line-height: var(--tm-leading-title);
+  }
+
+
+  .admin-users-page > .page-header h1,
+  .trip-form-header h1,
+  .memory-edit-head h1 {
+    font-family: var(--tm-font-serif);
+    font-size: var(--tm-text-title);
+    font-weight: var(--tm-weight-semibold);
+    line-height: var(--tm-leading-title);
+  }
+
+  .admin-users-page > .page-header p,
+  .trip-form-header p,
+  .auth-card .muted {
+    font-size: var(--tm-text-meta);
+    line-height: var(--tm-leading-meta);
+  }
+
+  .trip-form-card .field,
+  .auth-card .field {
+    gap: 7px;
+  }
+}

@@ -31,7 +31,8 @@ class UserOwnershipServiceTest {
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, mock(TravelMemoryMapper.class),
                 mock(MemoryPhotoMapper.class), mock(com.travelmemory.mapper.TripCompanionMapper.class),
                 mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(1L),
-                mock(ProtectedUploadReferenceService.class));
+                mock(ProtectedUploadReferenceService.class),
+                mock(com.travelmemory.service.OrphanUploadCleanupService.class));
 
         assertNotFound(() -> service.getById(20L));
         assertNotFound(() -> service.update(20L, trip(null, null)));
@@ -68,7 +69,8 @@ class UserOwnershipServiceTest {
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper,
                 mock(MemoryPhotoMapper.class), mock(com.travelmemory.mapper.TripCompanionMapper.class),
                 mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(1L),
-                mock(ProtectedUploadReferenceService.class));
+                mock(ProtectedUploadReferenceService.class),
+                mock(com.travelmemory.service.OrphanUploadCleanupService.class));
 
         assertNotFound(() -> service.setCover(10L, 30L));
         verify(tripMapper, never()).updateById(any(TravelTrip.class));

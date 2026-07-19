@@ -95,7 +95,7 @@ watch(() => [
 .trip-context-copy {
   display: grid;
   min-width: 0;
-  gap: 10px;
+  gap: 8px;
 }
 
 .trip-context-copy h1,
@@ -107,9 +107,10 @@ watch(() => [
   overflow: hidden;
   color: var(--tm-text);
   font-family: var(--tm-font-serif);
-  font-size: clamp(22px, 2.2vw, 29px);
-  font-weight: 700;
-  line-height: 1.28;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 30px;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -121,8 +122,8 @@ watch(() => [
   gap: 8px;
   color: var(--tm-text-muted);
   font-family: var(--tm-font-sans);
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .trip-context-actions {
@@ -145,16 +146,18 @@ watch(() => [
   }
 
   .trip-context-copy {
-    gap: 9px;
+    gap: 5px;
   }
 
   .trip-context-copy h1 {
-    font-size: clamp(20px, 5.6vw, 24px);
+    font-size: 21px;
+    line-height: 28px;
   }
 
   .trip-context-copy p {
-    gap: 7px;
-    font-size: 13px;
+    gap: 5px;
+    font-size: 12px;
+    line-height: 18px;
   }
 }
 
@@ -172,6 +175,7 @@ watch(() => [
 
   .trip-context-copy h1 {
     font-size: 19px;
+    line-height: 26px;
   }
 
   .trip-context-actions {

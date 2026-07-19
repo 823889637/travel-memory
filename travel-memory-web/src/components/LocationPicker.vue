@@ -261,7 +261,7 @@ function confirm() {
 .location-picker-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(49 40 34 / 36%); }
 .location-picker { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; width: min(1060px, 100%); max-height: min(820px, calc(100vh - 48px)); overflow: hidden; border: 1px solid #e4d8ca; border-radius: 10px; background: #fffdf9; box-shadow: 0 24px 65px rgb(55 42 32 / 22%); color: #342b25; }
 .location-picker-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 22px 14px; border-bottom: 1px solid #eee3d8; }
-.location-picker-header h2 { margin: 0; font-family: Georgia, "Microsoft YaHei", serif; font-size: 21px; }
+.location-picker-header h2 { margin: 0; font-family: var(--tm-font-serif); font-size: 21px; font-weight: 600; line-height: 29px; }
 .location-picker-close, .location-picker-search button, .location-picker-actions button, .location-picker-candidates button { border: 1px solid #dfd1c1; border-radius: 6px; background: #fffdfa; color: #76543e; cursor: pointer; }
 .location-picker-close { padding: 6px 10px; font-size: 13px; }
 .location-picker-search { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; padding: 14px 20px; background: #fffdfa; }

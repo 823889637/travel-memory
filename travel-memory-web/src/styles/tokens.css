@@ -1,0 +1,53 @@
+:root {
+  --tm-font-sans:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    Arial,
+    sans-serif;
+  --tm-font-serif:
+    "Noto Serif SC",
+    "Source Han Serif SC",
+    "Songti SC",
+    STSong,
+    SimSun,
+    serif;
+
+  --tm-text-caption: 12px;
+  --tm-leading-caption: 18px;
+  --tm-text-meta: 13px;
+  --tm-leading-meta: 20px;
+  --tm-text-body: 15px;
+  --tm-leading-body: 24px;
+  --tm-text-reading: 17px;
+  --tm-leading-reading: 30px;
+  --tm-text-subtitle: 18px;
+  --tm-leading-subtitle: 26px;
+  --tm-text-title: 22px;
+  --tm-leading-title: 30px;
+  --tm-text-stat: 24px;
+  --tm-leading-stat: 30px;
+  --tm-text-display: 28px;
+  --tm-leading-display: 36px;
+
+  --tm-weight-regular: 400;
+  --tm-weight-medium: 500;
+  --tm-weight-semibold: 600;
+
+  --tm-space-1: 4px;
+  --tm-space-2: 8px;
+  --tm-space-3: 12px;
+  --tm-space-4: 16px;
+  --tm-space-5: 20px;
+  --tm-space-6: 24px;
+  --tm-space-8: 32px;
+  --tm-space-10: 40px;
+  --tm-space-12: 48px;
+  --tm-mobile-page-padding: 16px;
+  --tm-section-gap: 32px;
+  --tm-card-gap: 12px;
+  --tm-card-padding: 16px;
+}

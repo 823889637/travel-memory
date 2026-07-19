@@ -3,6 +3,7 @@ package com.travelmemory.service.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -19,6 +20,7 @@ import com.travelmemory.mapper.TravelMemoryMapper;
 import com.travelmemory.mapper.TravelTripMapper;
 import com.travelmemory.service.FileStorageService;
 import com.travelmemory.service.ProtectedUploadReferenceService;
+import com.travelmemory.service.OrphanUploadCleanupService;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.util.ImageMetadataExtractor;
@@ -214,16 +216,20 @@ class TravelMemoryMultiPhotoServiceTest {
         var trip = new com.travelmemory.entity.TravelTrip(); trip.setId(1L); trip.setUserId(1L);
         when(tripMapper.selectById(1L)).thenReturn(trip);
         when(memoryMapper.selectList(any())).thenReturn(List.of(memory(10L, "/uploads/one.jpg")));
+        when(photoMapper.selectList(any())).thenReturn(List.of());
+        OrphanUploadCleanupService cleanupService = mock(OrphanUploadCleanupService.class);
         TravelTripServiceImpl service = new TravelTripServiceImpl(tripMapper, memoryMapper, photoMapper,
                 mock(com.travelmemory.mapper.TripCompanionMapper.class),
                 mock(com.travelmemory.mapper.MemoryCompanionMapper.class), currentUser(),
-                mock(ProtectedUploadReferenceService.class));
+                mock(ProtectedUploadReferenceService.class),
+                cleanupService);
 
         service.delete(1L);
 
         verify(photoMapper).delete(any());
         verify(memoryMapper).delete(any());
         verify(tripMapper).deleteById(1L);
+        verify(cleanupService).deleteUnreferencedUploads(argThat(urls -> urls.contains("/uploads/one.jpg")));
     }
 
     private Fixture fixture() {

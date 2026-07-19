@@ -3,9 +3,11 @@ import App from './App.vue'
 import router from './router'
 import { setUnauthorizedHandler } from './api/request'
 import { authResolved, currentUser } from './auth'
+import './styles/tokens.css'
 import './styles/main.css'
 import './styles/mobile-baseline.css'
 import './styles/mobile-reference.css'
+import './styles/typography.css'
 
 let redirectingForUnauthorized = false
 setUnauthorizedHandler(() => {

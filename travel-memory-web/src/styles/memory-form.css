@@ -24,8 +24,10 @@
 
 .memory-form-topbar h1 {
   margin: 0;
-  font-family: Georgia, "Microsoft YaHei", serif;
-  font-size: 19px;
+  font-family: var(--tm-font-sans);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 22px;
   text-align: center;
 }
 
@@ -78,8 +80,10 @@
 
 .memory-photo-section-head h2 {
   margin: 0;
-  font-family: Georgia, "Songti SC", "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: 18px;
+  font-weight: 600;
+  line-height: 26px;
 }
 
 .memory-photo-section-head span {
@@ -101,9 +105,10 @@
   align-items: center;
   margin: 0;
   color: #352a24;
-  font-family: Georgia, "Songti SC", "Microsoft YaHei", serif;
-  font-size: 17px;
-  font-weight: 700;
+  font-family: var(--tm-font-serif);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 26px;
 }
 
 .memory-copy-card { display: grid; gap: 14px; }
@@ -130,8 +135,8 @@
   background: #fff;
   color: var(--tm-text);
   font: inherit;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 16px;
+  line-height: 26px;
   resize: vertical;
 }
 
@@ -141,7 +146,8 @@
   bottom: 9px;
   margin: 0;
   color: var(--tm-text-soft);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .memory-time-field {
@@ -181,7 +187,7 @@
 
 .memory-form-help,
 .memory-form-error,
-.memory-form-success { margin: 0; font-size: 12px; line-height: 1.55; }
+.memory-form-success { margin: 0; font-size: 12px; line-height: 18px; }
 .memory-form-help { color: var(--tm-text-muted); }
 .memory-form-success { color: #5d835d; }
 .memory-form-error { color: #b8442f; }
@@ -290,7 +296,7 @@
 .memory-more-toggle svg.expanded { transform: rotate(180deg); }
 .memory-more-panel { display: grid; gap: 11px; padding: 5px 0 3px; }
 .memory-coordinate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.memory-coordinate-grid label { display: grid; gap: 6px; color: var(--tm-text-muted); font-size: 11px; }
+.memory-coordinate-grid label { display: grid; gap: 6px; color: var(--tm-text-muted); font-size: 12px; line-height: 18px; }
 .memory-location-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .memory-location-actions button { min-height: 36px; padding: 0 10px; border: 1px solid var(--tm-border); border-radius: 7px; background: #fff; color: #76543e; }
 
@@ -346,8 +352,10 @@
     padding: env(safe-area-inset-top) 12px 0;
   }
   .memory-form-topbar h1 {
-    font-family: Georgia, "Songti SC", "Microsoft YaHei", serif;
-    font-size: 19px;
+    font-family: var(--tm-font-sans);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 22px;
   }
   .memory-form-back span { display: none; }
   .memory-form { gap: 14px; padding: 0; }
@@ -381,5 +389,5 @@
 @media (max-width: 370px) {
   .memory-form-page { width: calc(100vw - 18px); }
   .memory-form-card { padding-inline: 14px; }
-  .memory-location-picker-button { max-width: 112px; padding-inline: 8px; font-size: 11px; }
+  .memory-location-picker-button { max-width: 112px; padding-inline: 8px; font-size: 12px; line-height: 18px; }
 }

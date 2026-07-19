@@ -38,7 +38,7 @@
 }
 
 .trip-create-cover-placeholder span {
-  font-family: Georgia, "Microsoft YaHei", serif;
+  font-family: var(--tm-font-serif);
   font-size: 22px;
   font-weight: 800;
 }
@@ -549,7 +549,7 @@
   }
 
   .memory-quote {
-    font-family: Georgia, "Microsoft YaHei", serif;
+    font-family: var(--tm-font-serif);
     font-size: 14px;
     line-height: 1.65;
     -webkit-line-clamp: 4;
@@ -829,83 +829,6 @@
     background: var(--tm-mobile-surface);
   }
 
-  /* 09 旅行回顾 */
-  .recap-page {
-    gap: 16px;
-    padding-bottom: calc(30px + env(safe-area-inset-bottom));
-  }
-
-  .recap-hero {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 13px;
-  }
-
-  .recap-cover,
-  .recap-intro {
-    grid-column: 1;
-    grid-row: 1;
-    min-height: 220px;
-    border-radius: 8px;
-  }
-
-  .recap-cover img,
-  .recap-cover-empty {
-    min-height: 220px;
-  }
-
-  .recap-intro {
-    z-index: 2;
-    align-content: end;
-    gap: 6px;
-    padding: 22px 18px 16px;
-    background: linear-gradient(180deg, rgba(34, 25, 20, .05), rgba(32, 24, 20, .8));
-    color: #fff;
-  }
-
-  .recap-kicker,
-  .recap-intro .recap-meta,
-  .recap-intro .recap-description,
-  .recap-title-line a {
-    color: inherit;
-  }
-
-  .recap-intro .recap-meta,
-  .recap-intro .recap-description {
-    opacity: .82;
-    font-size: 12px;
-  }
-
-  .recap-title-line h1 {
-    font-size: 28px;
-  }
-
-  .recap-summary {
-    grid-column: 1;
-    grid-row: 2;
-    border-radius: 8px;
-    padding: 15px;
-  }
-
-  .recap-summary-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .recap-days {
-    grid-auto-columns: min(78vw, 292px);
-  }
-
-  .recap-day-card,
-  .recap-place-panel,
-  .recap-favorites {
-    border-radius: 8px;
-  }
-
-  .recap-day-foot {
-    flex-wrap: wrap;
-    gap: 5px 10px;
-  }
-
   /* 10 同行的人 */
   .companions-page {
     gap: 15px;
@@ -1043,7 +966,7 @@
   }
 
   .trip-list-hero h1 {
-    font-family: Georgia, "Microsoft YaHei", serif;
+    font-family: var(--tm-font-serif);
     font-size: 34px;
     line-height: 1.15;
   }
@@ -1197,7 +1120,7 @@
   }
 
   .favorite-timeline-page .trip-memory-hero-content h1 {
-    font-family: Georgia, "Microsoft YaHei", serif;
+    font-family: var(--tm-font-serif);
     font-size: 34px;
   }
 
@@ -1237,21 +1160,6 @@
   .map-memory-card .gallery-favorite-preview {
     height: 96px;
     min-height: 96px;
-  }
-
-  .recap-page .recap-cover,
-  .recap-page .recap-cover img {
-    border-radius: 18px;
-  }
-
-  .recap-page .recap-summary-grid > div {
-    border-radius: 16px;
-  }
-
-  .recap-page .recap-day-card,
-  .recap-page .recap-place-panel,
-  .recap-page .recap-favorites {
-    border-radius: 18px;
   }
 
   .companion-manager {

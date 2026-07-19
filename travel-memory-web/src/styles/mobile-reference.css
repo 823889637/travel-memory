@@ -65,8 +65,10 @@
     box-shadow: none;
   }
   .mobile-page-header > strong {
-    font-family: Georgia, "Microsoft YaHei", serif;
-    font-size: 19px;
+    font-family: var(--tm-font-sans);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 22px;
   }
 
   .trip-list-user-menu .user-trigger-name,
@@ -154,9 +156,11 @@
     min-height: 54px;
     padding: 6px 3px;
     border-radius: 12px;
-    font-size: 9px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 18px;
   }
-  .trip-view-nav-link.active { position: relative; background: #f4e7dc; }
+  .trip-view-nav-link.active { position: relative; background: #f4e7dc; font-weight: 600; }
   .trip-view-nav-link.active::after {
     position: absolute;
     right: 13px;
@@ -550,7 +554,7 @@
   }
   .favorite-page-intro h1,
   .favorite-page-intro p { margin: 0; }
-  .favorite-page-intro h1 { font-family: Georgia, "Microsoft YaHei", serif; font-size: 36px; }
+  .favorite-page-intro h1 { font-family: var(--tm-font-serif); font-size: 28px; line-height: 36px; }
   .favorite-page-intro p { margin-top: 6px; color: #a35f43; font-size: 14px; }
   .favorite-page-intro .user-trigger-name,
   .favorite-page-intro .user-trigger-caret { display: none; }
@@ -652,19 +656,6 @@
   .trip-map-summary { padding: 8px 4px 0; font-size: 13px; }
   .map-memory-card { box-shadow: 0 14px 36px rgba(57,42,31,.16); }
 
-  /* 09 Recap */
-  .recap-page .recap-hero { gap: 14px; }
-  .recap-page .recap-cover,
-  .recap-page .recap-intro { min-height: 230px; }
-  .recap-page .recap-intro { padding: 24px 20px 17px; }
-  .recap-page .recap-summary { padding: 0; border: 0; background: transparent; box-shadow: none; }
-  .recap-page .recap-summary h2 { margin: 0 0 10px; font-family: Georgia, "Microsoft YaHei", serif; font-size: 24px; }
-  .recap-page .recap-summary-grid { gap: 8px; border: 0; }
-  .recap-page .recap-summary-grid > div { min-height: 92px; border: 1px solid var(--tm-mobile-line); background: var(--tm-mobile-card); box-shadow: 0 6px 18px rgba(71,52,39,.045); }
-  .recap-section-head h2,
-  .recap-place-panel h2,
-  .recap-favorites h2 { font-family: Georgia, "Microsoft YaHei", serif; }
-
   /* 10 Companions */
   .companions-page { padding-top: 0; }
   .companions-head { flex-direction: row; align-items: end; padding: 12px 3px 2px; }
@@ -756,7 +747,7 @@
   .memory-detail-topbar { background: rgba(250,247,241,.94); }
   .memory-detail-reading { border-radius: 0 0 22px 22px; }
   .memory-detail-title,
-  .memory-detail-quote p { font-family: Georgia, "Microsoft YaHei", serif; }
+  .memory-detail-quote p { font-family: var(--tm-font-serif); }
   .memory-neighbor-card { border-radius: 16px; }
 
   /* Auth and account pages use the same paper-and-card language. */
@@ -876,7 +867,7 @@
 .trip-list-page::before {
   position: absolute;
   z-index: -1;
-  inset: -28px;
+  inset: -28px 0;
   background-image:
     repeating-linear-gradient(0deg, rgba(118, 91, 70, .018) 0, rgba(118, 91, 70, .018) 1px, transparent 1px, transparent 5px),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, .12) 0, rgba(255, 255, 255, .12) 1px, transparent 1px, transparent 7px);
@@ -1081,7 +1072,7 @@
 
 @media (max-width: 760px) {
   .trip-list-page { gap: 17px; }
-  .trip-list-page::before { inset: -18px; }
+  .trip-list-page::before { inset: -18px 0; }
   .trip-list-kicker { display: none; }
   .trip-list-hero {
     gap: 15px 10px;

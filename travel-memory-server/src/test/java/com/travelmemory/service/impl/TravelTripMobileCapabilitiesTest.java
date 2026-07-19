@@ -190,6 +190,7 @@ class TravelTripMobileCapabilitiesTest {
             ProtectedUploadReferenceService uploads) {
         return new TravelTripServiceImpl(mapper, mock(TravelMemoryMapper.class),
                 mock(MemoryPhotoMapper.class), mock(TripCompanionMapper.class),
-                mock(MemoryCompanionMapper.class), currentUser, uploads);
+                mock(MemoryCompanionMapper.class), currentUser, uploads,
+                mock(com.travelmemory.service.OrphanUploadCleanupService.class));
     }
 }

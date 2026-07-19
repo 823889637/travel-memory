@@ -133,7 +133,7 @@ async function uploadSelectedPhoto(item) {
   data.append('photo', item.file)
   try {
     item.result = await uploadPhoto(data)
-    if (photoItems.value[0] === item) {
+    if (photoItems.value[0]?.key === item.key) {
       photoUploadResult.value = item.result
       applyPhotoMetadata(item.result)
     }

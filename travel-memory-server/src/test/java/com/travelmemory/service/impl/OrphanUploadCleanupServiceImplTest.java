@@ -206,6 +206,27 @@ class OrphanUploadCleanupServiceImplTest {
         assertEquals(3, result.getReferencedCount());
     }
 
+    @Test
+    void deletesRequestedUploadImmediatelyAfterItsFinalReferenceIsRemoved() throws IOException {
+        Path removed = Files.writeString(tempDir.resolve("removed.jpg"), "removed");
+        OrphanUploadCleanupService service = service(false, true, List.of(), List.of());
+
+        service.deleteUnreferencedUploads(List.of("/uploads/removed.jpg"));
+
+        assertFalse(Files.exists(removed));
+    }
+
+    @Test
+    void preservesRequestedUploadWhenAnotherDatabaseReferenceStillExists() throws IOException {
+        Path shared = Files.writeString(tempDir.resolve("shared.jpg"), "shared");
+        OrphanUploadCleanupService service = service(false, true,
+                List.of("/uploads/shared.jpg"), List.of());
+
+        service.deleteUnreferencedUploads(List.of("/uploads/shared.jpg"));
+
+        assertTrue(Files.exists(shared));
+    }
+
     private OrphanUploadCleanupService service(
             boolean enabled,
             boolean dryRun,

@@ -571,16 +571,16 @@ onBeforeUnmount(() => {
 .companions-head h1 {
   color: #37251d;
   font-family: var(--tm-font-serif);
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 36px;
 }
 
 .companions-head p {
   color: #a66b50;
   font-family: var(--tm-font-serif);
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 24px;
 }
 
 .companions-layout {
@@ -667,8 +667,8 @@ onBeforeUnmount(() => {
 .companion-row-copy strong {
   min-width: 0;
   overflow: hidden;
-  font-family: var(--tm-font-serif);
-  font-size: 20px;
+  font-family: var(--tm-font-sans);
+  font-size: 17px;
   color: #31231d;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -709,7 +709,7 @@ onBeforeUnmount(() => {
   font-family: var(--tm-font-serif);
   font-size: 24px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 26px;
   white-space: nowrap;
 }
 
@@ -925,7 +925,7 @@ onBeforeUnmount(() => {
   color: #43342c;
   font-family: var(--tm-font-serif);
   font-size: 15px;
-  line-height: 1.65;
+  line-height: 24px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -1012,7 +1012,8 @@ onBeforeUnmount(() => {
 .companions-empty p {
   margin-top: 8px;
   color: var(--tm-text-muted);
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 24px;
 }
 
 .companion-manager-backdrop {

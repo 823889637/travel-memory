@@ -61,7 +61,8 @@ const items = [
   border-radius: 5px;
   color: var(--tm-text-muted);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
+  line-height: 20px;
   padding: 11px 8px;
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
@@ -71,6 +72,7 @@ const items = [
 .trip-view-nav-link.active {
   background: #f7efe7;
   color: var(--tm-accent);
+  font-weight: 600;
 }
 
 .trip-view-nav-icon {
@@ -106,7 +108,8 @@ const items = [
     gap: 4px;
     padding: 8px 1px 7px;
     border-radius: 10px;
-    font-size: 9px;
+    font-size: 12px;
+    line-height: 18px;
   }
 
 }
