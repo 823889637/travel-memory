@@ -8,6 +8,7 @@ import './styles/main.css'
 import './styles/mobile-baseline.css'
 import './styles/mobile-reference.css'
 import './styles/typography.css'
+import './styles/mobile-design-alignment.css'
 
 let redirectingForUnauthorized = false
 setUnauthorizedHandler(() => {

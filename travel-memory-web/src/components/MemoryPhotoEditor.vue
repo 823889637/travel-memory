@@ -215,9 +215,49 @@ onBeforeUnmount(clearLongPress)
 .memory-photo-limit { color: #a75636; }
 .memory-photo-load-error { display: grid; height: 100%; place-items: center; padding: 8px; color: #9c5b42; font-size: 11px; }
 @media (max-width: 640px) {
-  .memory-photo-main { border-radius: 15px; }
-  .memory-photo-add { min-height: 94px; }
-  .memory-photo-thumb { border-radius: 12px; }
+  .memory-photo-editor { gap: 9px; }
+  .memory-photo-main {
+    border-radius: 18px;
+    box-shadow: 0 10px 25px rgba(66, 47, 35, .075);
+  }
+  .memory-photo-primary,
+  .memory-photo-uploading {
+    top: 10px;
+    min-height: 32px;
+    padding-inline: 10px;
+  }
+  .memory-photo-primary { right: 10px; }
+  .memory-photo-uploading { left: 10px; }
+  .memory-photo-thumbs {
+    gap: 8px;
+    padding: 2px 1px 6px;
+    scrollbar-width: none;
+  }
+  .memory-photo-thumbs::-webkit-scrollbar { display: none; }
+  .memory-photo-thumb-wrap,
+  .memory-photo-add {
+    flex: 0 0 calc((100% - 32px) / 5);
+    min-width: 56px;
+  }
+  .memory-photo-add {
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+    gap: 2px;
+    border-radius: 11px;
+    font-size: 10px;
+  }
+  .memory-photo-add :deep(svg) { width: 20px; height: 20px; }
+  .memory-photo-thumb { border-radius: 11px; }
+  .memory-photo-delete {
+    top: 3px;
+    right: 3px;
+    width: 20px;
+    height: 20px;
+  }
+  .memory-photo-empty {
+    min-height: 196px;
+    border-radius: 18px;
+  }
   .memory-photo-sort-hint, .memory-photo-limit { padding-inline: 2px; font-size: 11px; }
 }
 </style>

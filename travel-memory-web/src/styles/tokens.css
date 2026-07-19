@@ -33,6 +33,12 @@
   --tm-text-display: 28px;
   --tm-leading-display: 36px;
 
+  /* Editorial sizes used by the travel list's cover-page treatment. */
+  --tm-text-home-display: 38px;
+  --tm-leading-home-display: 48px;
+  --tm-text-trip-card-title: 23px;
+  --tm-leading-trip-card-title: 31px;
+
   --tm-weight-regular: 400;
   --tm-weight-medium: 500;
   --tm-weight-semibold: 600;

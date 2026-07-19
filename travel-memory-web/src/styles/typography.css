@@ -138,27 +138,56 @@ select {
 }
 
 @media (max-width: 760px) {
-  .trip-list-hero h1 {
-    font-size: var(--tm-text-display);
-    line-height: var(--tm-leading-display);
-  }
-
-  .trip-list-hero .muted {
-    font-size: var(--tm-text-body);
-    line-height: var(--tm-leading-body);
-  }
-
-  .trip-card-body h2 {
-    font-size: var(--tm-text-subtitle);
+  .trip-list-page .trip-list-hero h1 {
+    font-family: var(--tm-font-serif);
+    font-size: clamp(34px, 9.5vw, var(--tm-text-home-display));
     font-weight: var(--tm-weight-semibold);
-    line-height: var(--tm-leading-subtitle);
+    line-height: var(--tm-leading-home-display);
   }
 
-  .trip-card-meta,
-  .trip-stats,
-  .trip-card-view-links a,
-  .trip-card-view-links a + a,
-  .trip-cover-photo-count {
+  .trip-list-page .trip-list-hero .muted {
+    font-family: var(--tm-font-serif);
+    font-size: var(--tm-text-body);
+    font-weight: var(--tm-weight-regular);
+    line-height: var(--tm-leading-body);
+    letter-spacing: .035em;
+  }
+
+  .trip-list-page .trip-card-body h2 {
+    font-family: var(--tm-font-serif);
+    font-size: var(--tm-text-trip-card-title);
+    font-weight: var(--tm-weight-semibold);
+    line-height: var(--tm-leading-trip-card-title);
+  }
+
+  .trip-list-page .trip-meta p,
+  .trip-list-page .trip-card-view-links a,
+  .trip-list-page .trip-card-view-links a + a {
+    font-size: var(--tm-text-meta);
+    line-height: var(--tm-leading-meta);
+  }
+
+  .trip-list-page .trip-cover-destination,
+  .trip-list-page .trip-cover-photo-count {
+    font-size: var(--tm-text-caption);
+    line-height: var(--tm-leading-caption);
+  }
+
+  .trip-list-page .trip-description {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  .trip-list-page .trip-continuation strong,
+  .trip-list-page .trip-empty h2 {
+    font-family: var(--tm-font-serif);
+    font-size: 17px;
+    font-weight: var(--tm-weight-semibold);
+    line-height: 25px;
+  }
+
+  .trip-list-page .trip-continuation small,
+  .trip-list-page .trip-empty p {
     font-size: var(--tm-text-caption);
     line-height: var(--tm-leading-caption);
   }
@@ -312,5 +341,14 @@ select {
   .trip-form-card .field,
   .auth-card .field {
     gap: 7px;
+  }
+}
+
+@media (max-width: 370px) {
+  .trip-list-page .trip-meta p,
+  .trip-list-page .trip-card-view-links a,
+  .trip-list-page .trip-card-view-links a + a {
+    font-size: var(--tm-text-caption);
+    line-height: var(--tm-leading-caption);
   }
 }

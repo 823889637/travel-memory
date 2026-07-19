@@ -11,7 +11,6 @@ import {
   Luggage,
   Map,
   MapPin,
-  NotebookText,
   Plus,
   Stamp,
 } from '@lucide/vue'
@@ -113,20 +112,20 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeTripMenus
 <template>
   <section class="trip-list-page">
     <div class="trip-list-hero">
-      <div>
+      <div class="trip-list-intro">
         <p class="trip-list-kicker">Travel Memory</p>
         <h1>我的旅行记忆</h1>
         <p class="muted">把每一次旅行，留给未来重新经过。</p>
+        <RouterLink v-if="trips.length > 0" class="trip-create-button" to="/trips/new">
+          <Plus :size="20" aria-hidden="true" />
+          新建一次旅行
+        </RouterLink>
       </div>
       <div class="trip-list-postmark" aria-hidden="true">
         <Stamp :size="62" :stroke-width="1" />
         <span></span><span></span><span></span>
       </div>
       <UserMenu class="trip-list-user-menu" />
-      <RouterLink v-if="trips.length > 0" class="trip-create-button" to="/trips/new">
-        <Plus :size="20" aria-hidden="true" />
-        新建一次旅行
-      </RouterLink>
     </div>
 
     <p v-if="loading" class="trip-list-status">正在找回旅行记忆...</p>
@@ -190,16 +189,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeTripMenus
           </div>
           <div class="trip-card-summary">
             <p v-if="trip.description" class="trip-description">{{ trip.description }}</p>
-            <div class="trip-stats" aria-label="旅行统计">
-              <span><NotebookText :size="13" aria-hidden="true" />{{ trip.memoryCount || 0 }} 段记忆</span>
-              <span><ImageIcon :size="13" aria-hidden="true" />{{ trip.photoCount || 0 }} 张照片</span>
-              <span><MapPin :size="13" aria-hidden="true" />{{ trip.locationCount || 0 }} 个地点</span>
-            </div>
           </div>
 
           <nav class="trip-card-view-links" aria-label="旅行浏览入口">
-            <RouterLink class="primary" :to="`/trips/${trip.id}/journey`"><Compass :size="16" aria-hidden="true" />Journey</RouterLink>
-            <RouterLink :to="`/trips/${trip.id}`"><List :size="16" aria-hidden="true" />Timeline</RouterLink>
+            <RouterLink class="primary" :to="`/trips/${trip.id}/journey`"><Compass :size="16" aria-hidden="true" />进入 Journey</RouterLink>
+            <RouterLink :to="`/trips/${trip.id}`"><List :size="16" aria-hidden="true" />查看 Timeline</RouterLink>
             <RouterLink :to="`/trips/${trip.id}/map`"><Map :size="16" aria-hidden="true" />地图</RouterLink>
             <RouterLink :to="`/trips/${trip.id}/recap`"><BookOpen :size="16" aria-hidden="true" />旅行回顾</RouterLink>
           </nav>
@@ -210,7 +204,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeTripMenus
     <RouterLink v-if="trips.length > 0" class="trip-continuation" to="/trips/new">
       <span class="trip-continuation-illustration" aria-hidden="true"><Luggage :size="52" :stroke-width="1.15" /></span>
       <span class="trip-continuation-copy">
-        <strong>下一段旅程，正在路上</strong>
+        <strong>下一段旅程，正在路上 ✨</strong>
         <small>记录更多美好瞬间，留给未来的自己。</small>
       </span>
       <span class="trip-continuation-action" aria-hidden="true"><Plus :size="23" /></span>
