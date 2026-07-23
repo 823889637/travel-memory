@@ -7,10 +7,11 @@ const props = defineProps({
   photos: { type: Array, default: () => [] },
   selectedIndex: { type: Number, default: 0 },
   maxPhotos: { type: Number, default: 6 },
+  fileInputId: { type: String, required: true },
   disabled: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['add', 'select', 'remove', 'reorder', 'set-primary', 'retry'])
+const emit = defineEmits(['select', 'remove', 'reorder', 'set-primary', 'retry'])
 const gallery = ref(null)
 const failedKeys = ref(new Set())
 const draggingIndex = ref(null)
@@ -39,6 +40,14 @@ function isFailed(photo, index) {
 
 function markFailed(photo, index) {
   failedKeys.value = new Set(failedKeys.value).add(String(photoKey(photo, index)))
+}
+
+function hasUploadProgress(photo) {
+  return Number.isFinite(Number(photo?.uploadProgress))
+}
+
+function uploadProgressText(photo) {
+  return hasUploadProgress(photo) ? `上传中 ${photo.uploadProgress}%` : '上传中…'
 }
 
 function openGallery() {
@@ -127,14 +136,22 @@ onBeforeUnmount(clearLongPress)
         <Star :size="14" :fill="selectedIndex === 0 ? 'currentColor' : 'none'" aria-hidden="true" />
         {{ selectedIndex === 0 ? '主图' : '设为主图' }}
       </button>
-      <span v-if="selectedPhoto.uploading" class="memory-photo-uploading">上传中…</span>
+      <span v-if="selectedPhoto.uploading" class="memory-photo-uploading" role="status">{{ uploadProgressText(selectedPhoto) }}</span>
+      <span v-if="selectedPhoto.uploading && hasUploadProgress(selectedPhoto)" class="memory-photo-progress" aria-hidden="true">
+        <span :style="{ width: `${selectedPhoto.uploadProgress}%` }"></span>
+      </span>
     </div>
 
-    <button v-else type="button" class="memory-photo-empty" :disabled="disabled" @click="emit('add')">
+    <label
+      v-else
+      :for="disabled ? undefined : fileInputId"
+      :class="['memory-photo-empty', { disabled }]"
+      :aria-disabled="disabled"
+    >
       <Plus :size="30" aria-hidden="true" />
       <strong>添加照片</strong>
       <small>最多 {{ maxPhotos }} 张，第一张作为主图</small>
-    </button>
+    </label>
 
     <div v-if="photos.length" class="memory-photo-thumbs" aria-label="照片顺序">
       <div
@@ -162,22 +179,25 @@ onBeforeUnmount(clearLongPress)
           <span class="memory-photo-order">{{ index + 1 }}</span>
           <span v-if="isFailed(photo, index)" class="memory-photo-load-error">无法显示</span>
           <img v-else :src="photoSource(photo)" :alt="`第 ${index + 1} 张照片缩略图`" @error="markFailed(photo, index)" />
+          <span v-if="photo.uploading" class="memory-photo-thumb-uploading" role="status">{{ hasUploadProgress(photo) ? `${photo.uploadProgress}%` : '上传中' }}</span>
+          <span v-if="photo.uploading && hasUploadProgress(photo)" class="memory-photo-progress memory-photo-thumb-progress" aria-hidden="true">
+            <span :style="{ width: `${photo.uploadProgress}%` }"></span>
+          </span>
         </button>
         <button type="button" class="memory-photo-delete" :disabled="disabled" :aria-label="`删除第 ${index + 1} 张照片`" @click="requestRemove(index)">
           <X :size="12" aria-hidden="true" />
         </button>
         <button v-if="photo.error" type="button" class="memory-photo-retry" :disabled="disabled" @click="emit('retry', photo)">重试</button>
       </div>
-      <button
+      <label
         v-if="photos.length < maxPhotos"
-        type="button"
-        class="memory-photo-add"
-        :disabled="disabled"
-        @click="emit('add')"
+        :for="disabled ? undefined : fileInputId"
+        :class="['memory-photo-add', { disabled }]"
+        :aria-disabled="disabled"
       >
         <Plus :size="28" aria-hidden="true" />
         <span>添加照片</span>
-      </button>
+      </label>
     </div>
 
     <p v-if="photos.length > 1" class="memory-photo-sort-hint">长按照片可调整顺序，第一张作为主图。</p>
@@ -196,7 +216,12 @@ onBeforeUnmount(clearLongPress)
 .memory-photo-primary { right: 12px; }
 .memory-photo-primary:disabled { color: #8a664f; opacity: 1; }
 .memory-photo-uploading { left: 12px; }
-.memory-photo-add, .memory-photo-empty { display: grid; min-width: 0; place-items: center; align-content: center; gap: 7px; border: 1px dashed #d9b9a5; border-radius: 14px; background: rgba(255,253,249,.72); color: #9b5a3a; }
+.memory-photo-progress { position: absolute; z-index: 3; right: 0; bottom: 0; left: 0; height: 4px; overflow: hidden; background: rgba(255, 253, 249, .55); }
+.memory-photo-progress > span { display: block; height: 100%; background: #bf6038; transition: width .16s ease-out; }
+.memory-photo-thumb-uploading { position: absolute; z-index: 4; right: 4px; bottom: 5px; padding: 3px 5px; border-radius: 5px; background: rgba(44, 31, 24, .7); color: #fff; font-size: 10px; line-height: 1; }
+.memory-photo-thumb-progress { z-index: 4; height: 3px; }
+.memory-photo-add, .memory-photo-empty { display: grid; min-width: 0; place-items: center; align-content: center; gap: 7px; border: 1px dashed #d9b9a5; border-radius: 14px; background: rgba(255,253,249,.72); color: #9b5a3a; cursor: pointer; touch-action: manipulation; }
+.memory-photo-add.disabled, .memory-photo-empty.disabled { cursor: not-allowed; opacity: .55; }
 .memory-photo-add { flex: 0 0 calc((100% - 20px) / 3); min-height: 104px; padding: 0; font: inherit; font-size: 12px; }
 .memory-photo-empty { min-height: 218px; }
 .memory-photo-empty strong { color: #4b382d; font-size: 16px; }

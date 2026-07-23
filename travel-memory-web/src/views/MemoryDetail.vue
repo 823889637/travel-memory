@@ -139,8 +139,16 @@ function companionInitial(companion) {
 }
 
 function goBack() {
-  if (window.history.state?.back) router.back()
-  else router.push(`/trips/${props.tripId}`)
+  const editPath = `/trips/${props.tripId}/memories/${props.memoryId}/edit`
+  if (window.history.state?.back === editPath) {
+    router.replace(`/trips/${props.tripId}`)
+    return
+  }
+  if (window.history.state?.back) {
+    router.back()
+    return
+  }
+  router.push(`/trips/${props.tripId}`)
 }
 
 function toggleMenu(anchor) {
@@ -509,9 +517,9 @@ onBeforeUnmount(() => {
   .memory-detail-page { width: 100%; padding-bottom: calc(26px + env(safe-area-inset-bottom)); }
   .memory-detail-topbar {
     top: 0;
-    min-height: 58px;
+    min-height: calc(56px + env(safe-area-inset-top));
     margin: 0;
-    padding: env(safe-area-inset-top) 14px 0;
+    padding: env(safe-area-inset-top) 12px 0;
     border-bottom: 0;
     background: rgba(255, 252, 247, .96);
   }

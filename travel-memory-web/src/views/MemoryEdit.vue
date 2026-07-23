@@ -36,7 +36,6 @@ const photoError = ref('')
 const draftMessage = ref('')
 const showMoreLocation = ref(false)
 const showLocationPicker = ref(false)
-const photoInput = ref(null)
 const photoDrafts = ref([])
 const selectedPhotoIndex = ref(0)
 const selectedCompanionIds = ref([])
@@ -55,6 +54,19 @@ const hasCoordinates = computed(() => form.latitude !== '' && form.longitude !==
 const hasLocationSuggestion = computed(() => locationSuggestionStatus.value === 'success' && locationSuggestion.value?.locationName)
 const isDirty = computed(() => savedSnapshot.value !== '' && currentSnapshot() !== savedSnapshot.value)
 const canSubmit = computed(() => !loading.value && !saving.value && !draftSaving.value && !uploading.value && !coordinateError.value)
+
+function memoryDetailPath() {
+  return `/trips/${props.tripId}/memories/${props.memoryId}`
+}
+
+function returnToMemoryDetail() {
+  const target = memoryDetailPath()
+  if (window.history.state?.back === target) {
+    router.back()
+    return
+  }
+  router.replace(target)
+}
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -95,21 +107,18 @@ function validatePhotoFile(file) {
   return ''
 }
 
-function triggerPhotoPicker() {
-  if (photoDrafts.value.length < MAX_PHOTOS && !saving.value && !uploading.value) photoInput.value?.click()
-}
-
-function onPhotoChange(event) {
+async function onPhotoChange(event) {
   photoError.value = ''
   const files = Array.from(event.target.files || [])
   const remaining = MAX_PHOTOS - photoDrafts.value.length
+  const addedPhotos = []
   for (const file of files.slice(0, remaining)) {
     const validationError = validatePhotoFile(file)
     if (validationError) {
       photoError.value = `${file.name}：${validationError}`
       continue
     }
-    photoDrafts.value.push({
+    const photo = {
       key: `new-${crypto.randomUUID()}`,
       id: null,
       photoUrl: '',
@@ -117,10 +126,21 @@ function onPhotoChange(event) {
       file,
       error: '',
       uploading: false,
-    })
+      uploadProgress: null,
+    }
+    photoDrafts.value.push(photo)
+    addedPhotos.push(photo)
   }
   if (files.length > remaining) photoError.value = `一段记忆最多保存 ${MAX_PHOTOS} 张照片，只添加了前 ${remaining} 张。`
   event.target.value = ''
+
+  for (const photo of addedPhotos) {
+    try {
+      await uploadOnePhoto(photo)
+    } catch {
+      // Keep the per-photo error and retry control visible in the editor.
+    }
+  }
 }
 
 function releasePreview(photo) {
@@ -152,12 +172,19 @@ function setPrimaryPhoto(index) {
 async function uploadOnePhoto(photo) {
   if (!photo?.file) return
   photo.uploading = true
+  photo.uploadProgress = null
   photo.error = ''
   uploading.value = true
   try {
     const data = new FormData()
     data.append('photo', photo.file)
-    const uploaded = await uploadPhoto(data)
+    const uploaded = await uploadPhoto(data, {
+      onUploadProgress(event) {
+        if (!event.total) return
+        photo.uploadProgress = Math.min(99, Math.max(0, Math.round((event.loaded / event.total) * 100)))
+      },
+    })
+    photo.uploadProgress = 100
     photo.photoUrl = uploaded.photoUrl
     releasePreview(photo)
     photo.previewUrl = uploaded.photoUrl
@@ -167,6 +194,7 @@ async function uploadOnePhoto(photo) {
     throw uploadError
   } finally {
     photo.uploading = false
+    photo.uploadProgress = null
     uploading.value = photoDrafts.value.some(item => item.uploading)
   }
 }
@@ -369,7 +397,7 @@ async function submit() {
     await deleteMemoryDraft(props.tripId, props.memoryId).catch(() => {})
     savedSnapshot.value = currentSnapshot()
     skipLeavePrompt.value = true
-    router.push(`/trips/${props.tripId}/memories/${props.memoryId}`)
+    returnToMemoryDetail()
   } catch (saveError) {
     error.value = saveError.message || '保存失败，当前表单和照片草稿仍保留在页面中。'
   } finally {
@@ -384,7 +412,7 @@ function confirmDiscard() {
 function cancel() {
   if (!confirmDiscard()) return
   skipLeavePrompt.value = true
-  router.push(`/trips/${props.tripId}/memories/${props.memoryId}`)
+  returnToMemoryDetail()
 }
 
 function handleBeforeUnload(event) {
@@ -430,13 +458,13 @@ onBeforeUnmount(() => {
           <h2 id="memory-edit-photo-title">照片</h2>
           <span>{{ photoDrafts.length }} / {{ MAX_PHOTOS }}</span>
         </div>
-        <input ref="photoInput" hidden type="file" accept="image/*" multiple @change="onPhotoChange" />
+        <input id="memory-edit-photo-input" class="memory-native-file-input" type="file" accept="image/*" multiple @change="onPhotoChange" />
         <MemoryPhotoEditor
           :photos="photoDrafts"
           :selected-index="selectedPhotoIndex"
           :max-photos="MAX_PHOTOS"
+          file-input-id="memory-edit-photo-input"
           :disabled="saving || draftSaving || uploading"
-          @add="triggerPhotoPicker"
           @select="selectedPhotoIndex = $event"
           @remove="removePhoto"
           @reorder="reorderPhoto"

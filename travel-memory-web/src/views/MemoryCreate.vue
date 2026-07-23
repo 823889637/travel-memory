@@ -29,7 +29,6 @@ const uploading = ref(false)
 const error = ref('')
 const photoError = ref('')
 const draftMessage = ref('')
-const photoInput = ref(null)
 const photoItems = ref([])
 const selectedPhotoIndex = ref(0)
 const photoUploadResult = ref(null)
@@ -90,10 +89,6 @@ function getFileExtension(filename) {
   return dotIndex < 0 ? '' : filename.slice(dotIndex + 1).toLowerCase()
 }
 
-function triggerPhotoPicker() {
-  if (photoItems.value.length < MAX_PHOTOS && !saving.value) photoInput.value?.click()
-}
-
 async function onPhotoChange(event) {
   photoError.value = ''
   const selectedFiles = Array.from(event.target.files || [])
@@ -117,6 +112,7 @@ async function onPhotoChange(event) {
       result: null,
       error: '',
       uploading: false,
+      uploadProgress: null,
     }
     photoItems.value.push(item)
     await uploadSelectedPhoto(item)
@@ -128,11 +124,18 @@ async function uploadSelectedPhoto(item) {
   if (!item?.file) return
   uploading.value = true
   item.uploading = true
+  item.uploadProgress = null
   item.error = ''
   const data = new FormData()
   data.append('photo', item.file)
   try {
-    item.result = await uploadPhoto(data)
+    item.result = await uploadPhoto(data, {
+      onUploadProgress(event) {
+        if (!event.total) return
+        item.uploadProgress = Math.min(99, Math.max(0, Math.round((event.loaded / event.total) * 100)))
+      },
+    })
+    item.uploadProgress = 100
     if (photoItems.value[0]?.key === item.key) {
       photoUploadResult.value = item.result
       applyPhotoMetadata(item.result)
@@ -141,6 +144,7 @@ async function uploadSelectedPhoto(item) {
     item.error = err.message || '图片上传失败，请重试'
   } finally {
     item.uploading = false
+    item.uploadProgress = null
     uploading.value = photoItems.value.some(photo => photo.uploading)
   }
 }
@@ -324,6 +328,7 @@ async function loadDraft() {
         result: { photoUrl },
         error: '',
         uploading: false,
+        uploadProgress: null,
       }))
       syncPrimaryPhoto()
       recordTimeTouched.value = Boolean(form.recordTime)
@@ -359,7 +364,7 @@ async function submit() {
     const created = await createMemory(data)
     await deleteMemoryDraft(props.id).catch(() => {})
     skipLeavePrompt.value = true
-    router.push(created?.id ? `/trips/${props.id}/memories/${created.id}` : `/trips/${props.id}`)
+    router.replace(created?.id ? `/trips/${props.id}/memories/${created.id}` : `/trips/${props.id}`)
   } catch (err) {
     error.value = err.message || '保存失败，当前表单内容仍然保留。'
   } finally {
@@ -398,13 +403,13 @@ onBeforeUnmount(() => {
           <h2 id="memory-create-photo-title">照片</h2>
           <span>{{ photoItems.length }} / {{ MAX_PHOTOS }}</span>
         </div>
-        <input ref="photoInput" hidden type="file" accept="image/*" multiple @change="onPhotoChange" />
+        <input id="memory-create-photo-input" class="memory-native-file-input" type="file" accept="image/*" multiple @change="onPhotoChange" />
         <MemoryPhotoEditor
           :photos="photoItems"
           :selected-index="selectedPhotoIndex"
           :max-photos="MAX_PHOTOS"
+          file-input-id="memory-create-photo-input"
           :disabled="saving || uploading"
-          @add="triggerPhotoPicker"
           @select="selectedPhotoIndex = $event"
           @remove="removePhoto"
           @reorder="reorderPhoto"
