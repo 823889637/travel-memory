@@ -41,12 +41,21 @@ function markFailed(photo, index) {
   failedKeys.value = new Set(failedKeys.value).add(String(photoKey(photo, index)))
 }
 
+function uploadProgressValue(photo) {
+  const progress = photo?.uploadProgress
+  if (progress === null || progress === undefined || progress === '') return null
+  const numericProgress = Number(progress)
+  if (!Number.isFinite(numericProgress)) return null
+  return Math.min(100, Math.max(0, Math.round(numericProgress)))
+}
+
 function hasUploadProgress(photo) {
-  return Number.isFinite(Number(photo?.uploadProgress))
+  return uploadProgressValue(photo) !== null
 }
 
 function uploadProgressText(photo) {
-  return hasUploadProgress(photo) ? `上传中 ${photo.uploadProgress}%` : '上传中…'
+  const progress = uploadProgressValue(photo)
+  return progress === null ? '上传中…' : `上传中 ${progress}%`
 }
 
 function openGallery() {
@@ -141,7 +150,7 @@ onBeforeUnmount(clearLongPress)
       </button>
       <span v-if="selectedPhoto.uploading" class="memory-photo-uploading" role="status">{{ uploadProgressText(selectedPhoto) }}</span>
       <span v-if="selectedPhoto.uploading && hasUploadProgress(selectedPhoto)" class="memory-photo-progress" aria-hidden="true">
-        <span :style="{ width: `${selectedPhoto.uploadProgress}%` }"></span>
+        <span :style="{ width: `${uploadProgressValue(selectedPhoto)}%` }"></span>
       </span>
     </div>
 
@@ -186,9 +195,9 @@ onBeforeUnmount(clearLongPress)
           <span class="memory-photo-order">{{ index + 1 }}</span>
           <span v-if="isFailed(photo, index)" class="memory-photo-load-error">无法显示</span>
           <img v-else :src="photoSource(photo)" :alt="`第 ${index + 1} 张照片缩略图`" @error="markFailed(photo, index)" />
-          <span v-if="photo.uploading" class="memory-photo-thumb-uploading" role="status">{{ hasUploadProgress(photo) ? `${photo.uploadProgress}%` : '上传中' }}</span>
+          <span v-if="photo.uploading" class="memory-photo-thumb-uploading" role="status">{{ uploadProgressValue(photo) === null ? '上传中' : `${uploadProgressValue(photo)}%` }}</span>
           <span v-if="photo.uploading && hasUploadProgress(photo)" class="memory-photo-progress memory-photo-thumb-progress" aria-hidden="true">
-            <span :style="{ width: `${photo.uploadProgress}%` }"></span>
+            <span :style="{ width: `${uploadProgressValue(photo)}%` }"></span>
           </span>
         </button>
         <button type="button" class="memory-photo-delete" :disabled="disabled" :aria-label="`删除第 ${index + 1} 张照片`" @click="requestRemove(index)">

@@ -15,6 +15,7 @@ import LocationPicker from '../components/LocationPicker.vue'
 import MemoryPhotoEditor from '../components/MemoryPhotoEditor.vue'
 import { createClientId } from '../utils/clientId'
 import { formatLocalDateTime, toDateTimeLocalValue } from '../utils/dateTime'
+import { calculateUploadProgress } from '../utils/uploadProgress'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
@@ -132,8 +133,8 @@ async function uploadSelectedPhoto(item) {
   try {
     item.result = await uploadPhoto(data, {
       onUploadProgress(event) {
-        if (!event.total) return
-        item.uploadProgress = Math.min(99, Math.max(0, Math.round((event.loaded / event.total) * 100)))
+        const progress = calculateUploadProgress(event, item.file)
+        if (progress !== null) item.uploadProgress = progress
       },
     })
     item.uploadProgress = 100
