@@ -544,6 +544,23 @@ onBeforeUnmount(() => {
             <ChevronRight :size="16" :stroke-width="1.8" aria-hidden="true" />
           </RouterLink>
         </article>
+
+        <section v-if="replayPoints.length" class="map-playback-controls" aria-label="路径回放控制">
+          <button type="button" :disabled="playbackIndex <= 0" @click="previousStation">
+            <ChevronLeft :size="18" :stroke-width="1.8" aria-hidden="true" />
+            上一站
+          </button>
+          <button type="button" class="map-playback-main" @click="togglePlayback">
+            <Pause v-if="isPlaying" :size="20" aria-hidden="true" />
+            <RotateCcw v-else-if="isPlaybackComplete" :size="19" aria-hidden="true" />
+            <Play v-else :size="20" fill="currentColor" aria-hidden="true" />
+            <span>{{ isPlaying ? '暂停回放' : isPlaybackComplete ? '重新播放' : '开始回放' }}</span>
+          </button>
+          <button type="button" :disabled="playbackIndex >= playbackStations.length - 1" @click="nextStation">
+            下一站
+            <ChevronRight :size="18" :stroke-width="1.8" aria-hidden="true" />
+          </button>
+        </section>
       </div>
 
       <nav v-if="dayOptions.length" class="map-day-navigation" aria-label="地图自然日导航">
@@ -572,23 +589,6 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </nav>
-
-      <section v-if="replayPoints.length" class="map-playback-controls" aria-label="路径回放控制">
-        <button type="button" :disabled="playbackIndex <= 0" @click="previousStation">
-          <ChevronLeft :size="18" :stroke-width="1.8" aria-hidden="true" />
-          上一站
-        </button>
-        <button type="button" class="map-playback-main" @click="togglePlayback">
-          <Pause v-if="isPlaying" :size="20" aria-hidden="true" />
-          <RotateCcw v-else-if="isPlaybackComplete" :size="19" aria-hidden="true" />
-          <Play v-else :size="20" fill="currentColor" aria-hidden="true" />
-          <span>{{ isPlaying ? '暂停回放' : isPlaybackComplete ? '重新播放' : '开始回放' }}</span>
-        </button>
-        <button type="button" :disabled="playbackIndex >= playbackStations.length - 1" @click="nextStation">
-          下一站
-          <ChevronRight :size="18" :stroke-width="1.8" aria-hidden="true" />
-        </button>
-      </section>
     </template>
   </section>
 </template>

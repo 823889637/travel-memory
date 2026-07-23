@@ -829,6 +829,41 @@
     line-height: 24px;
   }
 
+  body .trip-form-page .trip-form-date-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    min-width: 0;
+  }
+
+  body .trip-form-page .trip-form-date-grid > .field {
+    min-width: 0;
+    padding-inline: 0;
+    overflow: hidden;
+  }
+
+  body .trip-form-page .trip-form-date-grid input[type="date"] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-inline: 8px;
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  body .trip-form-page .trip-form-date-grid input[type="date"]::-webkit-date-and-time-value {
+    min-width: 0;
+    margin: 0;
+    text-align: center;
+  }
+
+  body .trip-form-page .trip-form-date-grid input[type="date"]::-webkit-datetime-edit {
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
   body .trip-form-page .trip-form-card .field textarea {
     min-height: 100px;
   }
@@ -1089,10 +1124,10 @@
 
   body .map-memory-card {
     right: auto;
-    bottom: 12px;
+    bottom: 112px;
     left: 12px;
     width: min(282px, calc(100% - 72px));
-    max-height: min(63%, 330px);
+    max-height: min(52%, 276px);
     gap: 8px;
     padding: 12px;
     border-radius: 17px;
@@ -1130,8 +1165,9 @@
   }
 
   body .trip-map-fit-all {
+    top: 58px;
     right: 12px;
-    bottom: 12px;
+    bottom: auto;
   }
 
   body .map-day-navigation {
@@ -1161,9 +1197,14 @@
   }
 
   body .map-playback-controls {
+    right: auto;
+    bottom: 40px;
+    left: 50%;
+    width: calc(100% - 24px);
     gap: 7px;
     padding: 8px;
     border-radius: 16px;
+    transform: translateX(-50%);
   }
 
   body .map-playback-controls > button {

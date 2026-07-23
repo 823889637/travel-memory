@@ -1195,6 +1195,7 @@ onBeforeUnmount(() => {
 @media (max-width: 640px) {
   .companions-page {
     gap: 15px;
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
   }
 
   .companions-page :deep(.mobile-page-header > strong) {
@@ -1287,8 +1288,19 @@ onBeforeUnmount(() => {
   }
 
   .companion-manage-entry {
+    position: fixed;
+    z-index: 36;
+    right: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 50%;
+    width: min(calc(100vw - 32px), 620px);
     min-height: 54px;
+    border-color: rgba(184, 95, 61, .72);
+    background: rgba(255, 253, 249, .94);
+    box-shadow: 0 10px 28px rgba(66, 48, 37, .14);
     font-size: 18px;
+    transform: translateX(-50%);
+    backdrop-filter: blur(14px);
   }
 
   .companion-manager-backdrop {

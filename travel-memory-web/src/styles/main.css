@@ -5468,15 +5468,22 @@ textarea {
 }
 
 .map-playback-controls {
+  position: absolute;
+  z-index: 22;
+  bottom: 38px;
+  left: 50%;
   display: grid;
+  width: min(520px, calc(100% - 140px));
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 10px;
   border: 1px solid rgba(226, 211, 196, .85);
   border-radius: 18px;
-  background: rgba(255, 253, 249, .78);
-  box-shadow: 0 8px 18px rgba(60, 45, 36, .045);
+  background: rgba(255, 253, 249, .93);
+  box-shadow: 0 12px 28px rgba(60, 45, 36, .12);
+  transform: translateX(-50%);
+  backdrop-filter: blur(14px);
 }
 
 .map-playback-controls > button {
