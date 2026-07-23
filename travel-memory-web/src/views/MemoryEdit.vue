@@ -14,6 +14,7 @@ import {
 import CompanionSelector from '../components/CompanionSelector.vue'
 import LocationPicker from '../components/LocationPicker.vue'
 import MemoryPhotoEditor from '../components/MemoryPhotoEditor.vue'
+import { createClientId } from '../utils/clientId'
 import { toDateTimeLocalValue } from '../utils/dateTime'
 
 const props = defineProps({
@@ -119,7 +120,7 @@ async function onPhotoChange(event) {
       continue
     }
     const photo = {
-      key: `new-${crypto.randomUUID()}`,
+      key: createClientId('new-'),
       id: null,
       photoUrl: '',
       previewUrl: URL.createObjectURL(file),
