@@ -403,18 +403,17 @@ onBeforeUnmount(() => {
           <h2 id="memory-create-photo-title">照片</h2>
           <span>{{ photoItems.length }} / {{ MAX_PHOTOS }}</span>
         </div>
-        <input id="memory-create-photo-input" class="memory-native-file-input" type="file" accept="image/*" multiple @change="onPhotoChange" />
         <MemoryPhotoEditor
           :photos="photoItems"
           :selected-index="selectedPhotoIndex"
           :max-photos="MAX_PHOTOS"
-          file-input-id="memory-create-photo-input"
           :disabled="saving || uploading"
           @select="selectedPhotoIndex = $event"
           @remove="removePhoto"
           @reorder="reorderPhoto"
           @set-primary="setPrimaryPhoto"
           @retry="retryPhoto"
+          @files-selected="onPhotoChange"
         />
         <p v-if="photoError" class="memory-form-error" role="alert">{{ photoError }}</p>
         <p v-if="uploading" class="memory-form-help" role="status">正在上传并识别照片信息…</p>

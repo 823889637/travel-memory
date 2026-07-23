@@ -7,18 +7,6 @@
   color: var(--tm-text);
 }
 
-/* Kept in the accessibility tree so mobile Safari can open it from its label. */
-.memory-native-file-input {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  opacity: 0;
-  clip-path: inset(50%);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
 .memory-form-topbar {
   position: sticky;
   z-index: 18;

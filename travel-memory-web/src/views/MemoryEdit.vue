@@ -458,18 +458,17 @@ onBeforeUnmount(() => {
           <h2 id="memory-edit-photo-title">照片</h2>
           <span>{{ photoDrafts.length }} / {{ MAX_PHOTOS }}</span>
         </div>
-        <input id="memory-edit-photo-input" class="memory-native-file-input" type="file" accept="image/*" multiple @change="onPhotoChange" />
         <MemoryPhotoEditor
           :photos="photoDrafts"
           :selected-index="selectedPhotoIndex"
           :max-photos="MAX_PHOTOS"
-          file-input-id="memory-edit-photo-input"
           :disabled="saving || draftSaving || uploading"
           @select="selectedPhotoIndex = $event"
           @remove="removePhoto"
           @reorder="reorderPhoto"
           @set-primary="setPrimaryPhoto"
           @retry="retryPhoto"
+          @files-selected="onPhotoChange"
         />
         <p class="memory-form-help">照片、顺序和删除会在保存修改后一起生效。</p>
         <p v-if="photoError" class="memory-form-error" role="alert">{{ photoError }}</p>

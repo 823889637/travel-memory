@@ -7,11 +7,10 @@ const props = defineProps({
   photos: { type: Array, default: () => [] },
   selectedIndex: { type: Number, default: 0 },
   maxPhotos: { type: Number, default: 6 },
-  fileInputId: { type: String, required: true },
   disabled: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['select', 'remove', 'reorder', 'set-primary', 'retry'])
+const emit = defineEmits(['select', 'remove', 'reorder', 'set-primary', 'retry', 'files-selected'])
 const gallery = ref(null)
 const failedKeys = ref(new Set())
 const draggingIndex = ref(null)
@@ -117,6 +116,10 @@ function selectThumbnail(index) {
   if (!suppressClick) emit('select', index)
 }
 
+function handleFileChange(event) {
+  emit('files-selected', event)
+}
+
 onBeforeUnmount(clearLongPress)
 </script>
 
@@ -142,12 +145,16 @@ onBeforeUnmount(clearLongPress)
       </span>
     </div>
 
-    <label
-      v-else
-      :for="disabled ? undefined : fileInputId"
-      :class="['memory-photo-empty', { disabled }]"
-      :aria-disabled="disabled"
-    >
+    <label v-else :class="['memory-photo-empty', { disabled }]" :aria-disabled="disabled">
+      <input
+        class="memory-photo-picker-input"
+        type="file"
+        accept="image/*"
+        multiple
+        :disabled="disabled"
+        aria-label="添加照片"
+        @change="handleFileChange"
+      />
       <Plus :size="30" aria-hidden="true" />
       <strong>添加照片</strong>
       <small>最多 {{ maxPhotos }} 张，第一张作为主图</small>
@@ -189,12 +196,16 @@ onBeforeUnmount(clearLongPress)
         </button>
         <button v-if="photo.error" type="button" class="memory-photo-retry" :disabled="disabled" @click="emit('retry', photo)">重试</button>
       </div>
-      <label
-        v-if="photos.length < maxPhotos"
-        :for="disabled ? undefined : fileInputId"
-        :class="['memory-photo-add', { disabled }]"
-        :aria-disabled="disabled"
-      >
+      <label v-if="photos.length < maxPhotos" :class="['memory-photo-add', { disabled }]" :aria-disabled="disabled">
+        <input
+          class="memory-photo-picker-input"
+          type="file"
+          accept="image/*"
+          multiple
+          :disabled="disabled"
+          aria-label="添加照片"
+          @change="handleFileChange"
+        />
         <Plus :size="28" aria-hidden="true" />
         <span>添加照片</span>
       </label>
@@ -220,8 +231,10 @@ onBeforeUnmount(clearLongPress)
 .memory-photo-progress > span { display: block; height: 100%; background: #bf6038; transition: width .16s ease-out; }
 .memory-photo-thumb-uploading { position: absolute; z-index: 4; right: 4px; bottom: 5px; padding: 3px 5px; border-radius: 5px; background: rgba(44, 31, 24, .7); color: #fff; font-size: 10px; line-height: 1; }
 .memory-photo-thumb-progress { z-index: 4; height: 3px; }
-.memory-photo-add, .memory-photo-empty { display: grid; min-width: 0; place-items: center; align-content: center; gap: 7px; border: 1px dashed #d9b9a5; border-radius: 14px; background: rgba(255,253,249,.72); color: #9b5a3a; cursor: pointer; touch-action: manipulation; }
+.memory-photo-add, .memory-photo-empty { position: relative; display: grid; min-width: 0; place-items: center; align-content: center; gap: 7px; overflow: hidden; border: 1px dashed #d9b9a5; border-radius: 14px; background: rgba(255,253,249,.72); color: #9b5a3a; cursor: pointer; touch-action: manipulation; }
 .memory-photo-add.disabled, .memory-photo-empty.disabled { cursor: not-allowed; opacity: .55; }
+.memory-photo-picker-input { position: absolute; z-index: 2; inset: 0; display: block; width: 100%; height: 100%; margin: 0; cursor: pointer; opacity: 0; }
+.memory-photo-picker-input:disabled { cursor: not-allowed; }
 .memory-photo-add { flex: 0 0 calc((100% - 20px) / 3); min-height: 104px; padding: 0; font: inherit; font-size: 12px; }
 .memory-photo-empty { min-height: 218px; }
 .memory-photo-empty strong { color: #4b382d; font-size: 16px; }
