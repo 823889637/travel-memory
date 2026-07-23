@@ -1,6 +1,7 @@
 package com.travelmemory.service;
 
 import com.travelmemory.entity.TravelMemory;
+import com.travelmemory.dto.PhotoMetadataResult;
 import com.travelmemory.dto.UploadResult;
 import com.travelmemory.dto.MemoryUpdateRequest;
 import java.util.List;
@@ -17,6 +18,8 @@ public interface TravelMemoryService {
     TravelMemory create(TravelMemory travelMemory, List<MultipartFile> photos);
 
     UploadResult uploadPhoto(MultipartFile photo);
+
+    PhotoMetadataResult readPhotoMetadata(String photoUrl);
 
     UploadResult uploadPhoto(Long id, MultipartFile photo);
 

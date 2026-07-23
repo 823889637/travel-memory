@@ -3,6 +3,8 @@ package com.travelmemory.controller;
 import com.travelmemory.common.Result;
 import com.travelmemory.dto.UploadResult;
 import com.travelmemory.dto.MemoryPhotoOrderRequest;
+import com.travelmemory.dto.PhotoMetadataRequest;
+import com.travelmemory.dto.PhotoMetadataResult;
 import com.travelmemory.dto.MemoryUpdateRequest;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.service.TravelMemoryService;
@@ -81,6 +83,11 @@ public class TravelMemoryController {
     @PostMapping("/photo")
     public Result<UploadResult> uploadPhoto(@RequestParam MultipartFile photo) {
         return Result.success(travelMemoryService.uploadPhoto(photo));
+    }
+
+    @PostMapping("/photo/metadata")
+    public Result<PhotoMetadataResult> readPhotoMetadata(@Valid @RequestBody PhotoMetadataRequest request) {
+        return Result.success(travelMemoryService.readPhotoMetadata(request.getPhotoUrl()));
     }
 
     @PostMapping("/{id}/photo")

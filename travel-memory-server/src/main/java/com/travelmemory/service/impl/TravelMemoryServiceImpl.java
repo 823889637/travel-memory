@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.travelmemory.common.StoredFile;
 import com.travelmemory.dto.UploadResult;
 import com.travelmemory.dto.MemoryPhotoReferenceRequest;
+import com.travelmemory.dto.PhotoMetadataResult;
 import com.travelmemory.dto.MemoryUpdateRequest;
 import com.travelmemory.entity.MemoryPhoto;
 import com.travelmemory.entity.TravelMemory;
@@ -145,6 +146,19 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         result.setPhotoUrl(storedFile.getUrl()); result.setPhotoPath(storedFile.getPath());
         result.setPhotoTakenTime(info.getPhotoTakenTime()); result.setLatitude(info.getLatitude()); result.setLongitude(info.getLongitude());
         result.setHasExifTime(info.hasTime()); result.setHasExifLocation(info.hasLocation());
+        return result;
+    }
+
+    @Override
+    public PhotoMetadataResult readPhotoMetadata(String photoUrl) {
+        Path photoPath = resolveAndVerifyUploadPath(photoUrl);
+        ImageMetadataInfo info = imageMetadataExtractor.extract(photoPath.toString());
+        PhotoMetadataResult result = new PhotoMetadataResult();
+        result.setPhotoTakenTime(info.getPhotoTakenTime());
+        result.setLatitude(info.getLatitude());
+        result.setLongitude(info.getLongitude());
+        result.setHasExifTime(info.hasTime());
+        result.setHasExifLocation(info.hasLocation());
         return result;
     }
 
@@ -368,6 +382,12 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         }
     }
     private String normalizeAndVerifyUploadUrl(String value) {
+        Path candidate = resolveAndVerifyUploadPath(value);
+        Path root = uploadRoot();
+        return "/uploads/" + root.relativize(candidate).toString().replace('\\', '/');
+    }
+
+    private Path resolveAndVerifyUploadPath(String value) {
         if (!hasUrl(value)) throw new BusinessException(400, "Photo URL is required");
         String raw = value.trim();
         try { if (URI.create(raw).isAbsolute()) throw new BusinessException(400, "Photo URL must use /uploads/"); }
@@ -379,19 +399,21 @@ public class TravelMemoryServiceImpl extends ServiceImpl<TravelMemoryMapper, Tra
         if (!decoded.startsWith("/uploads/") || decoded.contains("?") || decoded.contains("#")) throw new BusinessException(400, "Photo URL must use /uploads/");
         String relative = decoded.substring("/uploads/".length());
         if (relative.isBlank()) throw new BusinessException(400, "Invalid photo URL");
-        String userPrefix = "users/" + currentUser.requireId() + "/";
-        if (!relative.startsWith(userPrefix) && !(currentUser.requireId().equals(1L) && !relative.startsWith("users/"))) {
+        Long userId = currentUser.requireId();
+        String userPrefix = "users/" + userId + "/";
+        if (!relative.startsWith(userPrefix) && !(userId.equals(1L) && !relative.startsWith("users/"))) {
             throw new BusinessException(404, "Photo URL not found");
         }
-        Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path root = uploadRoot();
         Path candidate;
         try { candidate = root.resolve(relative).normalize(); }
         catch (RuntimeException exception) { throw new BusinessException(400, "Invalid photo URL"); }
         if (!UploadPathGuard.isSafeRegularFile(root, candidate)) {
             throw new BusinessException(400, "Photo URL does not reference an uploaded file");
         }
-        return "/uploads/" + root.relativize(candidate).toString().replace('\\', '/');
+        return candidate;
     }
+    private Path uploadRoot() { return Paths.get(uploadDir).toAbsolutePath().normalize(); }
     private void validatePhotoCount(int count) { if (count > MAX_PHOTOS) throw new BusinessException(400, "A memory can contain at most " + MAX_PHOTOS + " photos"); }
     private boolean hasUrl(String value) { return value != null && !value.trim().isEmpty(); }
     private boolean sameUrl(String first, String second) { return hasUrl(first) && hasUrl(second) && first.trim().equals(second.trim()); }

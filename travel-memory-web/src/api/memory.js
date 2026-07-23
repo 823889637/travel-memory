@@ -16,6 +16,10 @@ export function uploadPhoto(data, config = {}) {
   return request.post('/api/memories/photo', data, config)
 }
 
+export function readPhotoMetadata(photoUrl) {
+  return request.post('/api/memories/photo/metadata', { photoUrl })
+}
+
 export function reverseGeocode(latitude, longitude) {
   return request.get('/api/location/reverse-geocode', { params: { latitude, longitude } })
 }

@@ -13,6 +13,7 @@ import {
 import CompanionSelector from '../components/CompanionSelector.vue'
 import LocationPicker from '../components/LocationPicker.vue'
 import MemoryPhotoEditor from '../components/MemoryPhotoEditor.vue'
+import { usePrimaryPhotoMetadata } from '../composables/usePrimaryPhotoMetadata'
 import { createClientId } from '../utils/clientId'
 import { formatLocalDateTime, toDateTimeLocalValue } from '../utils/dateTime'
 import { calculateUploadProgress } from '../utils/uploadProgress'
@@ -60,6 +61,36 @@ const formattedExifLocation = computed(() => hasExifLocation.value
   : '')
 const hasLocationSuggestion = computed(() => locationSuggestionStatus.value === 'success' && locationSuggestion.value?.locationName)
 const isDirty = computed(() => savedSnapshot.value !== '' && currentSnapshot() !== savedSnapshot.value)
+const {
+  locationFeedback,
+  locationFeedbackType,
+  readLocationFromPrimary,
+  readingTarget,
+  readTimeFromPrimary,
+  timeFeedback,
+  timeFeedbackType,
+} = usePrimaryPhotoMetadata(() => photoItems.value[0])
+const primaryTimeMessage = computed(() => {
+  if (timeFeedback.value) return timeFeedback.value
+  if (hasExifTime.value) return '已从主图拍摄信息中识别，你可以修改。'
+  if (hasUploadResult.value) return '未识别到照片拍摄时间，可以重新读取当前主图。'
+  return '可以从当前主图重新读取拍摄时间。'
+})
+const primaryTimeStatusClass = computed(() => {
+  if (timeFeedbackType.value === 'error') return 'memory-form-error'
+  if (timeFeedbackType.value === 'success' || (!timeFeedback.value && hasExifTime.value)) return 'memory-form-success'
+  return 'memory-form-help'
+})
+const primaryLocationMessage = computed(() => {
+  if (locationFeedback.value) return locationFeedback.value
+  if (hasExifLocation.value) return '已从主图拍摄信息中识别照片位置，你可以重新读取。'
+  return '可以从当前主图重新读取照片位置。'
+})
+const primaryLocationStatusClass = computed(() => {
+  if (locationFeedbackType.value === 'error') return 'memory-form-error'
+  if (locationFeedbackType.value === 'success' || (!locationFeedback.value && hasExifLocation.value)) return 'memory-form-success'
+  return 'memory-form-help'
+})
 
 function currentSnapshot() {
   return JSON.stringify({
@@ -182,7 +213,6 @@ function setPrimaryPhoto(index) {
 
 function syncPrimaryPhoto() {
   photoUploadResult.value = photoItems.value[0]?.result || null
-  if (photoUploadResult.value) applyPhotoMetadata(photoUploadResult.value)
 }
 
 function applyPhotoMetadata(result) {
@@ -256,11 +286,22 @@ function onLatitudeInput() { latitudeTouched.value = true; resetLocationSuggesti
 function onLongitudeInput() { longitudeTouched.value = true; resetLocationSuggestion() }
 function onLocationNameInput() { locationNameTouched.value = true; if (form.locationName.trim()) resetLocationSuggestion() }
 
-function usePrimaryPhotoTime() {
-  const value = toDateTimeLocalValue(photoUploadResult.value?.photoTakenTime)
+async function usePrimaryPhotoTime() {
+  const value = toDateTimeLocalValue(await readTimeFromPrimary())
   if (!value) return
   form.recordTime = value
   recordTimeTouched.value = true
+}
+
+async function usePrimaryPhotoLocation() {
+  const location = await readLocationFromPrimary()
+  if (!location) return
+  form.latitude = String(location.latitude)
+  form.longitude = String(location.longitude)
+  latitudeTouched.value = true
+  longitudeTouched.value = true
+  resetLocationSuggestion()
+  await requestLocationSuggestion({ force: true })
 }
 
 function applyPickedLocation(location) {
@@ -439,12 +480,13 @@ onBeforeUnmount(() => {
             <span v-if="!form.recordTime" class="memory-time-placeholder" aria-hidden="true">选择记录时间</span>
             <ChevronDown :size="17" aria-hidden="true" />
           </label>
-          <p v-if="hasExifTime" class="memory-form-success memory-recognition-status">
-            <CheckCircle2 :size="15" aria-hidden="true" />
-            <span>已从主图拍摄信息中识别，你可以修改。</span>
-            <button type="button" class="memory-inline-action" @click="usePrimaryPhotoTime">使用主图时间</button>
+          <p v-if="photoItems.length" :class="[primaryTimeStatusClass, 'memory-recognition-status']" role="status">
+            <CheckCircle2 v-if="primaryTimeStatusClass === 'memory-form-success'" :size="15" aria-hidden="true" />
+            <span>{{ primaryTimeMessage }}</span>
+            <button type="button" class="memory-inline-action" :disabled="readingTarget === 'time' || uploading" @click="usePrimaryPhotoTime">
+              {{ readingTarget === 'time' ? '读取中…' : '重新读取主图时间' }}
+            </button>
           </p>
-          <p v-else-if="hasUploadResult" class="memory-form-help">未识别到照片拍摄时间，请选择记录时间。</p>
         </div>
 
         <div class="memory-detail-group">
@@ -455,6 +497,13 @@ onBeforeUnmount(() => {
             <input id="memory-create-location" v-model="form.locationName" maxlength="255" placeholder="输入地点名称" @input="onLocationNameInput" />
             <button type="button" class="memory-location-picker-button" @click="showLocationPicker = true">搜索 / 地图选点</button>
           </div>
+          <p v-if="photoItems.length" :class="[primaryLocationStatusClass, 'memory-recognition-status']" role="status">
+            <CheckCircle2 v-if="primaryLocationStatusClass === 'memory-form-success'" :size="15" aria-hidden="true" />
+            <span>{{ primaryLocationMessage }}</span>
+            <button type="button" class="memory-inline-action" :disabled="readingTarget === 'location' || uploading" @click="usePrimaryPhotoLocation">
+              {{ readingTarget === 'location' ? '读取中…' : '重新读取主图位置' }}
+            </button>
+          </p>
           <div v-if="locationSuggestionStatus !== 'idle' && !form.locationName" class="memory-location-suggestion">
             <p v-if="locationSuggestionStatus === 'loading'">正在识别附近地点…</p>
             <template v-else-if="hasLocationSuggestion">

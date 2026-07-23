@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.travelmemory.entity.MemoryPhoto;
 import com.travelmemory.entity.TravelMemory;
 import com.travelmemory.dto.MemoryPhotoReferenceRequest;
+import com.travelmemory.dto.PhotoMetadataResult;
 import com.travelmemory.dto.MemoryUpdateRequest;
 import com.travelmemory.exception.BusinessException;
 import com.travelmemory.mapper.MemoryPhotoMapper;
@@ -24,6 +25,8 @@ import com.travelmemory.service.OrphanUploadCleanupService;
 import com.travelmemory.service.TravelTripService;
 import com.travelmemory.security.CurrentUser;
 import com.travelmemory.util.ImageMetadataExtractor;
+import com.travelmemory.util.ImageMetadataInfo;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,6 +101,42 @@ class TravelMemoryMultiPhotoServiceTest {
         Fixture fixture = fixture();
 
         assertCreateRejected(fixture, "/uploads/users/2/2026/07/private.jpg");
+    }
+
+    @Test
+    void rereadsMetadataFromCurrentUsersUploadedPhoto() throws Exception {
+        Fixture fixture = fixture();
+        uploadedUserFile(1L, "2026/07/metadata.jpg");
+        ImageMetadataInfo info = new ImageMetadataInfo();
+        info.setPhotoTakenTime(LocalDateTime.of(2026, 7, 4, 12, 54, 5));
+        info.setLatitude(new BigDecimal("40.4291277"));
+        info.setLongitude(new BigDecimal("117.8719777"));
+        when(fixture.metadataExtractor.extract(any(String.class))).thenReturn(info);
+
+        PhotoMetadataResult result = fixture.service.readPhotoMetadata(
+                "/uploads/users/1/2026/07/metadata.jpg");
+
+        assertEquals(info.getPhotoTakenTime(), result.getPhotoTakenTime());
+        assertEquals(info.getLatitude(), result.getLatitude());
+        assertEquals(info.getLongitude(), result.getLongitude());
+        assertEquals(true, result.isHasExifTime());
+        assertEquals(true, result.isHasExifLocation());
+    }
+
+    @Test
+    void metadataReadRejectsUncontrolledOrUnownedPhotoUrlsBeforeExtraction() throws Exception {
+        Fixture fixture = fixture();
+        uploadedUserFile(2L, "2026/07/private.jpg");
+
+        assertThrows(BusinessException.class,
+                () -> fixture.service.readPhotoMetadata("https://example.test/photo.jpg"));
+        assertThrows(BusinessException.class,
+                () -> fixture.service.readPhotoMetadata("/uploads/../outside.jpg"));
+        assertThrows(BusinessException.class,
+                () -> fixture.service.readPhotoMetadata("/uploads/users/1/2026/07/missing.jpg"));
+        assertThrows(BusinessException.class,
+                () -> fixture.service.readPhotoMetadata("/uploads/users/2/2026/07/private.jpg"));
+        verify(fixture.metadataExtractor, never()).extract(any(String.class));
     }
 
     @Test
@@ -242,11 +281,12 @@ class TravelMemoryMultiPhotoServiceTest {
                 .sorted(Comparator.comparing(MemoryPhoto::getSortOrder).thenComparing(MemoryPhoto::getId)).toList());
         when(photoMapper.insert(org.mockito.ArgumentMatchers.<MemoryPhoto>any())).thenAnswer(invocation -> { MemoryPhoto photo = invocation.getArgument(0); photo.setId(ids.getAndIncrement()); photos.add(photo); return 1; });
         when(photoMapper.updateById(org.mockito.ArgumentMatchers.<MemoryPhoto>any())).thenReturn(1);
+        ImageMetadataExtractor metadataExtractor = mock(ImageMetadataExtractor.class);
         TravelMemoryServiceImpl service = new TravelMemoryServiceImpl(memoryMapper, photoMapper, tripService,
-                mock(FileStorageService.class), mock(ImageMetadataExtractor.class), currentUser(),
+                mock(FileStorageService.class), metadataExtractor, currentUser(),
                 mock(com.travelmemory.service.TripCompanionService.class));
         ReflectionTestUtils.setField(service, "uploadDir", uploadDir.toString());
-        return new Fixture(service, memoryMapper, photoMapper, tripService, photos);
+        return new Fixture(service, memoryMapper, photoMapper, tripService, metadataExtractor, photos);
     }
 
     private void assertCreateRejected(Fixture fixture, String url) {
@@ -255,6 +295,11 @@ class TravelMemoryMultiPhotoServiceTest {
     }
 
     private void uploadedFile(String name) throws Exception { Files.writeString(uploadDir.resolve(name), "photo"); }
+    private void uploadedUserFile(Long userId, String relativeName) throws Exception {
+        Path file = uploadDir.resolve("users").resolve(String.valueOf(userId)).resolve(relativeName);
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "photo");
+    }
 
     private TravelMemory memory(Long id, String photoUrl) {
         TravelMemory memory = new TravelMemory(); memory.setId(id); memory.setTripId(1L); memory.setPhotoUrl(photoUrl); memory.setRecordTime(LocalDateTime.of(2026, 7, 13, 10, 0)); return memory;
@@ -287,5 +332,6 @@ class TravelMemoryMultiPhotoServiceTest {
         return request;
     }
     private record Fixture(TravelMemoryServiceImpl service, TravelMemoryMapper memoryMapper, MemoryPhotoMapper photoMapper,
-                           TravelTripService tripService, List<MemoryPhoto> photos) { }
+                           TravelTripService tripService, ImageMetadataExtractor metadataExtractor,
+                           List<MemoryPhoto> photos) { }
 }
