@@ -166,6 +166,9 @@
 .memory-time-field svg { color: #77685e; }
 .memory-time-field input {
   position: relative;
+  z-index: 1;
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
   height: 48px;
   padding: 0;
@@ -174,6 +177,17 @@
   background: transparent;
   font: inherit;
   color: var(--tm-text);
+}
+.memory-time-field.is-empty input {
+  opacity: 0;
+}
+.memory-time-placeholder {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--tm-text-soft);
+  font-size: 15px;
+  line-height: 22px;
+  pointer-events: none;
 }
 .memory-time-field > svg:last-child { color: #a68b79; }
 .memory-time-field input::-webkit-calendar-picker-indicator {

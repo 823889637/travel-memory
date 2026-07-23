@@ -989,6 +989,39 @@
   }
 }
 
+@media (max-width: 760px) {
+  /* Keep compact controls visually light while giving touch interactions a reliable target. */
+  body .user-trigger {
+    width: 44px;
+    height: 44px;
+  }
+
+  body .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  body .map-memory-close,
+  body .trip-map-fit-all {
+    width: 44px;
+    height: 44px;
+  }
+
+  body .map-memory-close {
+    flex-basis: 44px;
+    margin: -7px -7px -7px 0;
+  }
+
+  body .timeline-page .memory-actions button,
+  body .timeline-page .memory-more summary {
+    min-height: 36px;
+  }
+
+  body .timeline-page .memory-more summary {
+    width: 36px;
+  }
+}
+
 @media (max-width: 370px) {
   body .trip-context-card {
     grid-template-columns: 64px minmax(0, 1fr);

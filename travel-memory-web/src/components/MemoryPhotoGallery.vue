@@ -313,6 +313,15 @@ onBeforeUnmount(() => {
   .gallery-journey-count-1 .gallery-journey-tile, .gallery-journey-count-1 .gallery-journey-tile img { max-height: min(68vh, 520px); }
   .gallery-layout-recap .gallery-main { height: min(52vw, 210px); }
   .gallery-layout-detail .gallery-main { min-height: 0; border-radius: 0; }
+  .gallery-layout-detail.gallery-orientation-portrait .gallery-main {
+    height: min(58vh, 560px);
+    min-height: min(58vh, 560px);
+  }
+  .gallery-layout-detail.gallery-orientation-portrait .gallery-main img.gallery-image-contain {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+  }
   .gallery-layout-detail .gallery-thumbs button { flex-basis: 58px; height: 58px; }
   .gallery-dialog { grid-template-columns: 42px minmax(0, 1fr) 42px; gap: 10px 4px; padding: 12px 8px max(10px, env(safe-area-inset-bottom)); }
   .gallery-full { max-height: 72vh; }

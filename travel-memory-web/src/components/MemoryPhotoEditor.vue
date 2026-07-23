@@ -192,7 +192,7 @@ onBeforeUnmount(clearLongPress)
 .memory-photo-main { position: relative; min-width: 0; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 16px; background: #eee7de; box-shadow: 0 9px 24px rgba(66, 47, 35, .08); }
 .memory-photo-main-view { position: relative; z-index: 1; display: grid; width: 100%; height: 100%; place-items: center; overflow: hidden; padding: 0; border: 0; background: transparent; }
 .memory-photo-main img { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover; }
-.memory-photo-primary, .memory-photo-uploading { position: absolute; z-index: 2; top: 12px; display: inline-flex; min-height: 34px; align-items: center; gap: 5px; padding: 0 11px; border: 1px solid rgba(255,255,255,.78); border-radius: 999px; background: rgba(255,253,249,.92); color: #99502f; font-size: 12px; box-shadow: 0 5px 16px rgba(55, 39, 29, .12); backdrop-filter: blur(8px); }
+.memory-photo-primary, .memory-photo-uploading { position: absolute; z-index: 2; top: 12px; display: inline-flex; min-height: 36px; align-items: center; gap: 5px; padding: 0 11px; border: 1px solid rgba(255,255,255,.78); border-radius: 999px; background: rgba(255,253,249,.92); color: #99502f; font-size: 12px; box-shadow: 0 5px 16px rgba(55, 39, 29, .12); backdrop-filter: blur(8px); touch-action: manipulation; }
 .memory-photo-primary { right: 12px; }
 .memory-photo-primary:disabled { color: #8a664f; opacity: 1; }
 .memory-photo-uploading { left: 12px; }
@@ -209,7 +209,8 @@ onBeforeUnmount(clearLongPress)
 .memory-photo-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .memory-photo-order { position: absolute; z-index: 2; top: 3px; left: 3px; display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: rgba(255,253,249,.92); color: #7e5c49; font-size: 10px; font-weight: 700; }
 .memory-photo-thumb-wrap:first-child .memory-photo-order { background: #b65b36; color: #fff; }
-.memory-photo-delete { position: absolute; z-index: 3; top: 5px; right: 5px; display: grid; width: 22px; height: 22px; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.8); border-radius: 50%; background: rgba(62, 50, 43, .78); color: #fff; line-height: 1; backdrop-filter: blur(5px); }
+.memory-photo-delete { position: absolute; z-index: 3; top: 5px; right: 5px; display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.8); border-radius: 50%; background: rgba(62, 50, 43, .78); color: #fff; line-height: 1; touch-action: manipulation; backdrop-filter: blur(5px); }
+.memory-photo-delete::before { content: ''; position: absolute; inset: -6px; }
 .memory-photo-retry { width: 100%; margin-top: 4px; padding: 3px; border: 1px solid #dca88e; border-radius: 5px; background: #fff; color: #ad4f2c; font-size: 10px; }
 .memory-photo-sort-hint, .memory-photo-limit { margin: 0; color: #8a7c71; font-size: 12px; }
 .memory-photo-limit { color: #a75636; }
@@ -223,7 +224,7 @@ onBeforeUnmount(clearLongPress)
   .memory-photo-primary,
   .memory-photo-uploading {
     top: 10px;
-    min-height: 32px;
+    min-height: 36px;
     padding-inline: 10px;
   }
   .memory-photo-primary { right: 10px; }
@@ -251,8 +252,8 @@ onBeforeUnmount(clearLongPress)
   .memory-photo-delete {
     top: 3px;
     right: 3px;
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
   }
   .memory-photo-empty {
     min-height: 196px;

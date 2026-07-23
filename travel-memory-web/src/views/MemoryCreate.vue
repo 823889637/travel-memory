@@ -427,9 +427,10 @@ onBeforeUnmount(() => {
       <section class="memory-form-card memory-details-card">
         <div class="memory-detail-group">
           <h2 class="memory-form-section-title">记录时间</h2>
-          <label class="memory-time-field" for="memory-create-time">
+          <label class="memory-time-field" :class="{ 'is-empty': !form.recordTime }" for="memory-create-time">
             <CalendarDays :size="18" aria-hidden="true" />
             <input id="memory-create-time" v-model="form.recordTime" type="datetime-local" @input="onRecordTimeInput" />
+            <span v-if="!form.recordTime" class="memory-time-placeholder" aria-hidden="true">选择记录时间</span>
             <ChevronDown :size="17" aria-hidden="true" />
           </label>
           <p v-if="hasExifTime" class="memory-form-success memory-recognition-status">

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { CalendarDays } from '@lucide/vue'
-import { resolveTripCoverUrl } from '../utils/tripCover'
+import { normalizePhotoUrl } from '../utils/tripCover'
 
 const props = defineProps({
   trip: { type: Object, required: true },
@@ -9,10 +9,21 @@ const props = defineProps({
   variant: { type: String, default: 'compact' },
 })
 
-const coverFailed = ref(false)
-const coverUrl = computed(() => coverFailed.value ? '' : resolveTripCoverUrl(props.trip, props.memories))
-const fallbackCoverUrl = computed(() => (
-  props.memories.find(memory => String(memory?.photoUrl || '').trim())?.photoUrl || ''
+const failedCoverUrls = ref(new Set())
+const coverCandidates = computed(() => {
+  const memoryUrls = props.memories.flatMap((memory) => [
+    normalizePhotoUrl(memory?.photoUrl),
+    ...(Array.isArray(memory?.photos) ? memory.photos.map(photo => normalizePhotoUrl(photo?.photoUrl)) : []),
+  ])
+
+  return [...new Set([
+    normalizePhotoUrl(props.trip?.coverPhotoUrl),
+    normalizePhotoUrl(props.trip?.effectiveCoverPhotoUrl),
+    ...memoryUrls,
+  ].filter(Boolean))]
+})
+const coverUrl = computed(() => (
+  coverCandidates.value.find(url => !failedCoverUrls.value.has(url)) || ''
 ))
 
 const headline = computed(() => {
@@ -36,20 +47,20 @@ function formatDate(value) {
   return match ? `${match[1]}.${match[2]}.${match[3]}` : ''
 }
 
-watch(() => [
-  props.trip?.id,
-  props.trip?.coverPhotoUrl,
-  props.trip?.effectiveCoverPhotoUrl,
-  fallbackCoverUrl.value,
-], () => {
-  coverFailed.value = false
+function markCoverFailed(url) {
+  if (!url) return
+  failedCoverUrls.value = new Set(failedCoverUrls.value).add(url)
+}
+
+watch(coverCandidates, () => {
+  failedCoverUrls.value = new Set()
 })
 </script>
 
 <template>
   <article :class="['trip-context-card', `trip-context-card--${variant}`]">
     <div class="trip-context-cover" aria-hidden="true">
-      <img v-if="coverUrl" :src="coverUrl" alt="" @error="coverFailed = true" />
+      <img v-if="coverUrl" :src="coverUrl" alt="" @error="markCoverFailed(coverUrl)" />
       <span v-else>{{ (trip.destination || trip.title || '旅').slice(0, 1) }}</span>
     </div>
     <div class="trip-context-copy">
