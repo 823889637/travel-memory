@@ -5,14 +5,16 @@ import { isValidWgs84Coordinate, wgs84ToGcj02 } from '../utils/coordinates'
 
 const props = defineProps({
   points: { type: Array, default: () => [] },
+  routeSegments: { type: Array, default: () => [] },
   selectedId: { type: [String, Number], default: null },
   activeDate: { type: String, default: '' },
+  playbackIndex: { type: Number, default: -1 },
   focusSelectedOnReady: { type: Boolean, default: false },
   fallbackLatitude: { type: [Number, String], default: null },
   fallbackLongitude: { type: [Number, String], default: null },
   fallbackLabel: { type: String, default: '' },
 })
-const emit = defineEmits(['select', 'selection-positioned'])
+const emit = defineEmits(['select', 'selection-positioned', 'interaction'])
 
 const mapElement = ref(null)
 const state = ref('idle')
@@ -20,16 +22,28 @@ const errorMessage = ref('')
 const routePaths = ref([])
 const displayPoints = computed(() => props.points.map((point) => {
   if (!isValidWgs84Coordinate(point.latitude, point.longitude)) return null
+  const originalLatitude = Number(point.latitude)
+  const originalLongitude = Number(point.longitude)
   const coordinate = wgs84ToGcj02(point.latitude, point.longitude)
-  return coordinate ? { ...point, ...coordinate } : null
+  return coordinate
+    ? {
+      ...point,
+      originalLatitude,
+      originalLongitude,
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+    }
+    : null
 }).filter(Boolean))
 const fallbackCoordinate = computed(() => {
   if (!isValidWgs84Coordinate(props.fallbackLatitude, props.fallbackLongitude)) return null
   return wgs84ToGcj02(props.fallbackLatitude, props.fallbackLongitude)
 })
 const pointSignature = computed(() => displayPoints.value
-  .map((point) => `${point.id}:${point.latitude}:${point.longitude}:${point.sequenceNumber}:${point.mapDate}`).join('|'))
+  .map((point) => `${point.id}:${point.originalLatitude}:${point.originalLongitude}:${point.sequenceNumber}:${point.mapDate}:${point.isReplayPoint}`).join('|'))
 const mapSignature = computed(() => `${pointSignature.value}|${fallbackCoordinate.value?.latitude || ''}:${fallbackCoordinate.value?.longitude || ''}`)
+const routeSignature = computed(() => props.routeSegments
+  .map((segment) => `${segment.fromId}:${segment.toId}:${segment.fromReplayIndex}:${segment.toReplayIndex}:${segment.fromDate}:${segment.toDate}`).join('|'))
 
 let map = null
 let AMap = null
@@ -51,7 +65,24 @@ function idKey(value) {
 function markerLabel(point) {
   const excerpt = String(point.content || '').trim().replace(/\s+/g, ' ').slice(0, 24)
   const label = point.locationName || excerpt || '旅行记忆'
-  return `第 ${point.sequenceNumber || '?'} 个地点，${label}`
+  return point.isReplayPoint
+    ? `第 ${point.sequenceNumber || '?'} 站，${label}`
+    : `未纳入路径回放的位置，${label}`
+}
+
+function applyMarkerState(element, point, selected) {
+  const isReplayPoint = point.isReplayPoint !== false
+  const isCurrentStation = isReplayPoint && props.playbackIndex >= 0 && point.replayIndex === props.playbackIndex
+  const isPastStation = isReplayPoint && props.playbackIndex >= 0 && point.replayIndex < props.playbackIndex
+  element.classList.toggle('is-selected', selected)
+  element.classList.toggle('is-replay-point', isReplayPoint)
+  element.classList.toggle('is-browse-only', !isReplayPoint)
+  element.classList.toggle('is-playback-current', isCurrentStation)
+  element.classList.toggle('is-playback-past', isPastStation)
+  element.classList.toggle(
+    'is-day-muted',
+    Boolean(props.activeDate && (!isReplayPoint || point.mapDate !== props.activeDate)),
+  )
 }
 
 function markerElement(point, selected) {
@@ -62,8 +93,7 @@ function markerElement(point, selected) {
   number.className = 'memory-map-marker-number'
   number.textContent = Number.isInteger(Number(point.sequenceNumber)) ? String(point.sequenceNumber) : '•'
   element.appendChild(number)
-  element.classList.toggle('is-selected', selected)
-  element.classList.toggle('is-day-muted', Boolean(props.activeDate && point.mapDate !== props.activeDate))
+  applyMarkerState(element, point, selected)
   element.setAttribute('aria-label', markerLabel(point))
   element.title = markerLabel(point)
   element.addEventListener('click', (event) => {
@@ -123,27 +153,34 @@ function routePath(start, end, index) {
 }
 
 function updateRouteOverlay() {
-  if (!map || markers.size < 2) {
+  if (!map || !props.routeSegments.length) {
     clearRouteLines()
     return
   }
 
-  const orderedEntries = displayPoints.value
-    .map((point) => markers.get(idKey(point.id)))
-    .filter(Boolean)
-  const visualPoints = orderedEntries.map((entry) => {
-    const anchor = map.lngLatToContainer([entry.point.longitude, entry.point.latitude])
-    return {
-      x: anchor.x + (entry.visualDelta?.x || 0),
-      y: anchor.y + (entry.visualDelta?.y || 0),
-    }
-  })
+  routePaths.value = props.routeSegments
+    .filter((segment) => !props.activeDate
+      || (segment.fromDate === props.activeDate && segment.toDate === props.activeDate))
+    .map((segment, index) => {
+      const from = markers.get(idKey(segment.fromId))
+      const to = markers.get(idKey(segment.toId))
+      if (!from || !to) return null
 
-  routePaths.value = visualPoints.slice(0, -1).map((start, index) => ({
-    key: `${orderedEntries[index].point.id}-${orderedEntries[index + 1].point.id}`,
-    order: index + 1,
-    d: routePath(start, visualPoints[index + 1], index),
-  })).filter((segment) => segment.d)
+      // Deliberately ignore visualDelta here. Overlap spreading makes pins
+      // tappable, but route geometry must stay anchored to real coordinates.
+      const start = map.lngLatToContainer([from.point.longitude, from.point.latitude])
+      const end = map.lngLatToContainer([to.point.longitude, to.point.latitude])
+      const d = routePath(start, end, index)
+      if (!d) return null
+      return {
+        ...segment,
+        key: `${segment.fromId}-${segment.toId}`,
+        d,
+        isPlayed: props.playbackIndex >= 0 && segment.toReplayIndex <= props.playbackIndex,
+        isCurrent: props.playbackIndex >= 0 && segment.toReplayIndex === props.playbackIndex,
+      }
+    })
+    .filter(Boolean)
 }
 
 function scheduleRouteOverlayUpdate() {
@@ -200,9 +237,8 @@ function updateMarkerSelection() {
   const selectedKey = idKey(props.selectedId)
   markers.forEach(({ element, marker, point }) => {
     const selected = idKey(point.id) === selectedKey
-    element.classList.toggle('is-selected', selected)
-    element.classList.toggle('is-day-muted', Boolean(props.activeDate && point.mapDate !== props.activeDate))
-    marker.setzIndex?.(selected ? 120 : 80)
+    applyMarkerState(element, point, selected)
+    marker.setzIndex?.(selected ? 140 : point.isReplayPoint === false ? 50 : 80)
   })
 }
 
@@ -299,7 +335,7 @@ function renderMarkers(shouldFit = false) {
         content: element,
         offset: new AMap.Pixel(0, 0),
         anchor: 'bottom-center',
-        zIndex: selected ? 120 : 80,
+        zIndex: selected ? 140 : point.isReplayPoint === false ? 50 : 80,
       })
       marker.setMap(map)
       markers.set(idKey(point.id), { marker, point, element, visualDelta: { x: 0, y: 0 } })
@@ -383,6 +419,9 @@ async function initializeMap() {
     })
     resizeObserver.observe(mapElement.value)
     map.on('zoomend', spreadOverlappingMarkers)
+    map.on('dragstart', () => emit('interaction'))
+    map.on('zoomstart', () => emit('interaction'))
+    map.on('click', () => emit('interaction'))
     map.on('moveend', () => {
       spreadOverlappingMarkers()
       if (selectionPanId) {
@@ -428,7 +467,15 @@ watch(() => props.selectedId, () => {
     positionSelectedAfterFit = false
   }
 })
-watch(() => props.activeDate, updateMarkerSelection)
+watch(() => props.activeDate, () => {
+  updateMarkerSelection()
+  scheduleRouteOverlayUpdate()
+})
+watch(() => props.playbackIndex, () => {
+  updateMarkerSelection()
+  scheduleRouteOverlayUpdate()
+})
+watch(routeSignature, scheduleRouteOverlayUpdate)
 onMounted(initializeMap)
 onBeforeUnmount(() => {
   destroyed = true
@@ -450,7 +497,10 @@ defineExpose({ focusSelected, fitAll })
       <path
         v-for="segment in routePaths"
         :key="segment.key"
-        class="memory-map-route-segment"
+        :class="[
+          'memory-map-route-segment',
+          { 'is-played': segment.isPlayed, 'is-current': segment.isCurrent },
+        ]"
         :d="segment.d"
         marker-end="url(#memory-route-arrow)"
       ></path>

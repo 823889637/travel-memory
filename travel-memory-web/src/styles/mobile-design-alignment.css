@@ -1061,3 +1061,119 @@
     height: 66px;
   }
 }
+
+/* Map route replay: keep the map as the canvas and the selected memory as a light reading layer. */
+@media (max-width: 760px) {
+  body .trip-map-page {
+    gap: 12px;
+  }
+
+  body .trip-map-stage {
+    height: min(128vw, 530px);
+    min-height: 480px;
+  }
+
+  body .map-replay-status {
+    top: 12px;
+    right: 12px;
+    max-width: calc(100% - 24px);
+    padding: 6px 7px 6px 10px;
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  body .map-replay-status button {
+    min-height: 27px;
+    padding: 4px 8px;
+  }
+
+  body .map-memory-card {
+    right: auto;
+    bottom: 12px;
+    left: 12px;
+    width: min(282px, calc(100% - 72px));
+    max-height: min(63%, 330px);
+    gap: 8px;
+    padding: 12px;
+    border-radius: 17px;
+  }
+
+  body .map-memory-title h2 {
+    font-size: 18px;
+    line-height: 25px;
+  }
+
+  body .map-memory-station {
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  body .map-memory-photo {
+    aspect-ratio: 16 / 9;
+  }
+
+  body .map-memory-facts {
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  body .map-memory-quote {
+    font-size: 13px;
+    line-height: 21px;
+    -webkit-line-clamp: 2;
+  }
+
+  body .map-memory-detail-link {
+    min-height: 24px;
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  body .trip-map-fit-all {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  body .map-day-navigation {
+    margin-top: 10px;
+  }
+
+  body .map-day-navigation-track {
+    gap: 8px;
+    padding-bottom: 7px;
+  }
+
+  body .map-day-navigation .map-day-button {
+    min-width: 82px;
+    min-height: 58px;
+    padding: 8px 10px;
+    border-radius: 16px;
+  }
+
+  body .map-day-navigation .map-day-button strong {
+    font-size: 14px;
+    line-height: 19px;
+  }
+
+  body .map-day-navigation .map-day-button span {
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  body .map-playback-controls {
+    gap: 7px;
+    padding: 8px;
+    border-radius: 16px;
+  }
+
+  body .map-playback-controls > button {
+    min-height: 36px;
+    padding: 6px 8px;
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  body .map-playback-controls .map-playback-main {
+    min-width: 104px;
+  }
+}

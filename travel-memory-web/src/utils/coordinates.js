@@ -69,3 +69,22 @@ export function wgs84ToGcj02(latitude, longitude) {
 
   return { latitude: lat + deltaLat, longitude: lng + deltaLng }
 }
+
+// Use the stored WGS84 coordinates for route decisions. Marker offsets are only
+// a visual aid for overlapping pins and must never be treated as travel distance.
+export function wgs84DistanceMeters(firstLatitude, firstLongitude, secondLatitude, secondLongitude) {
+  if (!isValidWgs84Coordinate(firstLatitude, firstLongitude)
+    || !isValidWgs84Coordinate(secondLatitude, secondLongitude)) {
+    return null
+  }
+
+  const toRadians = value => Number(value) * Math.PI / 180
+  const latitudeDelta = toRadians(Number(secondLatitude) - Number(firstLatitude))
+  const longitudeDelta = toRadians(Number(secondLongitude) - Number(firstLongitude))
+  const latitudeA = toRadians(firstLatitude)
+  const latitudeB = toRadians(secondLatitude)
+  const haversine = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(latitudeA) * Math.cos(latitudeB) * Math.sin(longitudeDelta / 2) ** 2
+
+  return 6371008.8 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+}
