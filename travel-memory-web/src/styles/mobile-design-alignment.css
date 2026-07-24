@@ -1104,36 +1104,52 @@
   }
 
   body .trip-map-stage {
-    height: min(128vw, 530px);
-    min-height: 480px;
+    height: clamp(520px, calc(100svh - 230px), 680px);
+    min-height: 520px;
+    padding: 0;
+    border: 1px solid var(--tm-design-line);
+    border-radius: 18px;
   }
 
-  body .map-replay-status {
-    top: 12px;
-    right: 12px;
-    max-width: calc(100% - 24px);
-    padding: 6px 7px 6px 10px;
-    font-size: 11px;
-    line-height: 16px;
-  }
-
-  body .map-replay-status button {
-    min-height: 27px;
-    padding: 4px 8px;
+  body .map-overlay-dock {
+    top: auto;
+    right: 10px;
+    bottom: calc(32px + env(safe-area-inset-bottom));
+    left: 10px;
+    display: grid;
+    gap: 8px;
   }
 
   body .map-memory-card {
+    position: relative;
+    top: auto;
     right: auto;
-    bottom: 112px;
-    left: 12px;
-    width: min(282px, calc(100% - 72px));
-    max-height: min(52%, 276px);
-    gap: 8px;
-    padding: 12px;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    max-height: none;
+    gap: 0;
+    margin: 0;
+    padding: 10px;
     border-radius: 17px;
   }
 
-  body .map-memory-title h2 {
+  body .map-memory-card.is-expanded {
+    max-height: min(42svh, 340px);
+    overflow-y: auto;
+  }
+
+  body .map-memory-card-summary {
+    grid-template-columns: 82px minmax(0, 1fr) auto;
+    gap: 9px;
+  }
+
+  body .map-memory-summary-photo {
+    width: 82px;
+    height: 62px;
+  }
+
+  body .map-memory-summary-copy h2 {
     font-size: 18px;
     line-height: 25px;
   }
@@ -1143,78 +1159,93 @@
     line-height: 16px;
   }
 
-  body .map-memory-photo {
-    aspect-ratio: 16 / 9;
-  }
-
-  body .map-memory-facts {
+  body .map-memory-expanded-content .map-memory-facts {
     font-size: 11px;
     line-height: 16px;
   }
 
-  body .map-memory-quote {
-    font-size: 13px;
-    line-height: 21px;
-    -webkit-line-clamp: 2;
+  body .map-memory-expanded-content .map-memory-quote {
+    font-size: 14px;
+    line-height: 22px;
+    -webkit-line-clamp: 4;
   }
 
-  body .map-memory-detail-link {
-    min-height: 24px;
+  body .map-replay-status,
+  body .map-replay-unavailable,
+  body .map-playback-controls,
+  body .map-playback-date,
+  body .map-day-navigation {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    transform: none;
+  }
+
+  body .map-replay-status {
+    padding: 7px 8px 7px 12px;
+    border-radius: 13px;
     font-size: 11px;
     line-height: 16px;
+  }
+
+  body .map-replay-status button {
+    min-height: 28px;
+    padding: 4px 10px;
   }
 
   body .trip-map-fit-all {
-    top: 58px;
-    right: 12px;
+    top: 14px;
+    right: 14px;
     bottom: auto;
   }
 
   body .map-day-navigation {
-    margin-top: 10px;
+    padding: 4px;
+    border-radius: 14px;
   }
 
   body .map-day-navigation-track {
-    gap: 8px;
-    padding-bottom: 7px;
+    gap: 3px;
+    padding: 0;
   }
 
   body .map-day-navigation .map-day-button {
     min-width: 82px;
-    min-height: 58px;
-    padding: 8px 10px;
-    border-radius: 16px;
+    min-height: 48px;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 11px;
   }
 
   body .map-day-navigation .map-day-button strong {
-    font-size: 14px;
-    line-height: 19px;
+    font-family: var(--tm-font-sans);
+    font-size: 12px;
+    line-height: 17px;
   }
 
   body .map-day-navigation .map-day-button span {
-    font-size: 11px;
-    line-height: 16px;
+    font-size: 10px;
+    line-height: 15px;
   }
 
   body .map-playback-controls {
-    right: auto;
-    bottom: 40px;
-    left: 50%;
-    width: calc(100% - 24px);
-    gap: 7px;
-    padding: 8px;
-    border-radius: 16px;
-    transform: translateX(-50%);
+    padding: 8px 9px;
+    border-radius: 14px;
   }
 
-  body .map-playback-controls > button {
+  body .map-playback-actions > button {
     min-height: 36px;
-    padding: 6px 8px;
+    padding: 6px 7px;
     font-size: 11px;
     line-height: 16px;
   }
 
-  body .map-playback-controls .map-playback-main {
-    min-width: 104px;
+  body .map-playback-actions .map-playback-main {
+    min-width: 88px;
   }
 }

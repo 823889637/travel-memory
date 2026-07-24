@@ -9,6 +9,7 @@ const props = defineProps({
   selectedId: { type: [String, Number], default: null },
   activeDate: { type: String, default: '' },
   playbackIndex: { type: Number, default: -1 },
+  bottomInset: { type: Number, default: 132 },
   focusSelectedOnReady: { type: Boolean, default: false },
   fallbackLatitude: { type: [Number, String], default: null },
   fallbackLongitude: { type: [Number, String], default: null },
@@ -244,8 +245,11 @@ function updateMarkerSelection() {
 
 function stagePadding() {
   const mobile = window.matchMedia('(max-width: 640px)').matches
-  if (mobile) return [42, 28, 132, 28]
-  return props.selectedId == null ? [48, 54, 112, 54] : [48, 54, 112, 342]
+  const bottom = Math.max(90, Number(props.bottomInset) || 132)
+  if (mobile) return [42, 28, bottom, 28]
+  return props.selectedId == null
+    ? [48, 54, Math.max(112, bottom), 54]
+    : [48, 54, Math.max(112, bottom), 342]
 }
 
 function fitEntries(entries, maxZoom = 13) {
@@ -285,10 +289,17 @@ function positionSelected() {
   const currentX = current.x + (selected.visualDelta?.x || 0)
   const currentY = current.y + (selected.visualDelta?.y || 0)
   const mobile = mapRect.width <= 640
+  const topSafe = mobile ? 58 : 72
+  const minimumVisibleMapHeight = mobile ? 140 : 180
+  const safeBottomInset = Math.min(
+    Math.max(90, Number(props.bottomInset) || 132),
+    Math.max(90, mapRect.height - minimumVisibleMapHeight),
+  )
+  const availableBottom = mapRect.height - safeBottomInset
   const targetX = Math.min(mapRect.width - 48, mapRect.width * (mobile ? 0.74 : 0.68))
   const targetY = mobile
-    ? Math.max(58, mapRect.height * 0.28)
-    : Math.min(mapRect.height - 58, Math.max(72, mapRect.height * 0.5))
+    ? Math.max(topSafe, Math.min(availableBottom - 24, availableBottom * 0.45))
+    : Math.max(topSafe, Math.min(availableBottom - 28, availableBottom * 0.5))
   const deltaX = targetX - currentX
   const deltaY = targetY - currentY
   const expectedId = idKey(props.selectedId)
@@ -474,6 +485,13 @@ watch(() => props.activeDate, () => {
 watch(() => props.playbackIndex, () => {
   updateMarkerSelection()
   scheduleRouteOverlayUpdate()
+})
+watch(() => props.bottomInset, () => {
+  if (!map) return
+  window.requestAnimationFrame(() => {
+    if (props.selectedId != null) positionSelected()
+    scheduleRouteOverlayUpdate()
+  })
 })
 watch(routeSignature, scheduleRouteOverlayUpdate)
 onMounted(initializeMap)

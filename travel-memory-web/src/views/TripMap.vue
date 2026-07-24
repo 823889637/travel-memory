@@ -1,7 +1,19 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { ChevronLeft, ChevronRight, Clock3, LocateFixed, MapPin, Pause, Play, RotateCcw, X } from '@lucide/vue'
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Clock3,
+  LocateFixed,
+  MapPin,
+  Pause,
+  Play,
+  RotateCcw,
+  X,
+} from '@lucide/vue'
 import MemoryMap from '../components/MemoryMap.vue'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
 import { getTrip } from '../api/trip'
@@ -29,10 +41,16 @@ const selectedMemoryId = ref(null)
 const activeDate = ref('')
 const memoryMap = ref(null)
 const mapCardReady = ref(false)
+const mapStageElement = ref(null)
+const overlayDockElement = ref(null)
+const mapBottomInset = ref(132)
+const cardExpanded = ref(false)
 const dayButtonElements = new Map()
 const playbackIndex = ref(-1)
-const isPlaying = ref(false)
+const replayState = ref('idle')
 let playbackTimer = null
+let overlayResizeObserver = null
+let overlayMeasureFrame = null
 
 const SAME_LOCATION_DISTANCE_METERS = 5
 const LONG_ROUTE_BREAK_DISTANCE_METERS = 80_000
@@ -140,8 +158,16 @@ const playbackStations = computed(() => activeDate.value
   : replayPoints.value)
 const currentPlaybackPoint = computed(() => playbackStations.value[playbackIndex.value] || null)
 const playbackReplayIndex = computed(() => currentPlaybackPoint.value?.replayIndex ?? -1)
+const isPlaying = computed(() => replayState.value === 'playing')
+const replaySessionActive = computed(() => replayState.value !== 'idle')
+const canReplayCurrentScope = computed(() => playbackStations.value.length >= 2)
 const isPlaybackComplete = computed(() => playbackStations.value.length > 0
   && playbackIndex.value >= playbackStations.value.length - 1)
+const playbackDateLabel = computed(() => {
+  const point = currentPlaybackPoint.value
+  if (!point) return ''
+  return `第 ${point.dayNumber} 天 · ${formatDate(point.mapDate)}`
+})
 const selectedMemory = computed(() => {
   const selectedKey = memoryIdKey(selectedMemoryId.value)
   if (!selectedKey) return null
@@ -214,30 +240,87 @@ function selectMemory(memoryId, { updateRoute = true } = {}) {
   const selected = points.value.find((item) => memoryIdKey(item.id) === memoryIdKey(memoryId))
   if (!selected) return
   const changed = memoryIdKey(selectedMemoryId.value) !== memoryIdKey(selected.id)
-  if (changed) mapCardReady.value = false
+  if (changed) {
+    mapCardReady.value = false
+    cardExpanded.value = false
+  }
   selectedMemoryId.value = selected.id
   if (updateRoute) replaceMemoryQuery(selected.id)
+  scheduleOverlayMeasure()
 }
 
 function handleMapSelection(memoryId) {
-  pausePlayback()
+  pausePlayback({ preserveSession: true })
   selectMemory(memoryId)
 }
 
 function handleMapInteraction() {
-  if (isPlaying.value) pausePlayback()
+  if (isPlaying.value) pausePlayback({ preserveSession: true })
 }
 
 function closeMemoryCard() {
   mapCardReady.value = false
+  cardExpanded.value = false
   selectedMemoryId.value = null
   replaceMemoryQuery(null)
+  scheduleOverlayMeasure()
 }
 
 function revealMemoryCard(memoryId) {
   if (memoryIdKey(memoryId) === memoryIdKey(selectedMemoryId.value)) {
     mapCardReady.value = true
+    scheduleOverlayMeasure()
   }
+}
+
+function toggleMemoryCard() {
+  if (!selectedMemory.value) return
+  if (!cardExpanded.value && isPlaying.value) pausePlayback({ preserveSession: true })
+  cardExpanded.value = !cardExpanded.value
+  scheduleOverlayMeasure()
+}
+
+function measureMapBottomInset() {
+  overlayMeasureFrame = null
+  const stage = mapStageElement.value
+  const dock = overlayDockElement.value
+  if (!stage || !dock) {
+    mapBottomInset.value = 90
+    return
+  }
+
+  const stageRect = stage.getBoundingClientRect()
+  const dockRect = dock.getBoundingClientRect()
+  let measuredInset = stageRect.bottom - dockRect.top + 12
+  if (stageRect.width > 640) {
+    const bottomControls = [...dock.querySelectorAll(
+      '.map-replay-status, .map-replay-unavailable, .map-playback-controls, .map-playback-date, .map-day-navigation',
+    )]
+    const controlTop = bottomControls.reduce((top, element) => {
+      const rect = element.getBoundingClientRect()
+      return rect.height > 0 ? Math.min(top, rect.top) : top
+    }, Number.POSITIVE_INFINITY)
+    measuredInset = Number.isFinite(controlTop) ? stageRect.bottom - controlTop + 12 : 112
+  }
+  measuredInset = Math.max(90, measuredInset)
+  if (Math.abs(measuredInset - mapBottomInset.value) > 2) {
+    mapBottomInset.value = measuredInset
+  }
+}
+
+function scheduleOverlayMeasure() {
+  if (overlayMeasureFrame != null) window.cancelAnimationFrame(overlayMeasureFrame)
+  overlayMeasureFrame = window.requestAnimationFrame(() => {
+    nextTick(measureMapBottomInset)
+  })
+}
+
+function setupOverlayMeasurement() {
+  overlayResizeObserver?.disconnect()
+  overlayResizeObserver = new ResizeObserver(scheduleOverlayMeasure)
+  if (mapStageElement.value) overlayResizeObserver.observe(mapStageElement.value)
+  if (overlayDockElement.value) overlayResizeObserver.observe(overlayDockElement.value)
+  scheduleOverlayMeasure()
 }
 
 function setDayButtonRef(date, element) {
@@ -254,9 +337,10 @@ function syncActiveDayButton() {
 }
 
 function selectDay(day) {
-  pausePlayback()
+  endPlaybackSession()
   playbackIndex.value = -1
   activeDate.value = day.date
+  cardExpanded.value = false
   const firstMemory = day.memories[0]
   if (firstMemory) {
     if (memoryIdKey(selectedMemoryId.value) !== memoryIdKey(firstMemory.id)) {
@@ -266,12 +350,14 @@ function selectDay(day) {
     replaceMemoryQuery(firstMemory.id)
   }
   nextTick(syncActiveDayButton)
+  scheduleOverlayMeasure()
 }
 
 function selectAllDays() {
-  pausePlayback()
+  endPlaybackSession()
   playbackIndex.value = -1
   activeDate.value = ''
+  cardExpanded.value = false
   const selected = selectedMemory.value || replayPoints.value[0] || browseOnlyPoints.value[0]
   if (selected) {
     mapCardReady.value = false
@@ -279,10 +365,11 @@ function selectAllDays() {
     replaceMemoryQuery(selected.id)
   }
   nextTick(syncActiveDayButton)
+  scheduleOverlayMeasure()
 }
 
 function fitAllMemories() {
-  pausePlayback()
+  pausePlayback({ preserveSession: true })
   if (selectedMemoryId.value != null) mapCardReady.value = false
   memoryMap.value?.fitAll()
 }
@@ -292,9 +379,20 @@ function clearPlaybackTimer() {
   playbackTimer = null
 }
 
-function pausePlayback() {
+function pausePlayback({ preserveSession = true } = {}) {
   clearPlaybackTimer()
-  isPlaying.value = false
+  if (replayState.value === 'playing') {
+    replayState.value = preserveSession ? 'paused' : 'idle'
+  } else if (!preserveSession) {
+    replayState.value = 'idle'
+  }
+  scheduleOverlayMeasure()
+}
+
+function endPlaybackSession() {
+  clearPlaybackTimer()
+  replayState.value = 'idle'
+  scheduleOverlayMeasure()
 }
 
 function selectPlaybackStation(index) {
@@ -309,14 +407,16 @@ function queuePlaybackStep() {
   playbackTimer = window.setTimeout(() => {
     const nextIndex = playbackIndex.value + 1
     if (nextIndex >= playbackStations.value.length) {
-      isPlaying.value = false
+      replayState.value = 'ended'
       playbackTimer = null
+      scheduleOverlayMeasure()
       return
     }
     selectPlaybackStation(nextIndex)
     if (nextIndex >= playbackStations.value.length - 1) {
-      isPlaying.value = false
+      replayState.value = 'ended'
       playbackTimer = null
+      scheduleOverlayMeasure()
       return
     }
     queuePlaybackStep()
@@ -325,14 +425,12 @@ function queuePlaybackStep() {
 
 function startPlayback() {
   const stations = playbackStations.value
-  if (!stations.length) return
+  if (stations.length < 2) return
   const startIndex = playbackIndex.value < 0 || isPlaybackComplete.value ? 0 : playbackIndex.value
+  cardExpanded.value = false
   selectPlaybackStation(startIndex)
-  if (stations.length === 1) {
-    isPlaying.value = false
-    return
-  }
-  isPlaying.value = true
+  replayState.value = 'playing'
+  scheduleOverlayMeasure()
   queuePlaybackStep()
 }
 
@@ -342,16 +440,21 @@ function togglePlayback() {
 }
 
 function previousStation() {
-  pausePlayback()
+  pausePlayback({ preserveSession: true })
   if (!playbackStations.value.length) return
   selectPlaybackStation(Math.max(0, playbackIndex.value - 1))
 }
 
 function nextStation() {
-  pausePlayback()
+  pausePlayback({ preserveSession: true })
   if (!playbackStations.value.length) return
   const nextIndex = playbackIndex.value < 0 ? 0 : Math.min(playbackStations.value.length - 1, playbackIndex.value + 1)
   selectPlaybackStation(nextIndex)
+}
+
+function exitPlaybackSession() {
+  endPlaybackSession()
+  nextTick(syncActiveDayButton)
 }
 
 function photoSrc(url) {
@@ -395,7 +498,7 @@ function formatTime(value) {
 }
 
 async function loadPage() {
-  pausePlayback()
+  endPlaybackSession()
   playbackIndex.value = -1
   loading.value = true
   error.value = ''
@@ -411,6 +514,7 @@ async function loadPage() {
     const requestedMemory = points.value.find((item) => memoryIdKey(item.id) === memoryIdKey(route.query.memoryId))
     const initialMemory = requestedMemory || replayPoints.value[0] || browseOnlyPoints.value[0] || null
     mapCardReady.value = false
+    cardExpanded.value = false
     selectedMemoryId.value = initialMemory?.id ?? null
     activeDate.value = ''
     await nextTick()
@@ -427,14 +531,35 @@ watch(() => route.query.memoryId, (memoryId) => {
   if (loading.value) return
   if (memoryId == null) {
     mapCardReady.value = false
+    cardExpanded.value = false
     selectedMemoryId.value = null
+    scheduleOverlayMeasure()
     return
   }
   selectMemory(memoryId, { updateRoute: false })
 })
 
+watch(
+  [selectedMemory, cardExpanded, replayState, activeDate],
+  scheduleOverlayMeasure,
+  { flush: 'post' },
+)
+watch(
+  [mapStageElement, overlayDockElement],
+  () => nextTick(setupOverlayMeasurement),
+  { flush: 'post' },
+)
+
+onMounted(() => {
+  nextTick(setupOverlayMeasurement)
+})
+
 onBeforeUnmount(() => {
   clearPlaybackTimer()
+  if (overlayMeasureFrame != null) window.cancelAnimationFrame(overlayMeasureFrame)
+  overlayMeasureFrame = null
+  overlayResizeObserver?.disconnect()
+  overlayResizeObserver = null
 })
 </script>
 
@@ -467,7 +592,17 @@ onBeforeUnmount(() => {
         <span v-if="longRouteBreakCount">长距离行程已保留为路线断点。</span>
       </div>
 
-      <div :class="['trip-map-stage', { 'has-selection': selectedMemory }]">
+      <div
+        ref="mapStageElement"
+        :class="[
+          'trip-map-stage',
+          {
+            'has-selection': selectedMemory,
+            'has-expanded-card': cardExpanded,
+            'has-replay-session': replaySessionActive,
+          },
+        ]"
+      >
         <MemoryMap
           ref="memoryMap"
           :points="points"
@@ -479,120 +614,193 @@ onBeforeUnmount(() => {
           :fallback-latitude="trip.destinationLatitude"
           :fallback-longitude="trip.destinationLongitude"
           :fallback-label="trip.destination || '目的城市'"
+          :bottom-inset="mapBottomInset"
           @select="handleMapSelection"
           @interaction="handleMapInteraction"
           @selection-positioned="revealMemoryCard"
         />
 
-        <div v-if="replayPoints.length" class="map-replay-status" aria-live="polite">
-          <span>
-            {{ isPlaying ? `正在回放 · 第 ${playbackIndex + 1}/${playbackStations.length} 站` : `路径回放 · ${playbackStations.length} 站` }}
-          </span>
-          <button type="button" @click="togglePlayback">
-            <Pause v-if="isPlaying" :size="14" aria-hidden="true" />
-            <Play v-else :size="14" fill="currentColor" aria-hidden="true" />
-            {{ isPlaying ? '暂停' : isPlaybackComplete ? '重新播放' : '播放' }}
-          </button>
-        </div>
-
         <button type="button" class="trip-map-fit-all" aria-label="恢复完整旅行路线" title="恢复完整旅行路线" @click="fitAllMemories">
           <LocateFixed :size="19" :stroke-width="1.8" aria-hidden="true" />
         </button>
 
-        <article v-if="selectedMemory && mapCardReady" class="map-memory-card">
-          <header class="map-memory-card-head">
-            <div class="map-memory-title">
-              <p v-if="selectedMemory.isReplayPoint" class="map-memory-station">
-                第 {{ selectedMemory.dayNumber }} 天 · 第 {{ selectedMemory.stopNumber }} 站
-              </p>
-              <p v-else class="map-memory-station is-browse-only">仅供浏览的位置</p>
-              <h2>{{ selectedMemory.locationName || '已记录位置' }}</h2>
+        <div
+          ref="overlayDockElement"
+          :class="[
+            'map-overlay-dock',
+            {
+              'is-expanded': cardExpanded,
+              'is-replaying': replaySessionActive,
+            },
+          ]"
+        >
+          <article
+            v-if="selectedMemory"
+            :class="[
+              'map-memory-card',
+              cardExpanded ? 'is-expanded' : 'is-collapsed',
+              { 'is-positioning': !mapCardReady },
+            ]"
+            @wheel.stop
+            @touchmove.stop
+          >
+            <div class="map-memory-card-summary" @click="toggleMemoryCard">
+              <div v-if="hasMemoryPhoto(selectedMemory)" class="map-memory-summary-photo" @click.stop>
+                <MemoryPhotoGallery
+                  :photos="selectedMemory.photos"
+                  :fallback-url="photoSrc(selectedMemory.photoUrl)"
+                  layout="favorite"
+                  alt="地图记忆照片"
+                />
+              </div>
+              <div v-else class="map-memory-summary-photo is-empty" aria-hidden="true">
+                <MapPin :size="22" :stroke-width="1.5" />
+              </div>
+
+              <div class="map-memory-summary-copy">
+                <p v-if="selectedMemory.isReplayPoint" class="map-memory-station">
+                  <span class="map-memory-sequence">{{ selectedMemory.sequenceNumber }}</span>
+                  第 {{ selectedMemory.dayNumber }} 天 · 第 {{ selectedMemory.stopNumber }} 站
+                </p>
+                <p v-else class="map-memory-station is-browse-only">仅供浏览的位置</p>
+                <h2>{{ selectedMemory.locationName || '已记录位置' }}</h2>
+                <p class="map-memory-summary-meta">
+                  <span>{{ formatTime(selectedMemory.recordTime) }}</span>
+                  <span>共 {{ photoCount(selectedMemory) }} 张照片</span>
+                </p>
+              </div>
+
+              <div class="map-memory-card-actions">
+                <button type="button" class="map-memory-close" aria-label="关闭记忆详情" @click.stop="closeMemoryCard">
+                  <X :size="18" :stroke-width="1.8" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="map-memory-expand"
+                  :aria-label="cardExpanded ? '收起记忆卡片' : '展开记忆卡片'"
+                  :aria-expanded="cardExpanded"
+                  @click.stop="toggleMemoryCard"
+                >
+                  <ChevronUp v-if="cardExpanded" :size="18" :stroke-width="1.8" aria-hidden="true" />
+                  <ChevronDown v-else :size="18" :stroke-width="1.8" aria-hidden="true" />
+                </button>
+              </div>
             </div>
-            <button type="button" class="map-memory-close" aria-label="关闭记忆详情" @click="closeMemoryCard">
-              <X :size="18" :stroke-width="1.8" aria-hidden="true" />
+
+            <div v-if="cardExpanded" class="map-memory-expanded-content">
+              <div class="map-memory-facts">
+                <p>
+                  <MapPin :size="16" :stroke-width="1.7" aria-hidden="true" />
+                  <span>{{ selectedLocationLabel }}</span>
+                </p>
+                <p>
+                  <Clock3 :size="16" :stroke-width="1.7" aria-hidden="true" />
+                  <span>{{ formatDate(selectedMemory.recordTime) }} {{ formatTime(selectedMemory.recordTime) }}</span>
+                </p>
+              </div>
+
+              <div class="map-memory-body">
+                <p :class="['map-memory-quote', { muted: !selectedMemory.content }]">
+                  {{ selectedMemory.content || '这一刻没有留下文字。' }}
+                </p>
+              </div>
+
+              <RouterLink :to="`/trips/${id}/memories/${selectedMemory.id}`" class="map-memory-detail-link">
+                查看记忆详情
+                <ChevronRight :size="16" :stroke-width="1.8" aria-hidden="true" />
+              </RouterLink>
+            </div>
+          </article>
+
+          <div
+            v-if="!cardExpanded && !replaySessionActive && canReplayCurrentScope"
+            class="map-replay-status"
+            aria-live="polite"
+          >
+            <span>路径回放 · {{ playbackStations.length }} 站</span>
+            <button type="button" @click="startPlayback">
+              <Play :size="14" fill="currentColor" aria-hidden="true" />
+              播放
             </button>
-          </header>
-
-          <MemoryPhotoGallery
-            v-if="hasMemoryPhoto(selectedMemory)"
-            class="map-memory-photo"
-            :photos="selectedMemory.photos"
-            :fallback-url="photoSrc(selectedMemory.photoUrl)"
-            layout="favorite"
-            alt="地图记忆照片"
-          />
-
-          <div class="map-memory-facts">
-            <p>
-              <MapPin :size="16" :stroke-width="1.7" aria-hidden="true" />
-              <span>{{ selectedLocationLabel }}</span>
-            </p>
-            <p>
-              <Clock3 :size="16" :stroke-width="1.7" aria-hidden="true" />
-              <span>{{ formatTime(selectedMemory.recordTime) }} · 共 {{ photoCount(selectedMemory) }} 张照片</span>
-            </p>
           </div>
 
-          <div class="map-memory-body">
-            <p :class="['map-memory-quote', { muted: !selectedMemory.content }]">
-              {{ selectedMemory.content || '这一刻没有留下文字。' }}
-            </p>
-          </div>
-
-          <RouterLink :to="`/trips/${id}/memories/${selectedMemory.id}`" class="map-memory-detail-link">
-            查看记忆详情
-            <ChevronRight :size="16" :stroke-width="1.8" aria-hidden="true" />
-          </RouterLink>
-        </article>
-
-        <section v-if="replayPoints.length" class="map-playback-controls" aria-label="路径回放控制">
-          <button type="button" :disabled="playbackIndex <= 0" @click="previousStation">
-            <ChevronLeft :size="18" :stroke-width="1.8" aria-hidden="true" />
-            上一站
-          </button>
-          <button type="button" class="map-playback-main" @click="togglePlayback">
-            <Pause v-if="isPlaying" :size="20" aria-hidden="true" />
-            <RotateCcw v-else-if="isPlaybackComplete" :size="19" aria-hidden="true" />
-            <Play v-else :size="20" fill="currentColor" aria-hidden="true" />
-            <span>{{ isPlaying ? '暂停回放' : isPlaybackComplete ? '重新播放' : '开始回放' }}</span>
-          </button>
-          <button
-            type="button"
-            :disabled="playbackStations.length <= 1 || playbackIndex >= playbackStations.length - 1"
-            @click="nextStation"
+          <p
+            v-else-if="!cardExpanded && !replaySessionActive && playbackStations.length === 1"
+            class="map-replay-unavailable"
           >
-            下一站
-            <ChevronRight :size="18" :stroke-width="1.8" aria-hidden="true" />
-          </button>
-        </section>
-      </div>
+            当前日期只有 1 个站点，可浏览但无法回放
+          </p>
 
-      <nav v-if="dayOptions.length" class="map-day-navigation" aria-label="地图自然日导航">
-        <div class="map-day-navigation-track">
-          <button
-            :ref="element => setDayButtonRef('all', element)"
-            type="button"
-            :class="['map-day-button', { active: !activeDate }]"
-            :aria-current="!activeDate ? 'date' : undefined"
-            @click="selectAllDays"
+          <section
+            v-if="!cardExpanded && replaySessionActive && canReplayCurrentScope"
+            class="map-playback-controls"
+            aria-label="路径回放控制"
           >
-            <strong>全部</strong>
-            <span>完整路线</span>
-          </button>
+            <div class="map-playback-progress">第 {{ playbackIndex + 1 }} / {{ playbackStations.length }} 站</div>
+            <div class="map-playback-actions">
+              <button type="button" :disabled="playbackIndex <= 0" @click="previousStation">
+                <ChevronLeft :size="18" :stroke-width="1.8" aria-hidden="true" />
+                上一站
+              </button>
+              <button type="button" class="map-playback-main" @click="togglePlayback">
+                <Pause v-if="isPlaying" :size="20" aria-hidden="true" />
+                <RotateCcw v-else-if="isPlaybackComplete" :size="19" aria-hidden="true" />
+                <Play v-else :size="20" fill="currentColor" aria-hidden="true" />
+                <span>{{ isPlaying ? '暂停' : isPlaybackComplete ? '重新播放' : '继续播放' }}</span>
+              </button>
+              <button
+                type="button"
+                :disabled="playbackIndex >= playbackStations.length - 1"
+                @click="nextStation"
+              >
+                下一站
+                <ChevronRight :size="18" :stroke-width="1.8" aria-hidden="true" />
+              </button>
+            </div>
+          </section>
+
           <button
-            v-for="day in dayOptions"
-            :key="day.date"
-            :ref="element => setDayButtonRef(day.date, element)"
+            v-if="!cardExpanded && replaySessionActive && playbackDateLabel"
             type="button"
-            :class="['map-day-button', { active: activeDate === day.date }]"
-            :aria-current="activeDate === day.date ? 'date' : undefined"
-            @click="selectDay(day)"
+            class="map-playback-date"
+            title="退出回放并查看全部日期"
+            @click="exitPlaybackSession"
           >
-            <strong>第 {{ day.dayNumber }} 天</strong>
-            <span>{{ formatDate(day.date) }}</span>
+            {{ playbackDateLabel }}
           </button>
+
+          <nav
+            v-if="!cardExpanded && !replaySessionActive && dayOptions.length"
+            class="map-day-navigation"
+            aria-label="地图自然日导航"
+          >
+            <div class="map-day-navigation-track">
+              <button
+                :ref="element => setDayButtonRef('all', element)"
+                type="button"
+                :class="['map-day-button', { active: !activeDate }]"
+                :aria-current="!activeDate ? 'date' : undefined"
+                @click="selectAllDays"
+              >
+                <strong>全部</strong>
+                <span>完整路线</span>
+              </button>
+              <button
+                v-for="day in dayOptions"
+                :key="day.date"
+                :ref="element => setDayButtonRef(day.date, element)"
+                type="button"
+                :class="['map-day-button', { active: activeDate === day.date }]"
+                :aria-current="activeDate === day.date ? 'date' : undefined"
+                @click="selectDay(day)"
+              >
+                <strong>第 {{ day.dayNumber }} 天</strong>
+                <span>{{ formatDate(day.date) }}</span>
+              </button>
+            </div>
+          </nav>
         </div>
-      </nav>
+      </div>
     </template>
   </section>
 </template>
