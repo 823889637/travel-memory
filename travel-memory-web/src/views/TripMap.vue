@@ -556,7 +556,11 @@ onBeforeUnmount(() => {
             <Play v-else :size="20" fill="currentColor" aria-hidden="true" />
             <span>{{ isPlaying ? '暂停回放' : isPlaybackComplete ? '重新播放' : '开始回放' }}</span>
           </button>
-          <button type="button" :disabled="playbackIndex >= playbackStations.length - 1" @click="nextStation">
+          <button
+            type="button"
+            :disabled="playbackStations.length <= 1 || playbackIndex >= playbackStations.length - 1"
+            @click="nextStation"
+          >
             下一站
             <ChevronRight :size="18" :stroke-width="1.8" aria-hidden="true" />
           </button>
