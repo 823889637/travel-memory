@@ -13,6 +13,7 @@ import {
   Play,
   RotateCcw,
   X,
+  ZoomIn,
 } from '@lucide/vue'
 import MemoryMap from '../components/MemoryMap.vue'
 import MemoryPhotoGallery from '../components/MemoryPhotoGallery.vue'
@@ -43,17 +44,27 @@ const memoryMap = ref(null)
 const mapCardReady = ref(false)
 const mapStageElement = ref(null)
 const overlayDockElement = ref(null)
+const dayNavigationElement = ref(null)
 const mapBottomInset = ref(132)
 const cardExpanded = ref(false)
 const dayButtonElements = new Map()
 const playbackIndex = ref(-1)
 const replayState = ref('idle')
+const playbackPreparing = ref(false)
 let playbackTimer = null
+let playbackFitRequest = 0
+let playbackStepRequest = 0
 let overlayResizeObserver = null
 let overlayMeasureFrame = null
+const photoPreloadCache = new Map()
 
 const SAME_LOCATION_DISTANCE_METERS = 5
 const LONG_ROUTE_BREAK_DISTANCE_METERS = 80_000
+const PLAYBACK_CAMERA_LONG_DISTANCE_METERS = 50_000
+const LOCATION_GROUP_DISTANCE_METERS = 10
+const NAMED_LOCATION_GROUP_DISTANCE_METERS = 50
+const PLAYBACK_STEP_DURATION = 2800
+const PHOTO_READY_WAIT = 1200
 
 const timedMemories = computed(() => memories.value
   .filter(hasValidRecordTime)
@@ -98,6 +109,43 @@ const browseOnlyPoints = computed(() => memories.value
     isReplayPoint: false,
   })))
 const points = computed(() => [...replayPoints.value, ...browseOnlyPoints.value])
+const mapPointGroups = computed(() => {
+  const groups = []
+
+  points.value.forEach((point) => {
+    const group = groups.find(candidate => candidate.members.some(member => isSameMapLocation(member, point)))
+    if (group) group.members.push(point)
+    else groups.push({ id: `map-group-${memoryIdKey(point.id)}`, members: [point] })
+  })
+
+  return groups.map((group) => {
+    const members = group.members.slice().sort(compareMemories)
+    const replayMembers = members.filter(member => member.isReplayPoint !== false)
+    const primary = replayMembers[0] || members[0]
+    const latitudes = members.map(member => Number(member.latitude)).sort((left, right) => left - right)
+    const longitudes = members.map(member => Number(member.longitude)).sort((left, right) => left - right)
+    return {
+      ...primary,
+      id: group.id,
+      latitude: medianCoordinate(latitudes),
+      longitude: medianCoordinate(longitudes),
+      memberIds: members.map(member => memoryIdKey(member.id)),
+      memberCount: members.length,
+      members,
+      replayIndexes: replayMembers.map(member => member.replayIndex),
+      mapDates: [...new Set(replayMembers.map(member => member.mapDate).filter(Boolean))],
+      sequenceNumber: replayMembers[0]?.sequenceNumber ?? null,
+      isReplayPoint: replayMembers.length > 0,
+    }
+  })
+})
+const mapPointGroupByMemoryId = computed(() => {
+  const index = new Map()
+  mapPointGroups.value.forEach((group) => {
+    group.memberIds.forEach(memoryId => index.set(memoryId, group))
+  })
+  return index
+})
 const memoriesWithoutLocation = computed(() => Math.max(0, memories.value.length - points.value.length))
 const routeSegments = computed(() => {
   const segments = []
@@ -133,6 +181,18 @@ const routeSegments = computed(() => {
 
   return segments
 })
+const groupedRouteSegments = computed(() => routeSegments.value
+  .map((segment) => {
+    const fromGroup = mapPointGroupByMemoryId.value.get(memoryIdKey(segment.fromId))
+    const toGroup = mapPointGroupByMemoryId.value.get(memoryIdKey(segment.toId))
+    if (!fromGroup || !toGroup || fromGroup.id === toGroup.id) return null
+    return {
+      ...segment,
+      fromId: fromGroup.id,
+      toId: toGroup.id,
+    }
+  })
+  .filter(Boolean))
 const longRouteBreakCount = computed(() => timedMemories.value.slice(0, -1).filter((memory, index) => {
   const nextMemory = timedMemories.value[index + 1]
   if (!hasValidCoordinates(memory) || !hasValidCoordinates(nextMemory)) return false
@@ -156,6 +216,15 @@ const dayOptions = computed(() => {
 const playbackStations = computed(() => activeDate.value
   ? replayPoints.value.filter(memory => memory.mapDate === activeDate.value)
   : replayPoints.value)
+const activeDayOption = computed(() => dayOptions.value.find(day => day.date === activeDate.value) || null)
+const playbackPointGroupIds = computed(() => {
+  const ids = new Set()
+  playbackStations.value.forEach((memory) => {
+    const group = mapPointGroupByMemoryId.value.get(memoryIdKey(memory.id))
+    if (group) ids.add(group.id)
+  })
+  return [...ids]
+})
 const currentPlaybackPoint = computed(() => playbackStations.value[playbackIndex.value] || null)
 const playbackReplayIndex = computed(() => currentPlaybackPoint.value?.replayIndex ?? -1)
 const isPlaying = computed(() => replayState.value === 'playing')
@@ -173,6 +242,19 @@ const selectedMemory = computed(() => {
   if (!selectedKey) return null
   return points.value.find((item) => memoryIdKey(item.id) === selectedKey) || null
 })
+const selectedPointGroup = computed(() => (
+  mapPointGroupByMemoryId.value.get(memoryIdKey(selectedMemoryId.value)) || null
+))
+const selectedGroupMemories = computed(() => {
+  const members = selectedPointGroup.value?.members || []
+  const scopedMembers = activeDate.value
+    ? members.filter(member => member.mapDate === activeDate.value)
+    : members
+  return scopedMembers.length ? scopedMembers : members
+})
+const selectedGroupMemoryIndex = computed(() => selectedGroupMemories.value.findIndex(
+  memory => memoryIdKey(memory.id) === memoryIdKey(selectedMemoryId.value),
+))
 const hasDestinationCoordinates = computed(() => isValidWgs84Coordinate(
   trip.value?.destinationLatitude,
   trip.value?.destinationLongitude,
@@ -200,6 +282,36 @@ const selectedLocationLabel = computed(() => {
 
 function memoryIdKey(value) {
   return value == null ? '' : String(value)
+}
+
+function normalizedLocationName(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('zh-CN')
+}
+
+function medianCoordinate(sortedValues) {
+  if (!sortedValues.length) return null
+  const middle = Math.floor(sortedValues.length / 2)
+  return sortedValues.length % 2 === 1
+    ? sortedValues[middle]
+    : (sortedValues[middle - 1] + sortedValues[middle]) / 2
+}
+
+function isSameMapLocation(left, right) {
+  const distance = wgs84DistanceMeters(
+    left.latitude,
+    left.longitude,
+    right.latitude,
+    right.longitude,
+  )
+  if (distance == null) return false
+  if (distance <= LOCATION_GROUP_DISTANCE_METERS) return true
+  const leftName = normalizedLocationName(left.locationName)
+  const rightName = normalizedLocationName(right.locationName)
+  return Boolean(
+    leftName
+    && leftName === rightName
+    && distance <= NAMED_LOCATION_GROUP_DISTANCE_METERS,
+  )
 }
 
 function recordDate(value) {
@@ -230,10 +342,14 @@ function hasValidRecordTime(memory) {
 }
 
 function replaceMemoryQuery(memoryId) {
+  const nextMemoryId = memoryId == null ? '' : memoryIdKey(memoryId)
+  const currentMemoryId = memoryIdKey(route.query.memoryId)
+  if (nextMemoryId === currentMemoryId) return Promise.resolve()
+
   const nextQuery = { ...route.query }
   if (memoryId == null) delete nextQuery.memoryId
-  else nextQuery.memoryId = memoryIdKey(memoryId)
-  router.replace({ query: nextQuery }).catch(() => {})
+  else nextQuery.memoryId = nextMemoryId
+  return router.replace({ query: nextQuery }).catch(() => {})
 }
 
 function selectMemory(memoryId, { updateRoute = true } = {}) {
@@ -249,12 +365,43 @@ function selectMemory(memoryId, { updateRoute = true } = {}) {
   scheduleOverlayMeasure()
 }
 
-function handleMapSelection(memoryId) {
+function handleMapSelection(groupId) {
+  playbackFitRequest += 1
+  playbackPreparing.value = false
   pausePlayback({ preserveSession: true })
-  selectMemory(memoryId)
+  const group = mapPointGroups.value.find(pointGroup => pointGroup.id === groupId)
+  if (!group) return
+  const scopedMembers = activeDate.value
+    ? group.members.filter(member => member.mapDate === activeDate.value)
+    : group.members
+  const candidates = scopedMembers.length ? scopedMembers : group.members
+  const currentSelection = candidates.find(
+    memory => memoryIdKey(memory.id) === memoryIdKey(selectedMemoryId.value),
+  )
+  selectMemory((currentSelection || candidates[0])?.id)
+}
+
+function selectGroupedMemory(direction) {
+  const members = selectedGroupMemories.value
+  if (members.length < 2) return
+  const currentIndex = selectedGroupMemoryIndex.value >= 0 ? selectedGroupMemoryIndex.value : 0
+  const nextIndex = (currentIndex + direction + members.length) % members.length
+  selectMemory(members[nextIndex].id)
+}
+
+function clearMemorySelection({ updateRoute = true } = {}) {
+  mapCardReady.value = false
+  cardExpanded.value = false
+  selectedMemoryId.value = null
+  if (updateRoute) replaceMemoryQuery(null)
+  scheduleOverlayMeasure()
 }
 
 function handleMapInteraction() {
+  if (playbackPreparing.value) {
+    playbackFitRequest += 1
+    playbackPreparing.value = false
+  }
   if (isPlaying.value) pausePlayback({ preserveSession: true })
 }
 
@@ -290,18 +437,21 @@ function measureMapBottomInset() {
   }
 
   const stageRect = stage.getBoundingClientRect()
-  const dockRect = dock.getBoundingClientRect()
-  let measuredInset = stageRect.bottom - dockRect.top + 12
-  if (stageRect.width > 640) {
-    const bottomControls = [...dock.querySelectorAll(
-      '.map-replay-status, .map-replay-unavailable, .map-playback-controls, .map-playback-date, .map-day-navigation',
-    )]
-    const controlTop = bottomControls.reduce((top, element) => {
-      const rect = element.getBoundingClientRect()
-      return rect.height > 0 ? Math.min(top, rect.top) : top
-    }, Number.POSITIVE_INFINITY)
-    measuredInset = Number.isFinite(controlTop) ? stageRect.bottom - controlTop + 12 : 112
-  }
+  const mobile = stageRect.width <= 640
+  const overlaySelector = mobile
+    ? '.map-memory-card, .map-replay-status, .map-replay-unavailable, .map-playback-controls, .map-playback-date, .map-day-navigation'
+    : '.map-replay-status, .map-replay-unavailable, .map-playback-controls, .map-playback-date, .map-day-navigation'
+  const visibleOverlayTop = [...dock.querySelectorAll(overlaySelector)].reduce((top, element) => {
+    const rect = element.getBoundingClientRect()
+    const visibleInsideStage = rect.height > 0
+      && rect.bottom > stageRect.top
+      && rect.top < stageRect.bottom
+    return visibleInsideStage ? Math.min(top, rect.top) : top
+  }, Number.POSITIVE_INFINITY)
+  const markerClearance = mobile ? 48 : 28
+  let measuredInset = Number.isFinite(visibleOverlayTop)
+    ? stageRect.bottom - visibleOverlayTop + markerClearance
+    : (mobile ? 90 : 112)
   measuredInset = Math.max(90, measuredInset)
   if (Math.abs(measuredInset - mapBottomInset.value) > 2) {
     mapBottomInset.value = measuredInset
@@ -323,60 +473,91 @@ function setupOverlayMeasurement() {
   scheduleOverlayMeasure()
 }
 
+function nextAnimationFrame() {
+  return new Promise(resolve => window.requestAnimationFrame(resolve))
+}
+
+async function handleMapReady() {
+  await nextTick()
+  await nextAnimationFrame()
+  measureMapBottomInset()
+  await nextTick()
+  await nextAnimationFrame()
+
+  if (route.query.memoryId && selectedMemory.value) return
+  if (activeDate.value) {
+    if (playbackPointGroupIds.value.length) {
+      await memoryMap.value?.fitPointIds(playbackPointGroupIds.value, 13)
+    }
+    return
+  }
+  await memoryMap.value?.fitAll()
+}
+
 function setDayButtonRef(date, element) {
   if (element) dayButtonElements.set(date, element)
   else dayButtonElements.delete(date)
 }
 
 function syncActiveDayButton() {
-  dayButtonElements.get(activeDate.value || 'all')?.scrollIntoView({
+  const navigation = dayNavigationElement.value
+  const button = dayButtonElements.get(activeDate.value || 'all')
+  if (!navigation || !button) return
+
+  const targetLeft = button.offsetLeft - (navigation.clientWidth - button.offsetWidth) / 2
+  navigation.scrollTo({
+    left: Math.max(0, targetLeft),
     behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    block: 'nearest',
-    inline: 'center',
   })
 }
 
-function selectDay(day) {
+async function selectDay(day) {
   endPlaybackSession()
   playbackIndex.value = -1
   activeDate.value = day.date
-  cardExpanded.value = false
-  const firstMemory = day.memories[0]
-  if (firstMemory) {
-    if (memoryIdKey(selectedMemoryId.value) !== memoryIdKey(firstMemory.id)) {
-      mapCardReady.value = false
-    }
-    selectedMemoryId.value = firstMemory.id
-    replaceMemoryQuery(firstMemory.id)
-  }
-  nextTick(syncActiveDayButton)
+  clearMemorySelection()
+  await nextTick()
+  syncActiveDayButton()
+  const pointIds = playbackPointGroupIds.value
+  if (pointIds.length) await memoryMap.value?.fitPointIds(pointIds, 13)
   scheduleOverlayMeasure()
 }
 
-function selectAllDays() {
+async function selectAllDays() {
   endPlaybackSession()
   playbackIndex.value = -1
   activeDate.value = ''
-  cardExpanded.value = false
-  const selected = selectedMemory.value || replayPoints.value[0] || browseOnlyPoints.value[0]
-  if (selected) {
-    mapCardReady.value = false
-    selectedMemoryId.value = selected.id
-    replaceMemoryQuery(selected.id)
-  }
-  nextTick(syncActiveDayButton)
+  clearMemorySelection()
+  await nextTick()
+  syncActiveDayButton()
+  await memoryMap.value?.fitAll()
   scheduleOverlayMeasure()
 }
 
-function fitAllMemories() {
-  pausePlayback({ preserveSession: true })
-  if (selectedMemoryId.value != null) mapCardReady.value = false
-  memoryMap.value?.fitAll()
+async function fitAllMemories(event) {
+  event?.currentTarget?.blur()
+  endPlaybackSession()
+  playbackIndex.value = -1
+  activeDate.value = ''
+  clearMemorySelection()
+  await nextTick()
+  syncActiveDayButton()
+  await memoryMap.value?.fitAll()
+}
+
+async function zoomSelectedMemory(event) {
+  if (!selectedMemory.value) return
+  event?.currentTarget?.blur()
+  playbackFitRequest += 1
+  playbackPreparing.value = false
+  if (isPlaying.value) pausePlayback({ preserveSession: true })
+  await memoryMap.value?.zoomToSelected(15)
 }
 
 function clearPlaybackTimer() {
   if (playbackTimer != null) window.clearTimeout(playbackTimer)
   playbackTimer = null
+  playbackStepRequest += 1
 }
 
 function pausePlayback({ preserveSession = true } = {}) {
@@ -390,45 +571,143 @@ function pausePlayback({ preserveSession = true } = {}) {
 }
 
 function endPlaybackSession() {
+  playbackFitRequest += 1
+  playbackPreparing.value = false
   clearPlaybackTimer()
   replayState.value = 'idle'
   scheduleOverlayMeasure()
 }
 
-function selectPlaybackStation(index) {
+async function selectPlaybackStation(index, { waitForPhoto = false } = {}) {
   const station = playbackStations.value[index]
-  if (!station) return
+  if (!station) return false
+  if (waitForPhoto) await waitForPrimaryPhoto(station)
   playbackIndex.value = index
-  selectMemory(station.id)
+  selectMemory(station.id, { updateRoute: false })
+  preloadPlaybackWindow(index)
+  return true
+}
+
+async function transitionPlaybackStation(index, { requestId = null } = {}) {
+  const station = playbackStations.value[index]
+  if (!station) return false
+  const previousStation = currentPlaybackPoint.value
+  const transitionRequest = ++playbackFitRequest
+  playbackPreparing.value = true
+  preloadPlaybackWindow(index)
+  await waitForPrimaryPhoto(station)
+  if (
+    transitionRequest !== playbackFitRequest
+    || (requestId != null && requestId !== playbackStepRequest)
+  ) {
+    if (transitionRequest === playbackFitRequest) playbackPreparing.value = false
+    return false
+  }
+
+  const distanceMeters = previousStation
+    ? wgs84DistanceMeters(
+      previousStation.latitude,
+      previousStation.longitude,
+      station.latitude,
+      station.longitude,
+    ) || 0
+    : 0
+
+  memoryMap.value?.suspendSelectionPositioning()
+  try {
+    const moved = await memoryMap.value?.transitionToMemory(station.id, {
+      distanceMeters,
+      targetZoom: 14,
+      longDistanceMeters: PLAYBACK_CAMERA_LONG_DISTANCE_METERS,
+    })
+    if (
+      moved === false
+      || transitionRequest !== playbackFitRequest
+      || (requestId != null && requestId !== playbackStepRequest)
+    ) {
+      return false
+    }
+
+    playbackIndex.value = index
+    selectMemory(station.id, { updateRoute: false })
+    await nextTick()
+    mapCardReady.value = true
+    scheduleOverlayMeasure()
+    await nextAnimationFrame()
+    measureMapBottomInset()
+    return true
+  } finally {
+    memoryMap.value?.resumeSelectionPositioning()
+    if (transitionRequest === playbackFitRequest) playbackPreparing.value = false
+  }
 }
 
 function queuePlaybackStep() {
   clearPlaybackTimer()
-  playbackTimer = window.setTimeout(() => {
+  const requestId = playbackStepRequest
+  playbackTimer = window.setTimeout(async () => {
+    playbackTimer = null
+    if (requestId !== playbackStepRequest || replayState.value !== 'playing') return
     const nextIndex = playbackIndex.value + 1
     if (nextIndex >= playbackStations.value.length) {
       replayState.value = 'ended'
-      playbackTimer = null
       scheduleOverlayMeasure()
       return
     }
-    selectPlaybackStation(nextIndex)
+    const moved = await transitionPlaybackStation(nextIndex, { requestId })
+    if (!moved) return
+    if (requestId !== playbackStepRequest || replayState.value !== 'playing') return
     if (nextIndex >= playbackStations.value.length - 1) {
       replayState.value = 'ended'
-      playbackTimer = null
       scheduleOverlayMeasure()
       return
     }
     queuePlaybackStep()
-  }, 1800)
+  }, PLAYBACK_STEP_DURATION)
 }
 
-function startPlayback() {
+function resumePlayback() {
+  if (!canReplayCurrentScope.value || isPlaybackComplete.value) return
+  replayState.value = 'playing'
+  preloadPlaybackWindow(Math.max(0, playbackIndex.value))
+  scheduleOverlayMeasure()
+  queuePlaybackStep()
+}
+
+async function startPlayback({ restart = false } = {}) {
   const stations = playbackStations.value
-  if (stations.length < 2) return
-  const startIndex = playbackIndex.value < 0 || isPlaybackComplete.value ? 0 : playbackIndex.value
+  if (stations.length < 2 || playbackPreparing.value) return
+  if (replayState.value === 'paused' && !restart) {
+    resumePlayback()
+    return
+  }
+  clearPlaybackTimer()
+  const requestId = ++playbackFitRequest
+  playbackPreparing.value = true
   cardExpanded.value = false
-  selectPlaybackStation(startIndex)
+  playbackIndex.value = -1
+  clearMemorySelection({ updateRoute: false })
+  preloadPlaybackWindow(0)
+  const firstPhotoReady = waitForPrimaryPhoto(stations[0])
+  await firstPhotoReady
+  if (requestId !== playbackFitRequest) {
+    playbackPreparing.value = false
+    return
+  }
+
+  memoryMap.value?.suspendSelectionPositioning()
+  try {
+    await selectPlaybackStation(0)
+    await nextTick()
+    await memoryMap.value?.zoomToSelected(14)
+  } finally {
+    memoryMap.value?.resumeSelectionPositioning()
+  }
+  if (requestId !== playbackFitRequest) {
+    playbackPreparing.value = false
+    return
+  }
+  playbackPreparing.value = false
   replayState.value = 'playing'
   scheduleOverlayMeasure()
   queuePlaybackStep()
@@ -436,23 +715,29 @@ function startPlayback() {
 
 function togglePlayback() {
   if (isPlaying.value) pausePlayback()
-  else startPlayback()
+  else if (replayState.value === 'paused') resumePlayback()
+  else startPlayback({ restart: replayState.value === 'ended' })
 }
 
-function previousStation() {
+async function previousStation() {
   pausePlayback({ preserveSession: true })
   if (!playbackStations.value.length) return
-  selectPlaybackStation(Math.max(0, playbackIndex.value - 1))
+  replayState.value = 'paused'
+  const requestId = playbackStepRequest
+  await transitionPlaybackStation(Math.max(0, playbackIndex.value - 1), { requestId })
 }
 
-function nextStation() {
+async function nextStation() {
   pausePlayback({ preserveSession: true })
   if (!playbackStations.value.length) return
+  replayState.value = 'paused'
   const nextIndex = playbackIndex.value < 0 ? 0 : Math.min(playbackStations.value.length - 1, playbackIndex.value + 1)
-  selectPlaybackStation(nextIndex)
+  const requestId = playbackStepRequest
+  await transitionPlaybackStation(nextIndex, { requestId })
 }
 
 function exitPlaybackSession() {
+  playbackPreparing.value = false
   endPlaybackSession()
   nextTick(syncActiveDayButton)
 }
@@ -477,6 +762,47 @@ function normalizedPhotoUrls(memory) {
     .forEach((photo) => add(photo?.photoUrl))
   add(memory?.photoUrl)
   return urls
+}
+
+function preloadPhoto(url) {
+  const normalizedUrl = String(url || '').trim()
+  if (!normalizedUrl) return Promise.resolve(false)
+  if (photoPreloadCache.has(normalizedUrl)) return photoPreloadCache.get(normalizedUrl)
+
+  const request = new Promise((resolve) => {
+    const image = new Image()
+    const finish = (loaded) => {
+      image.onload = null
+      image.onerror = null
+      resolve(loaded)
+    }
+    image.decoding = 'async'
+    image.onload = () => finish(true)
+    image.onerror = () => finish(false)
+    image.src = normalizedUrl
+    if (image.complete) finish(image.naturalWidth > 0)
+  })
+  photoPreloadCache.set(normalizedUrl, request)
+  return request
+}
+
+function waitForPrimaryPhoto(memory) {
+  const primaryUrl = normalizedPhotoUrls(memory)[0]
+  if (!primaryUrl) return Promise.resolve(true)
+  return Promise.race([
+    preloadPhoto(primaryUrl),
+    new Promise(resolve => window.setTimeout(() => resolve(false), PHOTO_READY_WAIT)),
+  ])
+}
+
+function preloadPlaybackWindow(index) {
+  const stations = playbackStations.value
+  const current = stations[index]
+  if (current) normalizedPhotoUrls(current).forEach(preloadPhoto)
+  ;[stations[index + 1], stations[index + 2]].forEach((station) => {
+    const primaryUrl = normalizedPhotoUrls(station)[0]
+    if (primaryUrl) preloadPhoto(primaryUrl)
+  })
 }
 
 function photoCount(memory) {
@@ -512,10 +838,9 @@ async function loadPage() {
 
     await nextTick()
     const requestedMemory = points.value.find((item) => memoryIdKey(item.id) === memoryIdKey(route.query.memoryId))
-    const initialMemory = requestedMemory || replayPoints.value[0] || browseOnlyPoints.value[0] || null
     mapCardReady.value = false
     cardExpanded.value = false
-    selectedMemoryId.value = initialMemory?.id ?? null
+    selectedMemoryId.value = requestedMemory?.id ?? null
     activeDate.value = ''
     await nextTick()
     syncActiveDayButton()
@@ -583,13 +908,22 @@ onBeforeUnmount(() => {
 
     <template v-else-if="!loading && !error && trip">
       <div class="trip-map-summary">
-        <span v-if="replayPoints.length">{{ replayPoints.length }} 段记忆可按时间回放</span>
+        <span v-if="activeDate && activeDayOption">
+          第 {{ activeDayOption.dayNumber }} 天 · {{ formatDate(activeDate) }} ·
+          {{ playbackStations.length }} 个站点
+        </span>
+        <span v-else-if="replayPoints.length >= 2">{{ replayPoints.length }} 段记忆可按时间回放</span>
+        <span v-else-if="replayPoints.length === 1">1 段带时间和地点的记忆显示在地图上</span>
+        <span v-else-if="browseOnlyPoints.length">{{ browseOnlyPoints.length }} 个位置仅供浏览</span>
         <span v-else>已定位到 {{ trip.destination || '目的城市' }}，新增带位置的 Memory 后会显示旅行路线。</span>
-        <span v-if="browseOnlyPoints.length">{{ browseOnlyPoints.length }} 个位置仅供浏览，不参与回放。</span>
+        <span v-if="!activeDate && replayPoints.length && browseOnlyPoints.length">
+          {{ browseOnlyPoints.length }} 个位置仅供浏览，不参与回放。
+        </span>
         <span v-if="memoriesWithoutLocation > 0">
           另有 {{ memoriesWithoutLocation }} 段记忆暂未记录位置。
         </span>
         <span v-if="longRouteBreakCount">长距离行程已保留为路线断点。</span>
+        <span v-if="activeDate && playbackStations.length === 0">这一天没有带位置的记忆。</span>
       </div>
 
       <div
@@ -605,8 +939,8 @@ onBeforeUnmount(() => {
       >
         <MemoryMap
           ref="memoryMap"
-          :points="points"
-          :route-segments="routeSegments"
+          :points="mapPointGroups"
+          :route-segments="groupedRouteSegments"
           :selected-id="selectedMemoryId"
           :active-date="activeDate"
           :playback-index="playbackReplayIndex"
@@ -618,10 +952,29 @@ onBeforeUnmount(() => {
           @select="handleMapSelection"
           @interaction="handleMapInteraction"
           @selection-positioned="revealMemoryCard"
+          @ready="handleMapReady"
         />
 
-        <button type="button" class="trip-map-fit-all" aria-label="恢复完整旅行路线" title="恢复完整旅行路线" @click="fitAllMemories">
+        <button
+          type="button"
+          class="trip-map-fit-all"
+          aria-label="恢复完整旅行路线"
+          title="恢复完整旅行路线"
+          @mousedown.prevent
+          @click="fitAllMemories"
+        >
           <LocateFixed :size="19" :stroke-width="1.8" aria-hidden="true" />
+        </button>
+        <button
+          v-if="selectedMemory"
+          type="button"
+          class="trip-map-zoom-selected"
+          aria-label="放大当前记忆地点"
+          title="放大当前记忆地点"
+          @mousedown.prevent
+          @click="zoomSelectedMemory"
+        >
+          <ZoomIn :size="19" :stroke-width="1.8" aria-hidden="true" />
         </button>
 
         <div
@@ -651,6 +1004,7 @@ onBeforeUnmount(() => {
                   :fallback-url="photoSrc(selectedMemory.photoUrl)"
                   layout="favorite"
                   alt="地图记忆照片"
+                  eager-preview
                 />
               </div>
               <div v-else class="map-memory-summary-photo is-empty" aria-hidden="true">
@@ -687,6 +1041,34 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
+            <div
+              v-if="selectedGroupMemories.length > 1"
+              class="map-memory-group-nav"
+              aria-label="切换同一地点的记忆"
+              @click.stop
+            >
+              <button
+                type="button"
+                aria-label="查看同一地点的上一段记忆"
+                @click="selectGroupedMemory(-1)"
+              >
+                <ChevronLeft :size="16" :stroke-width="1.8" aria-hidden="true" />
+                上一段
+              </button>
+              <span>
+                同一地点 · {{ Math.max(0, selectedGroupMemoryIndex) + 1 }} /
+                {{ selectedGroupMemories.length }}
+              </span>
+              <button
+                type="button"
+                aria-label="查看同一地点的下一段记忆"
+                @click="selectGroupedMemory(1)"
+              >
+                下一段
+                <ChevronRight :size="16" :stroke-width="1.8" aria-hidden="true" />
+              </button>
+            </div>
+
             <div v-if="cardExpanded" class="map-memory-expanded-content">
               <div class="map-memory-facts">
                 <p>
@@ -718,9 +1100,9 @@ onBeforeUnmount(() => {
             aria-live="polite"
           >
             <span>路径回放 · {{ playbackStations.length }} 站</span>
-            <button type="button" @click="startPlayback">
+            <button type="button" :disabled="playbackPreparing" @click="startPlayback">
               <Play :size="14" fill="currentColor" aria-hidden="true" />
-              播放
+              {{ playbackPreparing ? '准备中' : '播放' }}
             </button>
           </div>
 
@@ -728,7 +1110,11 @@ onBeforeUnmount(() => {
             v-else-if="!cardExpanded && !replaySessionActive && playbackStations.length === 1"
             class="map-replay-unavailable"
           >
-            当前日期只有 1 个站点，可浏览但无法回放
+            {{
+              activeDate
+                ? '当前日期只有 1 个站点，可浏览但无法回放'
+                : '至少需要 2 段带时间和地点的记忆才能形成回放路径'
+            }}
           </p>
 
           <section
@@ -771,6 +1157,7 @@ onBeforeUnmount(() => {
 
           <nav
             v-if="!cardExpanded && !replaySessionActive && dayOptions.length"
+            ref="dayNavigationElement"
             class="map-day-navigation"
             aria-label="地图自然日导航"
           >

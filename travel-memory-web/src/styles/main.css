@@ -3462,7 +3462,8 @@ textarea {
   font-weight: 500;
 }
 
-.trip-map-fit-all {
+.trip-map-fit-all,
+.trip-map-zoom-selected {
   position: absolute;
   z-index: 19;
   right: 18px;
@@ -5284,24 +5285,42 @@ textarea {
 
 .memory-map-marker {
   position: relative;
+  display: grid;
+  width: 44px;
+  height: 48px;
+  place-items: end center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+.memory-map-marker::before,
+.memory-map-marker::after {
+  content: none;
+}
+
+.memory-map-marker-visual {
+  position: relative;
   display: flex;
   width: 38px;
   height: 44px;
   align-items: flex-start;
   justify-content: center;
   padding: 8px 0 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: #fff;
   font-size: 12px;
   font-weight: 800;
   line-height: 1;
+  pointer-events: none;
+  transform: scale(var(--memory-map-marker-scale, 1));
   transform-origin: 50% 86%;
+  transition: transform .16s ease;
 }
 
-.memory-map-marker::before {
+.memory-map-marker-visual::before {
   position: absolute;
   z-index: 0;
   top: 2px;
@@ -5316,7 +5335,7 @@ textarea {
   transform: rotate(-45deg);
 }
 
-.memory-map-marker::after {
+.memory-map-marker-visual::after {
   position: absolute;
   right: 8px;
   bottom: 1px;
@@ -5333,12 +5352,33 @@ textarea {
   z-index: 1;
 }
 
-.memory-map-marker.is-selected {
-  box-shadow: none;
-  transform: scale(1.14);
+.memory-map-marker-count {
+  position: absolute;
+  z-index: 3;
+  top: -5px;
+  right: -9px;
+  display: inline-grid;
+  min-width: 23px;
+  height: 19px;
+  place-items: center;
+  padding: 0 5px;
+  border: 2px solid #fffaf4;
+  border-radius: 999px;
+  background: #714631;
+  box-shadow: 0 4px 9px rgba(68, 52, 39, .24);
+  color: #fff;
+  font-family: var(--tm-font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
 }
 
-.memory-map-marker.is-selected::before {
+.memory-map-marker.is-selected {
+  box-shadow: none;
+  transform: none;
+}
+
+.memory-map-marker.is-selected .memory-map-marker-visual::before {
   background: var(--tm-accent-strong);
   box-shadow:
     0 0 0 5px rgba(255, 250, 244, .7),
@@ -5369,16 +5409,16 @@ textarea {
   opacity: .62;
 }
 
-.memory-map-marker.is-browse-only::before {
+.memory-map-marker.is-browse-only .memory-map-marker-visual::before {
   border-color: rgba(255, 253, 249, .92);
   background: #a89789;
 }
 
-.memory-map-marker.is-playback-past:not(.is-selected)::before {
+.memory-map-marker.is-playback-past:not(.is-selected) .memory-map-marker-visual::before {
   background: #aa5938;
 }
 
-.memory-map-marker.is-playback-current::before {
+.memory-map-marker.is-playback-current .memory-map-marker-visual::before {
   background: var(--tm-accent-strong);
   box-shadow:
     0 0 0 5px rgba(255, 250, 244, .78),
@@ -5416,6 +5456,11 @@ textarea {
   color: #fff;
   font: inherit;
   font-weight: 600;
+}
+
+.map-replay-status button:disabled {
+  cursor: wait;
+  opacity: .58;
 }
 
 .map-memory-title {
@@ -5518,14 +5563,14 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  .memory-map-marker {
+  .memory-map-marker-visual {
     width: 36px;
     height: 42px;
     padding-top: 8px;
     font-size: 11px;
   }
 
-  .memory-map-marker::before {
+  .memory-map-marker-visual::before {
     left: 4px;
     width: 28px;
     height: 28px;
@@ -5680,6 +5725,45 @@ textarea {
   display: grid;
   align-self: stretch;
   gap: 2px;
+}
+
+.map-memory-group-nav {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(223, 208, 192, .72);
+  color: #806f63;
+  font-family: var(--tm-font-sans);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.map-memory-group-nav > span {
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-memory-group-nav button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--tm-accent);
+  font: inherit;
+  font-weight: 600;
+}
+
+.map-memory-group-nav button:hover {
+  background: #f4e9df;
 }
 
 .map-memory-close,
@@ -5960,6 +6044,14 @@ textarea {
   height: 42px;
 }
 
+.trip-map-zoom-selected {
+  top: 70px;
+  right: 18px;
+  bottom: auto;
+  width: 42px;
+  height: 42px;
+}
+
 @media (max-width: 900px) and (min-width: 641px) {
   .map-replay-status,
   .map-replay-unavailable,
@@ -6136,6 +6228,12 @@ textarea {
 
   .trip-map-fit-all {
     top: 14px;
+    right: 14px;
+    bottom: auto;
+  }
+
+  .trip-map-zoom-selected {
+    top: 66px;
     right: 14px;
     bottom: auto;
   }

@@ -15,7 +15,7 @@ const props = defineProps({
   fallbackLongitude: { type: [Number, String], default: null },
   fallbackLabel: { type: String, default: '' },
 })
-const emit = defineEmits(['select', 'selection-positioned', 'interaction'])
+const emit = defineEmits(['select', 'selection-positioned', 'interaction', 'ready'])
 
 const mapElement = ref(null)
 const state = ref('idle')
@@ -41,7 +41,18 @@ const fallbackCoordinate = computed(() => {
   return wgs84ToGcj02(props.fallbackLatitude, props.fallbackLongitude)
 })
 const pointSignature = computed(() => displayPoints.value
-  .map((point) => `${point.id}:${point.originalLatitude}:${point.originalLongitude}:${point.sequenceNumber}:${point.mapDate}:${point.isReplayPoint}`).join('|'))
+  .map((point) => [
+    point.id,
+    point.originalLatitude,
+    point.originalLongitude,
+    point.sequenceNumber,
+    point.mapDate,
+    point.isReplayPoint,
+    point.memberCount,
+    (point.memberIds || []).join(','),
+    (point.replayIndexes || []).join(','),
+    (point.mapDates || []).join(','),
+  ].join(':')).join('|'))
 const mapSignature = computed(() => `${pointSignature.value}|${fallbackCoordinate.value?.latitude || ''}:${fallbackCoordinate.value?.longitude || ''}`)
 const routeSignature = computed(() => props.routeSegments
   .map((segment) => `${segment.fromId}:${segment.toId}:${segment.fromReplayIndex}:${segment.toReplayIndex}:${segment.fromDate}:${segment.toDate}`).join('|'))
@@ -54,8 +65,14 @@ let selectionPlacementTimer = null
 let fitPlacementTimer = null
 let selectionPanId = ''
 let positionSelectedAfterFit = false
+let initialRenderTimer = null
+let initialRenderFrame = null
+let initialRenderHandler = null
 let destroyed = false
 let destinationMarker = null
+let programmaticMove = false
+let programmaticMoveTimer = null
+let selectionPositioningSuspendCount = 0
 const markers = new Map()
 const OVERLAP_DISTANCE = 42
 
@@ -63,18 +80,114 @@ function idKey(value) {
   return value == null ? '' : String(value)
 }
 
+function pointContainsMemory(point, memoryId) {
+  const selectedKey = idKey(memoryId)
+  if (!selectedKey) return false
+  return idKey(point.id) === selectedKey
+    || (point.memberIds || []).some(memberId => idKey(memberId) === selectedKey)
+}
+
+function markerForMemory(memoryId) {
+  return [...markers.values()].find(({ point }) => pointContainsMemory(point, memoryId)) || null
+}
+
+function beginProgrammaticMove(timeout = 1200) {
+  programmaticMove = true
+  if (programmaticMoveTimer != null) window.clearTimeout(programmaticMoveTimer)
+  programmaticMoveTimer = window.setTimeout(() => {
+    programmaticMove = false
+    programmaticMoveTimer = null
+  }, timeout)
+}
+
+function finishProgrammaticMove() {
+  if (programmaticMoveTimer != null) window.clearTimeout(programmaticMoveTimer)
+  programmaticMoveTimer = null
+  programmaticMove = false
+}
+
+function suspendSelectionPositioning() {
+  selectionPositioningSuspendCount += 1
+}
+
+function resumeSelectionPositioning({ position = false } = {}) {
+  selectionPositioningSuspendCount = Math.max(0, selectionPositioningSuspendCount - 1)
+  if (position && selectionPositioningSuspendCount === 0) positionSelected()
+}
+
+function emitUserInteraction(event) {
+  if (!programmaticMove || event?.originEvent) emit('interaction')
+}
+
 function markerLabel(point) {
   const excerpt = String(point.content || '').trim().replace(/\s+/g, ' ').slice(0, 24)
   const label = point.locationName || excerpt || '旅行记忆'
+  const countLabel = Number(point.memberCount) > 1 ? `，共 ${point.memberCount} 段记忆` : ''
   return point.isReplayPoint
-    ? `第 ${point.sequenceNumber || '?'} 站，${label}`
-    : `未纳入路径回放的位置，${label}`
+    ? `第 ${point.sequenceNumber || '?'} 站，${label}${countLabel}`
+    : `未纳入路径回放的位置，${label}${countLabel}`
+}
+
+function markerScaleForZoom() {
+  const zoom = Number(map?.getZoom?.())
+  if (!Number.isFinite(zoom)) return 1
+  if (zoom <= 6) return 0.68
+  if (zoom >= 12) return 1
+  return 0.68 + ((zoom - 6) / 6) * 0.32
+}
+
+function updateMarkerScale(element, selected) {
+  const visual = element.querySelector('.memory-map-marker-visual')
+  if (!visual) return
+  const selectionBoost = selected ? 1.12 : 1
+  const scale = Math.min(1.12, markerScaleForZoom() * selectionBoost)
+  visual.style.setProperty('--memory-map-marker-scale', scale.toFixed(3))
+}
+
+function updateMarkerScales() {
+  markers.forEach(({ element, point }) => {
+    updateMarkerScale(element, pointContainsMemory(point, props.selectedId))
+  })
 }
 
 function applyMarkerState(element, point, selected) {
   const isReplayPoint = point.isReplayPoint !== false
-  const isCurrentStation = isReplayPoint && props.playbackIndex >= 0 && point.replayIndex === props.playbackIndex
-  const isPastStation = isReplayPoint && props.playbackIndex >= 0 && point.replayIndex < props.playbackIndex
+  const replayIndexes = Array.isArray(point.replayIndexes)
+    ? point.replayIndexes
+    : [point.replayIndex].filter(index => index != null)
+  const mapDates = Array.isArray(point.mapDates)
+    ? point.mapDates
+    : [point.mapDate].filter(Boolean)
+  const isCurrentStation = isReplayPoint
+    && props.playbackIndex >= 0
+    && replayIndexes.includes(props.playbackIndex)
+  const isPastStation = isReplayPoint
+    && props.playbackIndex >= 0
+    && replayIndexes.length > 0
+    && replayIndexes.every(index => index < props.playbackIndex)
+  const selectedMember = (point.members || []).find(
+    member => idKey(member.id) === idKey(props.selectedId),
+  )
+  const displayedSequence = isCurrentStation
+    ? props.playbackIndex + 1
+    : selected && selectedMember?.sequenceNumber
+      ? selectedMember.sequenceNumber
+      : point.sequenceNumber
+  const number = element.querySelector('.memory-map-marker-number')
+  if (number) {
+    number.textContent = Number.isInteger(Number(displayedSequence))
+      ? String(displayedSequence)
+      : '•'
+  }
+  const activeMembers = props.activeDate
+    ? (point.members || []).filter(member => member.mapDate === props.activeDate)
+    : point.members || []
+  const visibleMemberCount = activeMembers.length || Number(point.memberCount) || 1
+  const count = element.querySelector('.memory-map-marker-count')
+  if (count) {
+    count.textContent = `×${visibleMemberCount}`
+    count.hidden = visibleMemberCount <= 1
+  }
   element.classList.toggle('is-selected', selected)
   element.classList.toggle('is-replay-point', isReplayPoint)
   element.classList.toggle('is-browse-only', !isReplayPoint)
@@ -82,18 +195,33 @@ function applyMarkerState(element, point, selected) {
   element.classList.toggle('is-playback-past', isPastStation)
   element.classList.toggle(
     'is-day-muted',
-    Boolean(props.activeDate && (!isReplayPoint || point.mapDate !== props.activeDate)),
+    Boolean(props.activeDate && (!isReplayPoint || !mapDates.includes(props.activeDate))),
   )
+  updateMarkerScale(element, selected)
+}
+
+function pointVisibleInScope(point) {
+  if (!props.activeDate) return true
+  return point.isReplayPoint !== false
 }
 
 function markerElement(point, selected) {
   const element = document.createElement('button')
   element.type = 'button'
   element.className = 'memory-map-marker'
+  const visual = document.createElement('span')
+  visual.className = 'memory-map-marker-visual'
   const number = document.createElement('span')
   number.className = 'memory-map-marker-number'
   number.textContent = Number.isInteger(Number(point.sequenceNumber)) ? String(point.sequenceNumber) : '•'
-  element.appendChild(number)
+  visual.appendChild(number)
+  if (Number(point.memberCount) > 1) {
+    const count = document.createElement('span')
+    count.className = 'memory-map-marker-count'
+    count.textContent = `×${point.memberCount}`
+    visual.appendChild(count)
+  }
+  element.appendChild(visual)
   applyMarkerState(element, point, selected)
   element.setAttribute('aria-label', markerLabel(point))
   element.title = markerLabel(point)
@@ -195,17 +323,21 @@ function scheduleRouteOverlayUpdate() {
 function spreadOverlappingMarkers() {
   if (!map || !AMap || markers.size < 2) return
 
-  const entries = [...markers.values()].map((entry) => ({
-    ...entry,
-    anchor: map.lngLatToContainer([entry.point.longitude, entry.point.latitude]),
-  }))
+  const markerScale = markerScaleForZoom()
+  const overlapDistance = OVERLAP_DISTANCE * markerScale
+  const entries = [...markers.values()]
+    .filter(entry => entry.visible !== false)
+    .map((entry) => ({
+      ...entry,
+      anchor: map.lngLatToContainer([entry.point.longitude, entry.point.latitude]),
+    }))
   const groups = []
 
   entries.forEach((entry) => {
     const group = groups.find((candidate) => candidate.some((item) => {
       const deltaX = item.anchor.x - entry.anchor.x
       const deltaY = item.anchor.y - entry.anchor.y
-      return Math.hypot(deltaX, deltaY) < OVERLAP_DISTANCE
+      return Math.hypot(deltaX, deltaY) < overlapDistance
     }))
     if (group) group.push(entry)
     else groups.push([entry])
@@ -219,7 +351,7 @@ function spreadOverlappingMarkers() {
         return
       }
       const angle = -Math.PI / 2 + (Math.PI * 2 * index) / group.length
-      const radius = group.length <= 3 ? 24 : 30
+      const radius = (group.length <= 3 ? 24 : 30) * markerScale
       const visualDelta = {
         x: Math.round(Math.cos(angle) * radius),
         y: Math.round(Math.sin(angle) * radius),
@@ -235,39 +367,100 @@ function spreadOverlappingMarkers() {
 }
 
 function updateMarkerSelection() {
-  const selectedKey = idKey(props.selectedId)
-  markers.forEach(({ element, marker, point }) => {
-    const selected = idKey(point.id) === selectedKey
+  markers.forEach((entry) => {
+    const { element, marker, point } = entry
+    const selected = pointContainsMemory(point, props.selectedId)
+    const visible = pointVisibleInScope(point)
+    entry.visible = visible
+    if (visible) marker.show?.()
+    else marker.hide?.()
     applyMarkerState(element, point, selected)
     marker.setzIndex?.(selected ? 140 : point.isReplayPoint === false ? 50 : 80)
   })
+  spreadOverlappingMarkers()
 }
 
-function stagePadding() {
+function stagePadding(extra = 0) {
   const mobile = window.matchMedia('(max-width: 640px)').matches
-  const bottom = Math.max(90, Number(props.bottomInset) || 132)
-  if (mobile) return [42, 28, bottom, 28]
+  const mapHeight = mapElement.value?.getBoundingClientRect().height || 0
+  const minimumVisibleMapHeight = mobile ? 140 : 180
+  const maximumBottom = mapHeight > 0
+    ? Math.max(90, mapHeight - minimumVisibleMapHeight)
+    : Number.POSITIVE_INFINITY
+  const bottom = Math.min(
+    Math.max(90, Number(props.bottomInset) || 132),
+    maximumBottom,
+  )
+  if (mobile) return [42 + extra, 28 + extra, bottom + extra, 28 + extra]
   return props.selectedId == null
-    ? [48, 54, Math.max(112, bottom), 54]
-    : [48, 54, Math.max(112, bottom), 342]
+    ? [48 + extra, 54 + extra, Math.max(112, bottom) + extra, 54 + extra]
+    : [48 + extra, 54 + extra, Math.max(112, bottom) + extra, 342 + extra]
 }
 
-function fitEntries(entries, maxZoom = 13) {
-  if (!map || entries.length === 0) return
+function panMapContentBy(deltaX, deltaY, duration = 0) {
+  if (!map || !AMap || !mapElement.value) return
+  const mapRect = mapElement.value.getBoundingClientRect()
+  const targetCenter = map.containerToLngLat(new AMap.Pixel(
+    mapRect.width / 2 - deltaX,
+    mapRect.height / 2 - deltaY,
+  ))
+  map.panTo(targetCenter, duration)
+}
+
+function runProgrammaticViewChange(action, timeout = 900) {
+  if (!map) return Promise.resolve(false)
+  beginProgrammaticMove(timeout + 300)
+  return new Promise((resolve) => {
+    let settled = false
+    let timer = null
+    const finish = () => {
+      if (settled) return
+      settled = true
+      if (timer != null) window.clearTimeout(timer)
+      map?.off?.('moveend', finish)
+      finishProgrammaticMove()
+      resolve(true)
+    }
+    map.on?.('moveend', finish)
+    timer = window.setTimeout(finish, timeout)
+    try {
+      action()
+    } catch (error) {
+      finish()
+      throw error
+    }
+  })
+}
+
+async function fitEntries(entries, maxZoom = 13, { focusSelection = false } = {}) {
+  if (!map || entries.length === 0) return false
   try {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    map.setFitView(entries.map((entry) => entry.marker), reduceMotion, stagePadding(), maxZoom)
-    if (props.selectedId != null) {
-      positionSelectedAfterFit = true
-      if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
-      fitPlacementTimer = window.setTimeout(() => {
-        if (!positionSelectedAfterFit) return
-        positionSelectedAfterFit = false
-        positionSelected()
-      }, reduceMotion ? 40 : 420)
+    if (entries.length === 1) {
+      const point = entries[0].point
+      await runProgrammaticViewChange(() => {
+        map.setZoomAndCenter(
+          Math.min(13, maxZoom),
+          [point.longitude, point.latitude],
+          reduceMotion,
+          reduceMotion ? 0 : 260,
+        )
+      }, reduceMotion ? 100 : 720)
+    } else {
+      await runProgrammaticViewChange(() => {
+        map.setFitView(
+          entries.map((entry) => entry.marker),
+          reduceMotion,
+          stagePadding(OVERLAP_DISTANCE),
+          maxZoom,
+        )
+      }, reduceMotion ? 100 : 900)
     }
+    if (focusSelection && props.selectedId != null) positionSelected()
+    return true
   } catch (error) {
     console.error('Failed to fit map markers.', error)
+    return false
   }
 }
 
@@ -275,19 +468,23 @@ function finishSelectedPlacement(expectedId) {
   if (selectionPlacementTimer != null) window.clearTimeout(selectionPlacementTimer)
   selectionPlacementTimer = null
   selectionPanId = ''
+  finishProgrammaticMove()
+  if (positionSelectedAfterFit && expectedId === idKey(props.selectedId)) {
+    positionSelectedAfterFit = false
+    window.requestAnimationFrame(positionSelected)
+    return
+  }
   if (expectedId && expectedId === idKey(props.selectedId)) {
     emit('selection-positioned', props.selectedId)
   }
 }
 
-function positionSelected() {
-  const selected = markers.get(idKey(props.selectedId))
-  if (!map || !selected || !mapElement.value) return
-
+function markerPlacement(entry) {
+  if (!map || !entry || !mapElement.value) return null
   const mapRect = mapElement.value.getBoundingClientRect()
-  const current = map.lngLatToContainer([selected.point.longitude, selected.point.latitude])
-  const currentX = current.x + (selected.visualDelta?.x || 0)
-  const currentY = current.y + (selected.visualDelta?.y || 0)
+  const current = map.lngLatToContainer([entry.point.longitude, entry.point.latitude])
+  const currentX = current.x + (entry.visualDelta?.x || 0)
+  const currentY = current.y + (entry.visualDelta?.y || 0)
   const mobile = mapRect.width <= 640
   const topSafe = mobile ? 58 : 72
   const minimumVisibleMapHeight = mobile ? 140 : 180
@@ -300,9 +497,34 @@ function positionSelected() {
   const targetY = mobile
     ? Math.max(topSafe, Math.min(availableBottom - 24, availableBottom * 0.45))
     : Math.max(topSafe, Math.min(availableBottom - 28, availableBottom * 0.5))
-  const deltaX = targetX - currentX
-  const deltaY = targetY - currentY
+  const horizontalSafe = mobile ? 30 : 46
+  const verticalSafe = mobile ? 26 : 34
+  return {
+    currentX,
+    currentY,
+    targetX,
+    targetY,
+    deltaX: targetX - currentX,
+    deltaY: targetY - currentY,
+    insideSafeViewport: currentX >= horizontalSafe
+      && currentX <= mapRect.width - horizontalSafe
+      && currentY >= topSafe
+      && currentY <= availableBottom - verticalSafe,
+  }
+}
+
+function positionSelected() {
+  if (selectionPositioningSuspendCount > 0) return
+  const selected = markerForMemory(props.selectedId)
+  const placement = markerPlacement(selected)
+  if (!placement) return
+
+  const { deltaX, deltaY } = placement
   const expectedId = idKey(props.selectedId)
+  if (selectionPanId === expectedId) {
+    positionSelectedAfterFit = true
+    return
+  }
   positionSelectedAfterFit = false
   if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
   fitPlacementTimer = null
@@ -312,11 +534,15 @@ function positionSelected() {
   }
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const playbackTransition = Number(props.playbackIndex) >= 0
+  const panDuration = reduceMotion ? 0 : playbackTransition ? 680 : 260
+  const placementDelay = reduceMotion ? 40 : playbackTransition ? 760 : 340
   selectionPanId = expectedId
-  map.panBy(deltaX, deltaY, reduceMotion ? 0 : 180)
+  beginProgrammaticMove(placementDelay + 280)
+  panMapContentBy(deltaX, deltaY, panDuration)
   selectionPlacementTimer = window.setTimeout(
     () => finishSelectedPlacement(expectedId),
-    reduceMotion ? 40 : 260,
+    placementDelay,
   )
   scheduleRouteOverlayUpdate()
 }
@@ -325,12 +551,163 @@ function focusSelected() {
   positionSelected()
 }
 
+function overviewZoomForDistance(distanceMeters, currentZoom) {
+  const distance = Number(distanceMeters) || 0
+  let suggestedZoom = 10
+  if (distance >= 1_500_000) suggestedZoom = 4
+  else if (distance >= 700_000) suggestedZoom = 5
+  else if (distance >= 300_000) suggestedZoom = 6
+  else if (distance >= 120_000) suggestedZoom = 7
+  else if (distance >= 50_000) suggestedZoom = 8
+  else if (distance >= 20_000) suggestedZoom = 9
+  return Math.max(4, Math.min(suggestedZoom, Math.max(4, currentZoom - 2)))
+}
+
+async function positionEntryForCamera(entry, duration = 220) {
+  const placement = markerPlacement(entry)
+  if (!placement) return false
+  if (Math.abs(placement.deltaX) < 4 && Math.abs(placement.deltaY) < 4) return true
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  await runProgrammaticViewChange(() => {
+    panMapContentBy(
+      placement.deltaX,
+      placement.deltaY,
+      reduceMotion ? 0 : duration,
+    )
+  }, reduceMotion ? 80 : duration + 80)
+  return true
+}
+
+async function transitionToMemory(
+  memoryId,
+  {
+    distanceMeters = 0,
+    targetZoom = 14,
+    longDistanceMeters = 50_000,
+  } = {},
+) {
+  const target = markerForMemory(memoryId)
+  if (!map || !target) return false
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const currentZoom = Number(map.getZoom?.()) || 10
+  const nextZoom = Math.min(16, Math.max(11, Number(targetZoom) || 14))
+  const placement = markerPlacement(target)
+  const requiresOverview = Number(distanceMeters) >= Number(longDistanceMeters)
+    || !placement?.insideSafeViewport
+
+  if (selectionPlacementTimer != null) window.clearTimeout(selectionPlacementTimer)
+  if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
+  selectionPlacementTimer = null
+  fitPlacementTimer = null
+  selectionPanId = ''
+  positionSelectedAfterFit = false
+  finishProgrammaticMove()
+  map.stopMove?.()
+
+  if (reduceMotion) {
+    await runProgrammaticViewChange(() => {
+      map.setZoomAndCenter(
+        nextZoom,
+        [target.point.longitude, target.point.latitude],
+        true,
+        0,
+      )
+    }, 100)
+    await positionEntryForCamera(target, 0)
+    scheduleRouteOverlayUpdate()
+    return true
+  }
+
+  if (!requiresOverview) {
+    await positionEntryForCamera(target, 520)
+    scheduleRouteOverlayUpdate()
+    return true
+  }
+
+  const overviewZoom = overviewZoomForDistance(distanceMeters, currentZoom)
+  if (currentZoom > overviewZoom + 0.25) {
+    const currentCenter = map.getCenter?.()
+    await runProgrammaticViewChange(() => {
+      map.setZoomAndCenter(overviewZoom, currentCenter, false, 220)
+    }, 255)
+  }
+
+  await runProgrammaticViewChange(() => {
+    map.panTo(
+      [target.point.longitude, target.point.latitude],
+      320,
+    )
+  }, 355)
+
+  await runProgrammaticViewChange(() => {
+    map.setZoomAndCenter(
+      nextZoom,
+      [target.point.longitude, target.point.latitude],
+      false,
+      260,
+    )
+  }, 295)
+
+  spreadOverlappingMarkers()
+  await positionEntryForCamera(target, 100)
+  scheduleRouteOverlayUpdate()
+  return true
+}
+
+async function zoomToSelected(targetZoom = 15) {
+  const selected = markerForMemory(props.selectedId)
+  if (!map || !selected) return false
+
+  const currentZoom = Number(map.getZoom?.()) || 10
+  const nextZoom = Math.min(18, Math.max(currentZoom + 2, Number(targetZoom) || 15))
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (selectionPlacementTimer != null) window.clearTimeout(selectionPlacementTimer)
+  if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
+  selectionPlacementTimer = null
+  fitPlacementTimer = null
+  selectionPanId = ''
+  positionSelectedAfterFit = false
+  finishProgrammaticMove()
+  map.stopMove?.()
+
+  suspendSelectionPositioning()
+  try {
+    await runProgrammaticViewChange(() => {
+      map.setZoomAndCenter(
+        nextZoom,
+        [selected.point.longitude, selected.point.latitude],
+        reduceMotion,
+        reduceMotion ? 0 : 320,
+      )
+    }, reduceMotion ? 100 : 820)
+  } finally {
+    resumeSelectionPositioning()
+  }
+  scheduleRouteOverlayUpdate()
+  emit('selection-positioned', props.selectedId)
+  return true
+}
+
 function fitAll() {
   if (markers.size) {
-    fitEntries([...markers.values()], 12)
+    const allEntries = [...markers.values()]
+    const replayEntries = allEntries.filter(entry => entry.point.isReplayPoint !== false)
+    return fitEntries(replayEntries.length ? replayEntries : allEntries, 13)
   } else if (map && fallbackCoordinate.value) {
-    map.setZoomAndCenter(10, [fallbackCoordinate.value.longitude, fallbackCoordinate.value.latitude])
+    return runProgrammaticViewChange(() => {
+      map.setZoomAndCenter(10, [fallbackCoordinate.value.longitude, fallbackCoordinate.value.latitude])
+    }, 720)
   }
+  return Promise.resolve(false)
+}
+
+function fitPointIds(pointIds, maxZoom = 13) {
+  const requestedIds = new Set((pointIds || []).map(idKey).filter(Boolean))
+  const entries = [...markers.entries()]
+    .filter(([pointId]) => requestedIds.has(pointId))
+    .map(([, entry]) => entry)
+  return fitEntries(entries, maxZoom)
 }
 
 function renderMarkers(shouldFit = false) {
@@ -339,7 +716,7 @@ function renderMarkers(shouldFit = false) {
   clearMarkers()
   displayPoints.value.forEach((point) => {
     try {
-      const selected = idKey(point.id) === idKey(props.selectedId)
+      const selected = pointContainsMemory(point, props.selectedId)
       const element = markerElement(point, selected)
       const marker = new AMap.Marker({
         position: [point.longitude, point.latitude],
@@ -349,7 +726,15 @@ function renderMarkers(shouldFit = false) {
         zIndex: selected ? 140 : point.isReplayPoint === false ? 50 : 80,
       })
       marker.setMap(map)
-      markers.set(idKey(point.id), { marker, point, element, visualDelta: { x: 0, y: 0 } })
+      const visible = pointVisibleInScope(point)
+      if (!visible) marker.hide?.()
+      markers.set(idKey(point.id), {
+        marker,
+        point,
+        element,
+        visible,
+        visualDelta: { x: 0, y: 0 },
+      })
     } catch (error) {
       console.error('Failed to create an AMap marker.', error)
     }
@@ -359,7 +744,17 @@ function renderMarkers(shouldFit = false) {
   if (shouldFit) fitAll()
 }
 
+function cancelInitialRender() {
+  if (initialRenderTimer != null) window.clearTimeout(initialRenderTimer)
+  if (initialRenderFrame != null) window.cancelAnimationFrame(initialRenderFrame)
+  if (map && initialRenderHandler) map.off?.('complete', initialRenderHandler)
+  initialRenderTimer = null
+  initialRenderFrame = null
+  initialRenderHandler = null
+}
+
 function cleanUpMap() {
+  cancelInitialRender()
   if (routeAnimationFrame != null) window.cancelAnimationFrame(routeAnimationFrame)
   if (selectionPlacementTimer != null) window.clearTimeout(selectionPlacementTimer)
   if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
@@ -368,6 +763,7 @@ function cleanUpMap() {
   fitPlacementTimer = null
   selectionPanId = ''
   positionSelectedAfterFit = false
+  finishProgrammaticMove()
   resizeObserver?.disconnect()
   resizeObserver = null
   clearRouteLines()
@@ -429,10 +825,13 @@ async function initializeMap() {
       updateRouteOverlay()
     })
     resizeObserver.observe(mapElement.value)
-    map.on('zoomend', spreadOverlappingMarkers)
-    map.on('dragstart', () => emit('interaction'))
-    map.on('zoomstart', () => emit('interaction'))
-    map.on('click', () => emit('interaction'))
+    map.on('zoomend', () => {
+      updateMarkerScales()
+      spreadOverlappingMarkers()
+    })
+    map.on('dragstart', emitUserInteraction)
+    map.on('zoomstart', emitUserInteraction)
+    map.on('click', emitUserInteraction)
     map.on('moveend', () => {
       spreadOverlappingMarkers()
       if (selectionPanId) {
@@ -445,10 +844,42 @@ async function initializeMap() {
       }
     })
     map.on('mapmove', scheduleRouteOverlayUpdate)
-    map.on('zoomchange', scheduleRouteOverlayUpdate)
-    renderMarkers(!props.focusSelectedOnReady)
-    if (props.focusSelectedOnReady) focusSelected()
-    state.value = 'ready'
+    map.on('zoomchange', () => {
+      updateMarkerScales()
+      scheduleRouteOverlayUpdate()
+    })
+
+    const initializedMap = map
+    let initialRenderComplete = false
+    const finishInitialRender = () => {
+      if (initialRenderComplete || destroyed || map !== initializedMap) return
+      initialRenderComplete = true
+      if (initialRenderTimer != null) window.clearTimeout(initialRenderTimer)
+      initialRenderTimer = null
+      initializedMap.off?.('complete', finishInitialRender)
+      initialRenderHandler = null
+      initializedMap.resize()
+      initialRenderFrame = window.requestAnimationFrame(() => {
+        initialRenderFrame = null
+        if (destroyed || map !== initializedMap) return
+        renderMarkers(false)
+        if (props.focusSelectedOnReady) {
+          const selected = markerForMemory(props.selectedId)
+          if (selected) {
+            fitEntries([selected], 13).then(focusSelected)
+          } else {
+            fitAll()
+          }
+        }
+        scheduleRouteOverlayUpdate()
+        state.value = 'ready'
+        emit('ready')
+      })
+    }
+    initialRenderHandler = finishInitialRender
+    initializedMap.on('complete', finishInitialRender)
+    // Some cached AMap loads do not emit `complete` again. Keep a bounded fallback.
+    initialRenderTimer = window.setTimeout(finishInitialRender, 1200)
   } catch (error) {
     cleanUpMap()
     console.error('Failed to load AMap JS API.', error)
@@ -489,7 +920,7 @@ watch(() => props.playbackIndex, () => {
 watch(() => props.bottomInset, () => {
   if (!map) return
   window.requestAnimationFrame(() => {
-    if (props.selectedId != null) positionSelected()
+    if (props.selectedId != null && selectionPositioningSuspendCount === 0) positionSelected()
     scheduleRouteOverlayUpdate()
   })
 })
@@ -500,7 +931,15 @@ onBeforeUnmount(() => {
   cleanUpMap()
 })
 
-defineExpose({ focusSelected, fitAll })
+defineExpose({
+  focusSelected,
+  fitAll,
+  fitPointIds,
+  transitionToMemory,
+  zoomToSelected,
+  suspendSelectionPositioning,
+  resumeSelectionPositioning,
+})
 </script>
 
 <template>

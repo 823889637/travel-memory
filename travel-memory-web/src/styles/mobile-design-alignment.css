@@ -317,12 +317,12 @@
   }
 
   body .journey-record-day-section {
-    gap: 18px;
-    padding: 16px 14px;
-    border-color: var(--tm-design-line);
+    gap: 22px;
+    padding: 18px 10px 22px;
+    border-color: rgba(224, 207, 191, .52);
     border-radius: 20px;
-    background: rgba(255, 254, 251, .84);
-    box-shadow: var(--tm-design-shadow);
+    background: rgba(255, 254, 251, .88);
+    box-shadow: 0 9px 24px rgba(72, 50, 36, .05);
   }
 
   body .journey-record-day-header {
@@ -346,7 +346,7 @@
   body .journey-memory-section,
   body .journey-memory-section.is-text-only {
     gap: 16px;
-    padding-bottom: 22px;
+    padding: 4px 0 28px;
   }
 
   body .journey-memory-copy-panel,
@@ -390,6 +390,107 @@
   body .journey-memory-photos .gallery-main,
   body .journey-memory-photos img {
     border-radius: 14px;
+  }
+
+  body .journey-memory-section.is-multi-photo {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  body .journey-memory-section.is-multi-photo .journey-memory-copy-panel,
+  body .journey-memory-section.is-multi-photo .journey-memory-photos {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body .journey-memory-section.is-multi-photo .journey-memory-photos {
+    padding-inline: 2px;
+  }
+
+  /*
+   * Journey previews stay deliberately quiet: every photo Memory uses one
+   * stable two-column reading frame. A mixed landscape/portrait set may add
+   * one supporting landscape below the copy; all other photos remain in the
+   * full-screen gallery.
+   */
+  body .journey-memory-section.has-right-photo-layout {
+    grid-template-columns: minmax(0, 42%) minmax(0, 58%);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    column-gap: 14px;
+    row-gap: 14px;
+    align-items: stretch;
+    align-content: start;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .journey-memory-copy-panel {
+    grid-column: 1;
+    grid-row: 1;
+    align-content: start;
+    gap: 10px;
+    padding: 7px 0 8px 14px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .journey-memory-location,
+  body .journey-memory-section.has-right-photo-layout .journey-memory-detail-link,
+  body .journey-memory-section.has-right-photo-layout .journey-memory-companions {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .journey-memory-photos,
+  body .journey-memory-section.has-right-photo-layout .gallery-layout-journey,
+  body .journey-memory-section.has-right-photo-layout .gallery-journey-single-preview,
+  body .journey-memory-section.has-editorial-photo-layout .gallery-journey-editorial-preview {
+    display: contents;
+  }
+
+  body .journey-memory-section.has-editorial-photo-layout .gallery-journey-supporting-landscape {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: end;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    border-radius: 13px;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .gallery-journey-right-stack,
+  body .journey-memory-section.has-right-photo-layout .gallery-journey-single-preview.is-resolving > .gallery-journey-right-main {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: stretch;
+    width: 100%;
+    height: 100%;
+    min-height: clamp(340px, 94vw, 380px);
+    border-radius: 15px;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .gallery-journey-right-stack {
+    position: relative;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .gallery-journey-right-main {
+    width: 100%;
+    height: 100%;
+    min-height: clamp(340px, 94vw, 380px);
+    border-radius: 15px;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .gallery-total-count {
+    right: 8px;
+    bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(35, 29, 24, .68);
+    font-size: 11px;
   }
 
   body .journey-next-memory {
@@ -1024,6 +1125,40 @@
   }
 }
 
+@media (max-width: 370px) {
+  body .journey-memory-section.has-right-photo-layout {
+    grid-template-columns: minmax(0, 44%) minmax(0, 56%);
+    column-gap: 12px;
+    row-gap: 13px;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .journey-memory-copy-panel {
+    padding-left: 12px;
+  }
+
+  body .journey-memory-section.has-right-photo-layout .gallery-journey-right-stack,
+  body .journey-memory-section.has-right-photo-layout .gallery-journey-right-main,
+  body .journey-memory-section.has-right-photo-layout .gallery-journey-single-preview.is-resolving > .gallery-journey-right-main {
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* The map summary owns the preview dimensions; the nested gallery must fill it. */
+  body .map-memory-summary-photo > .gallery-layout-favorite,
+  body .map-memory-summary-photo .gallery-favorite-preview,
+  body .map-memory-summary-photo .gallery-favorite-preview img {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  body .map-memory-summary-photo .gallery-favorite-preview img {
+    object-fit: cover;
+  }
+
+}
+
 @media (max-width: 760px) {
   /* Keep compact controls visually light while giving touch interactions a reliable target. */
   body .user-trigger {
@@ -1037,7 +1172,8 @@
   }
 
   body .map-memory-close,
-  body .trip-map-fit-all {
+  body .trip-map-fit-all,
+  body .trip-map-zoom-selected {
     width: 44px;
     height: 44px;
   }
@@ -1200,6 +1336,12 @@
 
   body .trip-map-fit-all {
     top: 14px;
+    right: 14px;
+    bottom: auto;
+  }
+
+  body .trip-map-zoom-selected {
+    top: 68px;
     right: 14px;
     bottom: auto;
   }

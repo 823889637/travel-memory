@@ -22,6 +22,7 @@ const memories = ref([])
 const loading = ref(false)
 const error = ref('')
 const activeDate = ref('')
+const journeyPhotoLayouts = ref({})
 const dayButtonElements = new Map()
 
 const dayGroups = computed(() => {
@@ -114,6 +115,26 @@ function hasPhotos(memory) {
   return memoryPhotos(memory).some(photo => photo?.photoUrl)
 }
 
+function memoryPhotoCount(memory) {
+  return new Set(
+    memoryPhotos(memory)
+      .map(photo => String(photo?.photoUrl || '').trim())
+      .filter(Boolean),
+  ).size
+}
+
+function setJourneyPhotoLayout(memoryId, layout) {
+  if (memoryId == null || !layout) return
+  journeyPhotoLayouts.value = {
+    ...journeyPhotoLayouts.value,
+    [memoryId]: layout,
+  }
+}
+
+function hasEditorialPhotoLayout(memory) {
+  return journeyPhotoLayouts.value[memory?.id]?.variant === 'editorial-landscape-support'
+}
+
 function setDayButtonRef(date, element) {
   if (element) dayButtonElements.set(date, element)
   else dayButtonElements.delete(date)
@@ -139,6 +160,7 @@ function syncActiveDayButton() {
 async function loadPage() {
   loading.value = true
   error.value = ''
+  journeyPhotoLayouts.value = {}
   try {
     const [tripData, timelineData] = await Promise.all([
       getTrip(props.id),
@@ -210,7 +232,17 @@ onMounted(loadPage)
 
           <div class="journey-memory-flow">
             <template v-for="(memory, memoryIndex) in group.memories" :key="memory.id">
-              <article :class="['journey-memory-section', { 'is-text-only': !hasPhotos(memory) }]">
+              <article
+                :class="[
+                  'journey-memory-section',
+                  {
+                    'is-text-only': !hasPhotos(memory),
+                    'is-multi-photo': memoryPhotoCount(memory) > 1,
+                    'has-right-photo-layout': hasPhotos(memory),
+                    'has-editorial-photo-layout': hasEditorialPhotoLayout(memory),
+                  },
+                ]"
+              >
                 <div class="journey-memory-copy-panel">
                   <p class="journey-memory-station">第 {{ memoryIndex + 1 }} 站</p>
                   <RouterLink
@@ -243,6 +275,7 @@ onMounted(loadPage)
                     layout="journey"
                     count-label="张照片"
                     :alt="`${memory.locationName || '旅途中'}的记忆照片`"
+                    @journey-layout-change="layout => setJourneyPhotoLayout(memory.id, layout)"
                   />
                 </div>
               </article>
