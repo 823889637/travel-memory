@@ -11,6 +11,8 @@ logs/
 # Frontend
 travel-memory-web/node_modules/
 travel-memory-web/dist/
+travel-memory-web/playwright-report/
+travel-memory-web/test-results/
 .npm-cache/
 
 # Backend
