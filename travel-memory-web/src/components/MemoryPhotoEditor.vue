@@ -256,8 +256,13 @@ onBeforeUnmount(clearLongPress)
 .memory-photo-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .memory-photo-order { position: absolute; z-index: 2; top: 3px; left: 3px; display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: rgba(255,253,249,.92); color: #7e5c49; font-size: 10px; font-weight: 700; }
 .memory-photo-thumb-wrap:first-child .memory-photo-order { background: #b65b36; color: #fff; }
-.memory-photo-delete { position: absolute; z-index: 3; top: 5px; right: 5px; display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.8); border-radius: 50%; background: rgba(62, 50, 43, .78); color: #fff; line-height: 1; touch-action: manipulation; backdrop-filter: blur(5px); }
+.memory-photo-delete { position: absolute; z-index: 3; top: 5px; right: 5px; display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.8); border-radius: 50%; background: rgba(62, 50, 43, .78); color: #fff; line-height: 1; opacity: 0; pointer-events: none; touch-action: manipulation; backdrop-filter: blur(5px); transition: opacity .15s ease; }
+.memory-photo-thumb.selected + .memory-photo-delete,
+.memory-photo-delete:focus-visible { opacity: 1; pointer-events: auto; }
 .memory-photo-delete::before { content: ''; position: absolute; inset: -6px; }
+@media (hover: hover) and (pointer: fine) {
+  .memory-photo-thumb-wrap:hover > .memory-photo-delete { opacity: 1; pointer-events: auto; }
+}
 .memory-photo-retry { width: 100%; margin-top: 4px; padding: 3px; border: 1px solid #dca88e; border-radius: 5px; background: #fff; color: #ad4f2c; font-size: 10px; }
 .memory-photo-sort-hint, .memory-photo-limit { margin: 0; color: #8a7c71; font-size: 12px; }
 .memory-photo-limit { color: #a75636; }
