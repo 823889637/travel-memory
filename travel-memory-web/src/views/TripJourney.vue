@@ -240,6 +240,7 @@ onMounted(loadPage)
                     'is-multi-photo': memoryPhotoCount(memory) > 1,
                     'has-right-photo-layout': hasPhotos(memory),
                     'has-editorial-photo-layout': hasEditorialPhotoLayout(memory),
+                    'is-reversed': hasPhotos(memory) && memoryIndex % 2 === 1,
                   },
                 ]"
               >

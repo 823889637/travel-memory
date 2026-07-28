@@ -234,24 +234,37 @@
 }
 
 .journey-memory-copy-panel {
+  --journey-axis-color: #d4bda8;
   position: relative;
   display: grid;
   gap: 13px;
   min-height: 170px;
   padding: 7px 0 10px 30px;
-  border-left: 1px dashed #d4bda8;
+}
+
+.journey-memory-copy-panel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-left: 1px dashed var(--journey-axis-color);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .journey-memory-copy-panel::before {
   content: "";
   position: absolute;
   top: 14px;
-  left: -5px;
+  left: 0;
   width: 9px;
   height: 9px;
   border: 2px solid var(--tm-accent);
   border-radius: 50%;
   background: var(--tm-bg);
+  transform: translateX(-50%);
+  z-index: 1;
 }
 
 .journey-memory-station,
@@ -276,6 +289,7 @@
 }
 
 .journey-memory-location {
+  margin: 0;
   justify-self: start;
   color: #35261f;
   font-family: var(--tm-font-serif);
@@ -332,7 +346,8 @@
   background: rgba(255, 253, 249, .55);
 }
 
-.journey-memory-section.is-text-only .journey-memory-copy-panel::before {
+.journey-memory-section.is-text-only .journey-memory-copy-panel::before,
+.journey-memory-section.is-text-only .journey-memory-copy-panel::after {
   display: none;
 }
 
@@ -453,7 +468,6 @@
     gap: 10px;
     padding: 5px 2px 4px 19px;
     border: 0;
-    border-left: 1px dashed #d4bda8;
     border-radius: 0;
     background: transparent;
   }
@@ -462,7 +476,12 @@
   .journey-memory-section.is-text-only .journey-memory-copy-panel::before {
     display: block;
     top: 11px;
-    left: -5px;
+    left: 0;
+  }
+
+  .journey-memory-copy-panel::after,
+  .journey-memory-section.is-text-only .journey-memory-copy-panel::after {
+    display: block;
   }
 
   .journey-memory-location {
@@ -4852,7 +4871,6 @@ textarea {
     gap: 8px;
     padding: 3px 2px 4px 16px;
     border: 0;
-    border-left: 1px dashed #d4bda8;
     border-radius: 0;
     background: transparent;
   }
@@ -4861,7 +4879,7 @@ textarea {
   .journey-memory-section.is-text-only .journey-memory-copy-panel::before {
     display: block;
     top: 8px;
-    left: -5px;
+    left: 0;
   }
 
   .journey-memory-meta {
@@ -6064,8 +6082,8 @@ textarea {
 
 @media (max-width: 640px) {
   .trip-map-stage {
-    height: clamp(520px, calc(100svh - 230px), 680px);
-    min-height: 520px;
+    height: clamp(500px, 62svh, 540px);
+    min-height: 500px;
     padding: 0;
     border: 1px solid var(--tm-border);
     border-radius: 18px;

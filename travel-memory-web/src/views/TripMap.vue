@@ -40,6 +40,7 @@ const loading = ref(false)
 const error = ref('')
 const selectedMemoryId = ref(null)
 const activeDate = ref('')
+const routeOverviewMode = ref('all')
 const memoryMap = ref(null)
 const mapCardReady = ref(false)
 const mapStageElement = ref(null)
@@ -163,9 +164,9 @@ const routeSegments = computed(() => {
     if (!from || !to) continue
     const distance = wgs84DistanceMeters(from.latitude, from.longitude, to.latitude, to.longitude)
 
-    // Same-coordinate records share a station visually; long jumps remain an
-    // intentional break rather than inventing a cross-country route line.
-    if (distance == null || distance <= SAME_LOCATION_DISTANCE_METERS || distance > LONG_ROUTE_BREAK_DISTANCE_METERS) {
+    // Same-coordinate records share one visual station. Long jumps retain the
+    // time relationship but are marked as transitions, not real travel paths.
+    if (distance == null || distance <= SAME_LOCATION_DISTANCE_METERS) {
       continue
     }
 
@@ -176,6 +177,8 @@ const routeSegments = computed(() => {
       toDate: to.mapDate,
       fromReplayIndex: from.replayIndex,
       toReplayIndex: to.replayIndex,
+      distanceMeters: distance,
+      isLongDistance: distance > LONG_ROUTE_BREAK_DISTANCE_METERS,
     })
   }
 
@@ -199,6 +202,72 @@ const longRouteBreakCount = computed(() => timedMemories.value.slice(0, -1).filt
   const distance = wgs84DistanceMeters(memory.latitude, memory.longitude, nextMemory.latitude, nextMemory.longitude)
   return distance != null && distance > LONG_ROUTE_BREAK_DISTANCE_METERS
 }).length)
+const continuousRouteGroups = computed(() => {
+  const groups = []
+  const replayPointById = new Map(replayPoints.value.map(point => [memoryIdKey(point.id), point]))
+  let currentGroup = []
+  let previousPoint = null
+
+  timedMemories.value.forEach((memory) => {
+    const point = replayPointById.get(memoryIdKey(memory.id))
+    if (!point) {
+      if (currentGroup.length) groups.push(currentGroup)
+      currentGroup = []
+      previousPoint = null
+      return
+    }
+
+    if (!previousPoint) {
+      currentGroup = [point]
+      previousPoint = point
+      return
+    }
+
+    const distance = wgs84DistanceMeters(
+      previousPoint.latitude,
+      previousPoint.longitude,
+      point.latitude,
+      point.longitude,
+    )
+    if (distance == null || distance > LONG_ROUTE_BREAK_DISTANCE_METERS) {
+      if (currentGroup.length) groups.push(currentGroup)
+      currentGroup = [point]
+    } else {
+      currentGroup.push(point)
+    }
+    previousPoint = point
+  })
+
+  if (currentGroup.length) groups.push(currentGroup)
+  return groups
+})
+const defaultRouteGroup = computed(() => (
+  continuousRouteGroups.value.find(group => group.length >= 2)
+  || continuousRouteGroups.value[0]
+  || []
+))
+const defaultRoutePointGroupIds = computed(() => {
+  const ids = new Set()
+  defaultRouteGroup.value.forEach((memory) => {
+    const group = mapPointGroupByMemoryId.value.get(memoryIdKey(memory.id))
+    if (group) ids.add(group.id)
+  })
+  return [...ids]
+})
+const hasFocusedRouteOverview = computed(() => (
+  longRouteBreakCount.value > 0
+  && defaultRouteGroup.value.length > 0
+  && defaultRouteGroup.value.length < replayPoints.value.length
+))
+const isDefaultRouteFocus = computed(() => (
+  !activeDate.value
+  && hasFocusedRouteOverview.value
+  && routeOverviewMode.value === 'focus'
+))
+const distantReplayPointCount = computed(() => Math.max(
+  0,
+  replayPoints.value.length - defaultRouteGroup.value.length,
+))
 const dayOptions = computed(() => {
   const days = new Map()
   replayPoints.value.forEach((memory) => {
@@ -501,7 +570,9 @@ function setDayButtonRef(date, element) {
 
 function syncActiveDayButton() {
   const navigation = dayNavigationElement.value
-  const button = dayButtonElements.get(activeDate.value || 'all')
+  const activeKey = activeDate.value
+    || (isDefaultRouteFocus.value ? 'focus' : 'all')
+  const button = dayButtonElements.get(activeKey)
   if (!navigation || !button) return
 
   const targetLeft = button.offsetLeft - (navigation.clientWidth - button.offsetWidth) / 2
@@ -515,6 +586,7 @@ async function selectDay(day) {
   endPlaybackSession()
   playbackIndex.value = -1
   activeDate.value = day.date
+  routeOverviewMode.value = 'focus'
   clearMemorySelection()
   await nextTick()
   syncActiveDayButton()
@@ -523,10 +595,25 @@ async function selectDay(day) {
   scheduleOverlayMeasure()
 }
 
+async function selectDefaultRoute() {
+  endPlaybackSession()
+  playbackIndex.value = -1
+  activeDate.value = ''
+  routeOverviewMode.value = 'focus'
+  clearMemorySelection()
+  await nextTick()
+  syncActiveDayButton()
+  if (defaultRoutePointGroupIds.value.length) {
+    await memoryMap.value?.fitPointIds(defaultRoutePointGroupIds.value, 13)
+  }
+  scheduleOverlayMeasure()
+}
+
 async function selectAllDays() {
   endPlaybackSession()
   playbackIndex.value = -1
   activeDate.value = ''
+  routeOverviewMode.value = 'all'
   clearMemorySelection()
   await nextTick()
   syncActiveDayButton()
@@ -539,6 +626,7 @@ async function fitAllMemories(event) {
   endPlaybackSession()
   playbackIndex.value = -1
   activeDate.value = ''
+  routeOverviewMode.value = 'all'
   clearMemorySelection()
   await nextTick()
   syncActiveDayButton()
@@ -842,6 +930,7 @@ async function loadPage() {
     cardExpanded.value = false
     selectedMemoryId.value = requestedMemory?.id ?? null
     activeDate.value = ''
+    routeOverviewMode.value = 'all'
     await nextTick()
     syncActiveDayButton()
   } catch (err) {
@@ -920,9 +1009,14 @@ onBeforeUnmount(() => {
           {{ browseOnlyPoints.length }} 个位置仅供浏览，不参与回放。
         </span>
         <span v-if="memoriesWithoutLocation > 0">
-          另有 {{ memoriesWithoutLocation }} 段记忆暂未记录位置。
+          另有 {{ memoriesWithoutLocation }} 段记忆未显示在地图上。
         </span>
-        <span v-if="longRouteBreakCount">长距离行程已保留为路线断点。</span>
+        <span v-if="isDefaultRouteFocus">
+          当前先展示最早的连续路线，另有 {{ distantReplayPointCount }} 个站点位于其他路线段。
+        </span>
+        <span v-else-if="longRouteBreakCount">
+          完整路线包含 {{ longRouteBreakCount }} 段远距离虚线，仅表示先后顺序。
+        </span>
         <span v-if="activeDate && playbackStations.length === 0">这一天没有带位置的记忆。</span>
       </div>
 
@@ -956,10 +1050,11 @@ onBeforeUnmount(() => {
         />
 
         <button
+          v-if="isDefaultRouteFocus"
           type="button"
           class="trip-map-fit-all"
-          aria-label="恢复完整旅行路线"
-          title="恢复完整旅行路线"
+          aria-label="查看完整旅行路线"
+          title="查看完整旅行路线"
           @mousedown.prevent
           @click="fitAllMemories"
         >
@@ -1163,10 +1258,21 @@ onBeforeUnmount(() => {
           >
             <div class="map-day-navigation-track">
               <button
+                v-if="hasFocusedRouteOverview"
+                :ref="element => setDayButtonRef('focus', element)"
+                type="button"
+                :class="['map-day-button', { active: isDefaultRouteFocus }]"
+                :aria-current="isDefaultRouteFocus ? 'date' : undefined"
+                @click="selectDefaultRoute"
+              >
+                <strong>连续路线</strong>
+                <span>{{ defaultRouteGroup.length }} 站</span>
+              </button>
+              <button
                 :ref="element => setDayButtonRef('all', element)"
                 type="button"
-                :class="['map-day-button', { active: !activeDate }]"
-                :aria-current="!activeDate ? 'date' : undefined"
+                :class="['map-day-button', { active: !activeDate && !isDefaultRouteFocus }]"
+                :aria-current="!activeDate && !isDefaultRouteFocus ? 'date' : undefined"
                 @click="selectAllDays"
               >
                 <strong>全部</strong>

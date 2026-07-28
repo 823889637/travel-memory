@@ -20,7 +20,6 @@ const emit = defineEmits(['select', 'selection-positioned', 'interaction', 'read
 const mapElement = ref(null)
 const state = ref('idle')
 const errorMessage = ref('')
-const routePaths = ref([])
 const displayPoints = computed(() => props.points.map((point) => {
   if (!isValidWgs84Coordinate(point.latitude, point.longitude)) return null
   const originalLatitude = Number(point.latitude)
@@ -55,12 +54,21 @@ const pointSignature = computed(() => displayPoints.value
   ].join(':')).join('|'))
 const mapSignature = computed(() => `${pointSignature.value}|${fallbackCoordinate.value?.latitude || ''}:${fallbackCoordinate.value?.longitude || ''}`)
 const routeSignature = computed(() => props.routeSegments
-  .map((segment) => `${segment.fromId}:${segment.toId}:${segment.fromReplayIndex}:${segment.toReplayIndex}:${segment.fromDate}:${segment.toDate}`).join('|'))
+  .map((segment) => [
+    segment.fromId,
+    segment.toId,
+    segment.fromReplayIndex,
+    segment.toReplayIndex,
+    segment.fromDate,
+    segment.toDate,
+    segment.isLongDistance ? 'long' : 'local',
+  ].join(':')).join('|'))
 
 let map = null
 let AMap = null
 let resizeObserver = null
 let routeAnimationFrame = null
+let markerLayoutFrame = null
 let selectionPlacementTimer = null
 let fitPlacementTimer = null
 let selectionPanId = ''
@@ -74,7 +82,13 @@ let programmaticMove = false
 let programmaticMoveTimer = null
 let selectionPositioningSuspendCount = 0
 const markers = new Map()
+const routeOverlays = new Map()
+const longDistanceOverlays = new Set()
+let renderedRouteState = ''
 const OVERLAP_DISTANCE = 42
+const FIT_EDGE_PADDING = 16
+const FIT_BOTTOM_PADDING = 64
+const LONG_DISTANCE_MAX_VISIBLE_ZOOM = 11
 
 function idKey(value) {
   return value == null ? '' : String(value)
@@ -126,6 +140,18 @@ function markerLabel(point) {
   return point.isReplayPoint
     ? `第 ${point.sequenceNumber || '?'} 站，${label}${countLabel}`
     : `未纳入路径回放的位置，${label}${countLabel}`
+}
+
+function markerMemberSuffix(members, count) {
+  const visibleCount = Number(count) || 1
+  if (visibleCount <= 1) return ''
+  const sequences = [...new Set((members || [])
+    .map(member => Number(member.sequenceNumber))
+    .filter(Number.isInteger))]
+    .sort((left, right) => left - right)
+  const isConsecutive = sequences.length === visibleCount
+    && sequences.every((sequence, index) => index === 0 || sequence === sequences[index - 1] + 1)
+  return isConsecutive ? `–${sequences.at(-1)}` : `×${visibleCount}`
 }
 
 function markerScaleForZoom() {
@@ -185,7 +211,7 @@ function applyMarkerState(element, point, selected) {
   const visibleMemberCount = activeMembers.length || Number(point.memberCount) || 1
   const count = element.querySelector('.memory-map-marker-count')
   if (count) {
-    count.textContent = `×${visibleMemberCount}`
+    count.textContent = markerMemberSuffix(activeMembers, visibleMemberCount)
     count.hidden = visibleMemberCount <= 1
   }
   element.classList.toggle('is-selected', selected)
@@ -218,7 +244,7 @@ function markerElement(point, selected) {
   if (Number(point.memberCount) > 1) {
     const count = document.createElement('span')
     count.className = 'memory-map-marker-count'
-    count.textContent = `×${point.memberCount}`
+    count.textContent = markerMemberSuffix(point.members, point.memberCount)
     visual.appendChild(count)
   }
   element.appendChild(visual)
@@ -258,58 +284,110 @@ function renderDestinationMarker() {
 }
 
 function clearRouteLines() {
-  routePaths.value = []
+  routeOverlays.forEach(overlay => overlay.setMap?.(null))
+  routeOverlays.clear()
+  longDistanceOverlays.clear()
+  renderedRouteState = ''
 }
 
-function routePath(start, end, index) {
-  const deltaX = end.x - start.x
-  const deltaY = end.y - start.y
-  const distance = Math.hypot(deltaX, deltaY)
-  if (distance < 1) return ''
+function updateLongDistanceOverlayVisibility() {
+  const zoom = Number(map?.getZoom?.())
+  const shouldShow = !Number.isFinite(zoom) || zoom <= LONG_DISTANCE_MAX_VISIBLE_ZOOM
+  longDistanceOverlays.forEach((overlay) => {
+    if (shouldShow) overlay.show?.()
+    else overlay.hide?.()
+  })
+}
 
-  const unitX = deltaX / distance
-  const unitY = deltaY / distance
-  const endpointInset = Math.min(18, distance * 0.24)
-  const startX = start.x + unitX * endpointInset
-  const startY = start.y + unitY * endpointInset
-  const endX = end.x - unitX * endpointInset
-  const endY = end.y - unitY * endpointInset
-  const curveDirection = index % 2 === 0 ? -1 : 1
-  const curveOffset = Math.min(34, Math.max(8, distance * 0.055)) * curveDirection
-  const controlX = (startX + endX) / 2 - unitY * curveOffset
-  const controlY = (startY + endY) / 2 + unitX * curveOffset
-  return `M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`
+function longDistanceArcPath(from, to) {
+  const start = [Number(from.point.longitude), Number(from.point.latitude)]
+  const end = [Number(to.point.longitude), Number(to.point.latitude)]
+  const deltaX = end[0] - start[0]
+  const deltaY = end[1] - start[1]
+  const length = Math.hypot(deltaX, deltaY)
+  if (!Number.isFinite(length) || length <= 0) return [start, end]
+
+  // A fixed side relative to travel direction makes reciprocal journeys
+  // curve to opposite sides because their perpendicular vectors are reversed.
+  const curveOffset = Math.min(1.2, length * 0.12)
+  const perpendicularX = -deltaY / length
+  const perpendicularY = deltaX / length
+  return Array.from({ length: 17 }, (_, step) => {
+    const progress = step / 16
+    const curve = 4 * progress * (1 - progress)
+    return [
+      start[0] + deltaX * progress + perpendicularX * curveOffset * curve,
+      start[1] + deltaY * progress + perpendicularY * curveOffset * curve,
+    ]
+  })
 }
 
 function updateRouteOverlay() {
-  if (!map || !props.routeSegments.length) {
+  if (!map || !AMap || !props.routeSegments.length) {
     clearRouteLines()
     return
   }
 
-  routePaths.value = props.routeSegments
+  const nextState = [
+    routeSignature.value,
+    props.activeDate || '',
+    Number(props.playbackIndex),
+    pointSignature.value,
+  ].join('|')
+  if (nextState === renderedRouteState) return
+
+  clearRouteLines()
+  props.routeSegments
     .filter((segment) => !props.activeDate
       || (segment.fromDate === props.activeDate && segment.toDate === props.activeDate))
-    .map((segment, index) => {
+    .forEach((segment) => {
       const from = markers.get(idKey(segment.fromId))
       const to = markers.get(idKey(segment.toId))
-      if (!from || !to) return null
+      if (!from || !to) return
 
-      // Deliberately ignore visualDelta here. Overlap spreading makes pins
-      // tappable, but route geometry must stay anchored to real coordinates.
-      const start = map.lngLatToContainer([from.point.longitude, from.point.latitude])
-      const end = map.lngLatToContainer([to.point.longitude, to.point.latitude])
-      const d = routePath(start, end, index)
-      if (!d) return null
-      return {
-        ...segment,
-        key: `${segment.fromId}-${segment.toId}`,
-        d,
-        isPlayed: props.playbackIndex >= 0 && segment.toReplayIndex <= props.playbackIndex,
-        isCurrent: props.playbackIndex >= 0 && segment.toReplayIndex === props.playbackIndex,
+      const isLongDistance = segment.isLongDistance === true
+      const isPlayed = props.playbackIndex >= 0
+        && segment.toReplayIndex <= props.playbackIndex
+      const isCurrent = props.playbackIndex >= 0
+        && segment.toReplayIndex === props.playbackIndex
+      const key = [
+        segment.fromId,
+        segment.toId,
+        segment.fromReplayIndex,
+        segment.toReplayIndex,
+      ].join('-')
+      const path = isLongDistance
+        ? longDistanceArcPath(from, to)
+        : [
+            [from.point.longitude, from.point.latitude],
+            [to.point.longitude, to.point.latitude],
+          ]
+      const polyline = new AMap.Polyline({
+        path,
+        strokeColor: isLongDistance
+          ? isCurrent ? '#a94726' : '#a98270'
+          : isCurrent ? '#a94726' : '#b55f3c',
+        strokeOpacity: isLongDistance
+          ? isCurrent ? 0.82 : isPlayed ? 0.58 : 0.38
+          : isCurrent ? 1 : isPlayed ? 0.9 : 0.62,
+        strokeWeight: isLongDistance
+          ? isCurrent ? 3 : 2
+          : isCurrent ? 5 : isPlayed ? 4 : 3,
+        strokeStyle: isLongDistance || (!isCurrent && !isPlayed) ? 'dashed' : 'solid',
+        strokeDasharray: isLongDistance ? [6, 10] : [9, 7],
+        lineJoin: 'round',
+        lineCap: 'round',
+        zIndex: isCurrent ? 72 : isPlayed ? 68 : 62,
+        bubble: true,
+      })
+      polyline.setMap(map)
+      routeOverlays.set(key, polyline)
+      if (isLongDistance) {
+        longDistanceOverlays.add(polyline)
       }
     })
-    .filter(Boolean)
+  updateLongDistanceOverlayVisibility()
+  renderedRouteState = nextState
 }
 
 function scheduleRouteOverlayUpdate() {
@@ -317,6 +395,15 @@ function scheduleRouteOverlayUpdate() {
   routeAnimationFrame = window.requestAnimationFrame(() => {
     routeAnimationFrame = null
     updateRouteOverlay()
+  })
+}
+
+function scheduleMarkerLayout() {
+  if (markerLayoutFrame != null) return
+  markerLayoutFrame = window.requestAnimationFrame(() => {
+    markerLayoutFrame = null
+    updateMarkerScales()
+    spreadOverlappingMarkers()
   })
 }
 
@@ -363,7 +450,6 @@ function spreadOverlappingMarkers() {
       entry.visualDelta = visualDelta
     })
   })
-  updateRouteOverlay()
 }
 
 function updateMarkerSelection() {
@@ -380,7 +466,7 @@ function updateMarkerSelection() {
   spreadOverlappingMarkers()
 }
 
-function stagePadding(extra = 0) {
+function stagePadding(edgeExtra = 0, bottomExtra = edgeExtra) {
   const mobile = window.matchMedia('(max-width: 640px)').matches
   const mapHeight = mapElement.value?.getBoundingClientRect().height || 0
   const minimumVisibleMapHeight = mobile ? 140 : 180
@@ -388,13 +474,13 @@ function stagePadding(extra = 0) {
     ? Math.max(90, mapHeight - minimumVisibleMapHeight)
     : Number.POSITIVE_INFINITY
   const bottom = Math.min(
-    Math.max(90, Number(props.bottomInset) || 132),
+    Math.max(90, Number(props.bottomInset) || 132) + bottomExtra,
     maximumBottom,
   )
-  if (mobile) return [42 + extra, 28 + extra, bottom + extra, 28 + extra]
+  if (mobile) return [42 + edgeExtra, 28 + edgeExtra, bottom, 28 + edgeExtra]
   return props.selectedId == null
-    ? [48 + extra, 54 + extra, Math.max(112, bottom) + extra, 54 + extra]
-    : [48 + extra, 54 + extra, Math.max(112, bottom) + extra, 342 + extra]
+    ? [48 + edgeExtra, 54 + edgeExtra, Math.max(112, bottom), 54 + edgeExtra]
+    : [48 + edgeExtra, 54 + edgeExtra, Math.max(112, bottom), 342 + edgeExtra]
 }
 
 function panMapContentBy(deltaX, deltaY, duration = 0) {
@@ -451,7 +537,7 @@ async function fitEntries(entries, maxZoom = 13, { focusSelection = false } = {}
         map.setFitView(
           entries.map((entry) => entry.marker),
           reduceMotion,
-          stagePadding(OVERLAP_DISTANCE),
+          stagePadding(FIT_EDGE_PADDING, FIT_BOTTOM_PADDING),
           maxZoom,
         )
       }, reduceMotion ? 100 : 900)
@@ -493,12 +579,14 @@ function markerPlacement(entry) {
     Math.max(90, mapRect.height - minimumVisibleMapHeight),
   )
   const availableBottom = mapRect.height - safeBottomInset
-  const targetX = Math.min(mapRect.width - 48, mapRect.width * (mobile ? 0.74 : 0.68))
-  const targetY = mobile
-    ? Math.max(topSafe, Math.min(availableBottom - 24, availableBottom * 0.45))
-    : Math.max(topSafe, Math.min(availableBottom - 28, availableBottom * 0.5))
   const horizontalSafe = mobile ? 30 : 46
   const verticalSafe = mobile ? 26 : 34
+  const safeLeft = horizontalSafe
+  const safeRight = Math.max(safeLeft, mapRect.width - horizontalSafe)
+  const safeTop = topSafe
+  const safeBottom = Math.max(safeTop, availableBottom - verticalSafe)
+  const targetX = Math.min(safeRight, Math.max(safeLeft, currentX))
+  const targetY = Math.min(safeBottom, Math.max(safeTop, currentY))
   return {
     currentX,
     currentY,
@@ -506,10 +594,10 @@ function markerPlacement(entry) {
     targetY,
     deltaX: targetX - currentX,
     deltaY: targetY - currentY,
-    insideSafeViewport: currentX >= horizontalSafe
-      && currentX <= mapRect.width - horizontalSafe
-      && currentY >= topSafe
-      && currentY <= availableBottom - verticalSafe,
+    insideSafeViewport: currentX >= safeLeft
+      && currentX <= safeRight
+      && currentY >= safeTop
+      && currentY <= safeBottom,
   }
 }
 
@@ -519,7 +607,7 @@ function positionSelected() {
   const placement = markerPlacement(selected)
   if (!placement) return
 
-  const { deltaX, deltaY } = placement
+  const { deltaX, deltaY, insideSafeViewport } = placement
   const expectedId = idKey(props.selectedId)
   if (selectionPanId === expectedId) {
     positionSelectedAfterFit = true
@@ -528,7 +616,9 @@ function positionSelected() {
   positionSelectedAfterFit = false
   if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
   fitPlacementTimer = null
-  if (Math.abs(deltaX) < 4 && Math.abs(deltaY) < 4) {
+  // Opening or resizing the bottom dock must not recenter a Marker that is
+  // already visible. Only compensate when the card would actually cover it.
+  if (insideSafeViewport || (Math.abs(deltaX) < 4 && Math.abs(deltaY) < 4)) {
     finishSelectedPlacement(expectedId)
     return
   }
@@ -692,8 +782,7 @@ async function zoomToSelected(targetZoom = 15) {
 function fitAll() {
   if (markers.size) {
     const allEntries = [...markers.values()]
-    const replayEntries = allEntries.filter(entry => entry.point.isReplayPoint !== false)
-    return fitEntries(replayEntries.length ? replayEntries : allEntries, 13)
+    return fitEntries(allEntries, 13)
   } else if (map && fallbackCoordinate.value) {
     return runProgrammaticViewChange(() => {
       map.setZoomAndCenter(10, [fallbackCoordinate.value.longitude, fallbackCoordinate.value.latitude])
@@ -740,6 +829,7 @@ function renderMarkers(shouldFit = false) {
     }
   })
   spreadOverlappingMarkers()
+  scheduleRouteOverlayUpdate()
   if (displayPoints.value.length === 0) renderDestinationMarker()
   if (shouldFit) fitAll()
 }
@@ -756,9 +846,11 @@ function cancelInitialRender() {
 function cleanUpMap() {
   cancelInitialRender()
   if (routeAnimationFrame != null) window.cancelAnimationFrame(routeAnimationFrame)
+  if (markerLayoutFrame != null) window.cancelAnimationFrame(markerLayoutFrame)
   if (selectionPlacementTimer != null) window.clearTimeout(selectionPlacementTimer)
   if (fitPlacementTimer != null) window.clearTimeout(fitPlacementTimer)
   routeAnimationFrame = null
+  markerLayoutFrame = null
   selectionPlacementTimer = null
   fitPlacementTimer = null
   selectionPanId = ''
@@ -822,18 +914,18 @@ async function initializeMap() {
     })
     resizeObserver = new ResizeObserver(() => {
       map?.resize()
-      updateRouteOverlay()
+      scheduleMarkerLayout()
     })
     resizeObserver.observe(mapElement.value)
     map.on('zoomend', () => {
-      updateMarkerScales()
-      spreadOverlappingMarkers()
+      scheduleMarkerLayout()
+      updateLongDistanceOverlayVisibility()
     })
     map.on('dragstart', emitUserInteraction)
     map.on('zoomstart', emitUserInteraction)
     map.on('click', emitUserInteraction)
     map.on('moveend', () => {
-      spreadOverlappingMarkers()
+      scheduleMarkerLayout()
       if (selectionPanId) {
         finishSelectedPlacement(selectionPanId)
         return
@@ -842,11 +934,6 @@ async function initializeMap() {
         positionSelectedAfterFit = false
         positionSelected()
       }
-    })
-    map.on('mapmove', scheduleRouteOverlayUpdate)
-    map.on('zoomchange', () => {
-      updateMarkerScales()
-      scheduleRouteOverlayUpdate()
     })
 
     const initializedMap = map
@@ -945,23 +1032,6 @@ defineExpose({
 <template>
   <section class="memory-map-shell" aria-label="旅行记忆地图">
     <div ref="mapElement" class="memory-map-canvas"></div>
-    <svg v-if="routePaths.length" class="memory-map-route-overlay" aria-hidden="true">
-      <defs>
-        <marker id="memory-route-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-          <path d="M 0 0 L 8 4 L 0 8 z"></path>
-        </marker>
-      </defs>
-      <path
-        v-for="segment in routePaths"
-        :key="segment.key"
-        :class="[
-          'memory-map-route-segment',
-          { 'is-played': segment.isPlayed, 'is-current': segment.isCurrent },
-        ]"
-        :d="segment.d"
-        marker-end="url(#memory-route-arrow)"
-      ></path>
-    </svg>
     <div v-if="state !== 'ready'" class="memory-map-state" role="status">
       <p v-if="state === 'loading'">正在加载地图...</p>
       <template v-else-if="state === 'missing-key'">

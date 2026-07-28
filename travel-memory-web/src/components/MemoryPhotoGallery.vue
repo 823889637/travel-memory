@@ -29,6 +29,7 @@ const switchRequest = ref(0)
 const photoOrientations = ref({})
 const photoRatios = ref({})
 const journeyInspectedPhotoUrls = ref(new Set())
+const journeyPreviewReady = ref(false)
 const imageLoadRequests = new Map()
 const photoMetadataRequests = new Map()
 let journeyLayoutRequest = 0
@@ -63,7 +64,9 @@ const selected = computed(() => items.value[selectedIndex.value] || items.value[
 const previewSelected = computed(() => props.layout === 'detail' ? selected.value : items.value[0])
 const previewItems = computed(() => items.value.slice(0, 4))
 const hiddenPhotoCount = computed(() => Math.max(0, items.value.length - previewItems.value.length))
-const journeyPreviewItems = computed(() => items.value)
+// Journey keeps the reading page quiet: only the first two sorted photos
+// participate in the preview, while the fullscreen gallery still uses all photos.
+const journeyPreviewItems = computed(() => items.value.slice(0, 2))
 const journeyFirstLandscape = computed(() => (
   journeyPreviewItems.value.find(
     photo => photoOrientations.value[photo.photoUrl] === 'landscape',
@@ -87,15 +90,32 @@ const journeyRightItems = computed(() => {
     ? [journeyFirstPortrait.value]
     : [journeyPreviewItems.value[0]]
 })
+const journeyRightOrientation = computed(() => {
+  const photoUrl = journeyRightItems.value[0]?.photoUrl
+  return photoUrl ? (photoOrientations.value[photoUrl] || 'unknown') : 'unknown'
+})
+const journeyRightStyle = computed(() => {
+  const photoUrl = journeyRightItems.value[0]?.photoUrl
+  const ratio = Number(photoUrl ? photoRatios.value[photoUrl] : 0)
+  return ratio > 0
+    ? { '--journey-right-aspect-ratio': String(ratio) }
+    : null
+})
+const journeySupportingStyle = computed(() => {
+  const photoUrl = journeySupportingLandscape.value?.photoUrl
+  const ratio = Number(photoUrl ? photoRatios.value[photoUrl] : 0)
+  return ratio > 0
+    ? { '--journey-supporting-aspect-ratio': String(ratio) }
+    : null
+})
 const journeyDisplayedPhotoCount = computed(() => (
   journeyRightItems.value.length + (journeySupportingLandscape.value ? 1 : 0)
 ))
 const journeyHasHiddenPhotos = computed(() => (
-  journeyPreviewItems.value.length > journeyDisplayedPhotoCount.value
+  items.value.length > journeyDisplayedPhotoCount.value
 ))
 const journeyLayoutReady = computed(() => (
   props.layout !== 'journey'
-  || journeyPreviewItems.value.length <= 1
   || journeyPreviewItems.value.every(photo => journeyInspectedPhotoUrls.value.has(photo.photoUrl))
 ))
 const journeyDisplayVariant = computed(() => {
@@ -128,6 +148,7 @@ watch(() => `${props.layout}|${items.value.map(photo => photo.photoUrl).join('|'
   photoOrientations.value = {}
   photoRatios.value = {}
   journeyInspectedPhotoUrls.value = new Set()
+  journeyPreviewReady.value = props.layout !== 'journey' || items.value.length === 0
   primaryOrientation.value = 'landscape'
   primaryRatio.value = 1
   void resolveJourneyPhotoMetadata()
@@ -198,10 +219,11 @@ function inspectPhotoMetadata(photo) {
   return request
 }
 async function resolveJourneyPhotoMetadata() {
-  const photos = items.value.slice()
+  const photos = journeyPreviewItems.value.slice()
   const requestId = ++journeyLayoutRequest
-  if (props.layout !== 'journey' || photos.length <= 1) {
+  if (props.layout !== 'journey' || photos.length === 0) {
     journeyInspectedPhotoUrls.value = new Set(photos.map(photo => photo.photoUrl))
+    journeyPreviewReady.value = true
     return
   }
 
@@ -218,6 +240,15 @@ async function resolveJourneyPhotoMetadata() {
   photoOrientations.value = orientations
   photoRatios.value = ratios
   journeyInspectedPhotoUrls.value = new Set(photos.map(photo => photo.photoUrl))
+
+  const revealPreview = () => {
+    if (requestId === journeyLayoutRequest) journeyPreviewReady.value = true
+  }
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(revealPreview)
+  } else {
+    revealPreview()
+  }
 }
 function preloadAdjacent(index = selectedIndex.value) {
   if (items.value.length < 2) return
@@ -378,20 +409,34 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      v-else-if="showPreview && layout === 'journey' && !journeyLayoutReady"
-      class="gallery-journey-single-preview is-resolving"
+      v-else-if="showPreview && layout === 'journey' && !journeyPreviewReady"
+      :class="[
+        'gallery-journey-loading-preview',
+        {
+          'has-measured-layout': journeyLayoutReady,
+          'has-multiple': journeyLayoutReady && journeyUsesEditorialLayout,
+        },
+      ]"
+      :style="journeyRightStyle"
       aria-label="正在准备照片布局"
     >
+      <span
+        v-if="journeyLayoutReady && journeyUsesEditorialLayout"
+        class="gallery-journey-loading-support gallery-journey-layout-placeholder"
+        :style="journeySupportingStyle"
+      ></span>
       <span class="gallery-journey-right-main gallery-journey-layout-placeholder"></span>
     </div>
 
     <div
       v-else-if="showPreview && layout === 'journey' && journeyUsesEditorialLayout"
       class="gallery-journey-editorial-preview"
+      :style="journeyRightStyle"
     >
       <button
         type="button"
         class="gallery-journey-tile gallery-journey-supporting-landscape"
+        :style="journeySupportingStyle"
         :aria-label="`查看第 ${journeyItemIndex(journeySupportingLandscape) + 1} 张照片`"
         @click="show(journeyItemIndex(journeySupportingLandscape))"
       >
@@ -400,7 +445,7 @@ onBeforeUnmount(() => {
           v-else
           :src="journeySupportingLandscape.photoUrl"
           :alt="`${alt} ${journeyItemIndex(journeySupportingLandscape) + 1}`"
-          loading="lazy"
+          loading="eager"
           decoding="async"
           @load="detectPhotoOrientation(journeySupportingLandscape, $event)"
           @error="markPhotoFailed(journeySupportingLandscape)"
@@ -425,7 +470,7 @@ onBeforeUnmount(() => {
             v-else
             :src="photo.photoUrl"
             :alt="`${alt} ${journeyItemIndex(photo) + 1}`"
-            loading="lazy"
+            loading="eager"
             decoding="async"
             @load="detectPhotoOrientation(photo, $event)"
             @error="markPhotoFailed(photo)"
@@ -437,9 +482,16 @@ onBeforeUnmount(() => {
 
     <div
       v-else-if="showPreview && layout === 'journey'"
-      class="gallery-journey-single-preview"
+      :class="['gallery-journey-single-preview', `is-${journeyRightOrientation}`]"
+      :style="journeyRightStyle"
     >
-      <div class="gallery-journey-right-stack gallery-journey-right-count-1">
+      <div
+        :class="[
+          'gallery-journey-right-stack',
+          'gallery-journey-right-count-1',
+          `is-${journeyRightOrientation}`,
+        ]"
+      >
         <button
           v-for="photo in journeyRightItems"
           :key="photo.id || photo.photoUrl"
@@ -457,7 +509,7 @@ onBeforeUnmount(() => {
             v-else
             :src="photo.photoUrl"
             :alt="`${alt} ${journeyItemIndex(photo) + 1}`"
-            loading="lazy"
+            loading="eager"
             decoding="async"
             @load="detectPhotoOrientation(photo, $event)"
             @error="markPhotoFailed(photo)"
@@ -583,6 +635,24 @@ onBeforeUnmount(() => {
 .gallery-journey-right-main {
   width: 100%;
   height: 100%;
+}
+.gallery-journey-single-preview.is-landscape,
+.gallery-journey-single-preview.is-square {
+  min-height: 0;
+  aspect-ratio: var(--journey-right-aspect-ratio, 16 / 9);
+}
+.gallery-journey-single-preview.is-landscape .gallery-journey-right-stack,
+.gallery-journey-single-preview.is-square .gallery-journey-right-stack {
+  min-height: 0;
+  aspect-ratio: var(--journey-right-aspect-ratio, 16 / 9);
+}
+.gallery-journey-single-preview.is-landscape .gallery-journey-right-main,
+.gallery-journey-single-preview.is-square .gallery-journey-right-main {
+  min-height: 0;
+}
+.gallery-journey-single-preview.is-landscape .gallery-journey-right-main img,
+.gallery-journey-single-preview.is-square .gallery-journey-right-main img {
+  object-fit: contain;
 }
 .gallery-journey-layout-placeholder {
   border: 0;
